@@ -14,9 +14,41 @@ class AndorEMCCD(object):
     
     def __init__(self):
         self.registerFunctions()
+        self.isCooled = False
+        self.teperature = 20 #start off at room temperature
         
 #        self.data = c_long * self.height*self.width
-        
+
+
+    def gotoTemperature(self, temp):
+        '''Sets the specified temperature and goes through a loop to 
+            wait for it to achieve the desired temperature'''
+
+        if not self.isCooled:
+	        retFlag = self.parseRetCode(self.dllCoolerON())
+	        
+	        
+	        if retFlag == 'DRV_NOT_INITIALIZED':
+	            print 'Instrument not initialized'
+	            return
+	        elif retFlag == 'DRV_ACQUIRING':
+	        	print 'Acquisition running. Cannot turn on cooler'
+	        	return
+	      	elif retFlag == 'DRV_ERROR_ACK':
+	      		print 'Cooler card read error'
+	      		return
+
+	        self.isCooled = True
+
+
+
+	    retFlag = self.dllSetTemp()
+        tempFlag = self.parseRetCode(self.dllGetTemperature(by_ref(currentTemp)))
+        if tempFlag == ''
+
+
+
+    
     def registerFunctions(self):
         ''' This function serves to import all of the functions
         from the DLL, define them as the class's own for neatness, and
@@ -261,7 +293,7 @@ class AndorEMCCD(object):
         
         
         
-    def parseReturn(self, value):
+    def parseRetCode(self, value):
         '''Pass in the return value of a function and this will return 
         the string which it represents'''
         values = {
@@ -326,7 +358,7 @@ class AndorEMCCD(object):
             20089: 'DRV_USBERROR',
             20090: 'DRV_IOCERROR',
             20091: 'DRV_NOT_SUPPORTED'}
-        ret = values.get(value, 'NotRegistered')
+        ret = values.get(value, 'NotRegistered_'+str(value))
         return ret 
             
             
