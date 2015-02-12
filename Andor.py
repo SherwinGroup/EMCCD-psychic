@@ -16,6 +16,7 @@ class AndorEMCCD(object):
         self.registerFunctions()
         self.isCooled = False
         self.teperature = 20 #start off at room temperature
+        self.cameraSettings = dict() #A dictionary to hold various parameters of the camera
         
 #        self.data = c_long * self.height*self.width
 
@@ -42,12 +43,57 @@ class AndorEMCCD(object):
 
 
 
-	    retFlag = self.dllSetTemp()
+        retFlag = self.dllSetTemp()
         tempFlag = self.parseRetCode(self.dllGetTemperature(by_ref(currentTemp)))
-        if tempFlag == ''
+        if tempFlag == '':
+            pass
 
 
 
+    
+    def initialize(self):
+        ret = self.dllInitialize('')
+        print ret
+        
+        #get detector size
+        x = c_int()
+        y = c_int()
+        self.dllGetDetector(x, y)
+        self.cameraSettings['xPixels'] = x.value
+        self.cameraSettings['yPixels'] = y.value
+        
+        #get the number of ad channels
+        num = c_int()
+        self.dllGetNumberADChannels(num)
+        self.cameraSettings['numADChannels'] = num.value
+        self.cameraSettings['currentADChannel'] = 0
+        self.cameraSettings['outputAmp'] = 0 #Prefering EM over conventional gain
+        
+        #get number of horizontal shift speeds. Then get their values
+        self.dllGetNumberHSSpeeds(self.cameraSettings['currentADChannel'], self.cameraSettings['outputAmp'],
+                                  num)
+        self.cameraSettings['numHSS'] = num.value
+        self.cameraSettings['HSS'] = [] #list of available speeds
+        speed = c_float()
+        for idx in range(self.cameraSettings['numHSS']):
+            self.dllGetHSSpeed(self.cameraSettings['currentADChannel'],
+                               self.cameraSettings['outputAmp'],
+                               idx, speed)
+            self.cameraSettings['HSS'].append(speed.value)
+        
+        
+        #ditto for the veritcal ss
+        self.dllGetNumberVSSpeeds(num)
+        self.cameraSettings['numVSS'] = num.value
+        self.cameraSettings['VSS'] = [] #list of available speeds
+        for idx in range(self.cameraSettings['numVSS']):
+            self.dllGetVSSpeed(idx, speed)
+            self.cameraSettings['VSS'].append(speed.value)
+        
+        
+        
+        
+    
     
     def registerFunctions(self):
         ''' This function serves to import all of the functions
@@ -59,8 +105,34 @@ class AndorEMCCD(object):
         try:
             dll = CDLL('atmcd64d') #Change this to the appropriate name
         except:
-            print 'Error loading the DLL. Is it in the path?'
-            return
+            try:
+                import os
+                os.chdir('C:\\Program Files\\Andor SDK')
+                dll = CDLL('atmcd64d')
+            except:
+                print 'Error loading the DLL. Is it in the path?'
+                return
+        
+        self.dll = dll #For if it's ever needed to call things directly
+        
+        
+        '''
+        CancelWait: This function restarts a thread which is sleeping within
+        the WaitForAcquisition function. The sleeping thread will return from
+        WaitForAcquisition with a value not equal to DRV_SUCCESS.
+        
+        Parameters
+        ----------
+        None
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Thread restarted successfully
+        '''
+        self.dllCancelWait = dll.CancelWait
+        self.dllCancelWait.restype = c_uint
+        self.dllCancelWait.argtypes = []
         
         '''
         CoolerON: Switches ON the cooling. The rate of temperature change is 
@@ -150,6 +222,35 @@ class AndorEMCCD(object):
         self.dllGetDetector.argtypes = [POINTER(c_int), POINTER(c_int)]
         
         '''
+        GetHSSpeed: As your Andor Solis system is capable of operating at more 
+        than one horizontal shift speed this function will return the actual 
+        speeds available. The value returned is in microseconds per pixel shift 
+        (in MHz on idus, iXon & Newton).
+        
+        Parameters
+        ----------
+        int channel: the AD channel.
+        int type: output amplification.
+            Valid values: 
+                0 electron multiplication.
+                1 conventional.
+        int index: speed required
+            Valid values 0 to NumberSpeeds-1 where NumberSpeeds is value 
+                returned in first parameter after a call to GetNumberHSSpeeds().
+        float* speed: speed in microseconds per pixel shift (in MHz on iXon).
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Temperature controller switched ON.
+            DRV_NOT_INITIALIZED System not initialized.
+            DRV_ACQUIRING       Acquisition in progress.
+        '''
+        self.dllGetHSSpeed = dll.GetHSSpeed
+        self.dllGetHSSpeed.resType = c_uint
+        self.dllGetHSSpeed.argtypes = [c_int, c_int, c_int, POINTER(c_float)]
+        
+        '''
         GetMostRecentImage: This function will update the data array with the 
         most recently acquired image in any acquisition mode. The data are
         returned as long integers (32-bit signed integers). The "array" must 
@@ -173,6 +274,73 @@ class AndorEMCCD(object):
         self.dllGetMostRecentImage = dll.GetMostRecentImage
         self.dllGetMostRecentImage.restype = c_uint
         self.dllGetMostRecentImage.argtypes = [POINTER(c_long), c_ulong]
+            
+        '''
+        GetNumberADChannels: As your Andor Solis system may be capable of 
+        operating with more than one A-D converter, this function will tell 
+        you the number available.
+        
+        Parameters
+        ----------
+            int* number: number of allowed channels
+            
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Number of channels returned.
+        '''
+        self.dllGetNumberADChannels = dll.GetNumberADChannels
+        self.dllGetNumberADChannels.restype = c_uint
+        self.dllGetNumberADChannels.argtypes = [POINTER(c_int)]
+            
+        '''
+        GetNumberHSSpeeds: As your Andor Solis system may be capable of operating
+        at more than one horizontal shift speed this function will return the actual
+        number of speeds available.
+        
+        Parameters
+        ----------
+        int channel: the AD channel.
+        int type: output amplification.
+            Valid values: 
+                0 electron multiplication.
+                1 conventional.
+        int* number: number of allowed horizontal speeds
+
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Temperature controller switched ON.
+            DRV_NOT_INITIALIZED System not initialized.
+            DRV_ACQUIRING       Acquisition in progress.
+            DRV_P1INVALID       Acquisition channel
+            DRV_P2INVALID       Acquisition horizontal read mode
+        '''
+        self.dllGetNumberHSSpeeds = dll.GetNumberHSSpeeds
+        self.dllGetNumberHSSpeeds.restype = c_uint
+        self.dllGetNumberHSSpeeds.argtypes = [c_int, c_int, POINTER(c_int)]
+            
+        '''
+        GetNumberVSSpeeds: As your Andor Solis system may be capable of operating
+        at more than one vertical shift speed this function will return the actual
+        number of speeds available.
+        
+        Parameters
+        ----------
+        int* number: number of allowed vertical speeds
+
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Temperature controller switched ON.
+            DRV_NOT_INITIALIZED System not initialized.
+            DRV_ACQUIRING       Acquisition in progress.
+            DRV_P1INVALID       Acquisition channel
+            DRV_P2INVALID       Acquisition horizontal read mode
+        '''
+        self.dllGetNumberVSSpeeds = dll.GetNumberVSSpeeds
+        self.dllGetNumberVSSpeeds.restype = c_uint
+        self.dllGetNumberVSSpeeds.argtypes = [POINTER(c_int)]
             
         '''
         GetStatus: This function will update the data array with the 
@@ -224,6 +392,34 @@ class AndorEMCCD(object):
         self.dllGetTemperature = dll.GetTemperature
         self.dllGetTemperature.restype = c_uint
         self.dllGetTemperature.argtypes = [POINTER(c_int)]
+        
+        '''
+        GetVSSpeed: As your Andor Solis system maybe capable of operating at 
+        more than one vertical shift speed this function will return the actual 
+        speeds available. The value returned is in microseconds per pixel shift.
+        
+        Parameters
+        ----------
+        int channel: the AD channel.
+        int type: output amplification.
+            Valid values: 
+                0 electron multiplication.
+                1 conventional.
+        int index: speed required
+            Valid values 0 to NumberSpeeds-1 where NumberSpeeds is value 
+                returned in first parameter after a call to GetNumberHSSpeeds().
+        float* speed: speed in microseconds per pixel shift (in MHz on iXon).
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Temperature controller switched ON.
+            DRV_NOT_INITIALIZED System not initialized.
+            DRV_ACQUIRING       Acquisition in progress.
+        '''
+        self.dllGetVSSpeed = dll.GetVSSpeed
+        self.dllGetVSSpeed.resType = c_uint
+        self.dllGetVSSpeed.argtypes = [c_int, POINTER(c_float)]
         
         '''
         Initialize: This function will initialize the Andor Solis System. As 
@@ -284,9 +480,399 @@ class AndorEMCCD(object):
             DRV_IOCERROR            Integrate On Chip setup error
         '''
         self.dllPrepareAcquisition = dll.PrepareAcquisition
-        self.dllPrepareAcquisition
+        self.dllPrepareAcquisition.restype = c_uint
+        self.dllPrepareAcquisition.argtypes = []
+        
+        '''
+        SetAcquisitionMode: This function will set the acquisition mode to be 
+        used on the next StartAcquisition.
+        
+        Parameters
+        ----------
+        int mode: the acquisition mode.
+            Valid values: 0,6,7,8 Reserved DO NOT USE
+                1 Single Scan
+                2 Accumulate
+                3 Kinetics
+                4 Fast Kinetics
+                5 Run till abort
+                9 Time Delayed Integration (requires special files)
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Acquisition mode set.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Acquisition mode invalid
+        '''
+        self.dllSetAcquisitionMode = dll.SetAcquisitionMode
+        self.dllSetAcquisitionMode.restype = c_uint
+        self.dllSetAcquisitionMode.argtypes = [c_uint]
+        
+        '''
+        SetADChannel: This function will set the AD channel to one of the possible
+        A-Ds of the system. It will be used for subsequent acquisitions.
+        
+        Parameters
+        ----------
+        int index: the channel to be used
+            Valid values: 0 to GetNumberADChannels-1
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Value for gain accepted.
+            DRV_P1INVALID           Index out or range
+        '''
+        self.dllSetADChannel = dll.SetADChannel
+        self.dllSetADChannel.restype = c_uint
+        self.dllSetADChannel.argtypes = [c_uint]
+        
+        '''
+        SetEMCCDGain: Allows the user to change the amplitude of clock voltages 
+        thereby amplifying the signal. Gain values between 0 and 255 are permitted.
+        
+        Parameters
+        ----------
+        int gain: amount of gain applied.
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Value for gain accepted.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_I2CTIMEOUT          I2C command timed out.
+            DRV_I2CDEVNOTFOUND      I2C device not present.
+            DRV_ERROR_ACK           Unable to communicate with card.
+            DRV_P1INVALID           Gain value invalid
+        '''
+        self.dllSetEMCCDGain = dll.SetEMCCDGain
+        self.dllSetEMCCDGain.restype = c_uint
+        self.dllSetEMCCDGain.argtypes = [c_uint]
+        
+        '''
+        SetExposureTime: This function will set the exposure time to the nearest 
+        valid value not less than the given value. The actual exposure time used 
+        is obtained by GetAcquisitionTimings. See section on Acquisition Modes 
+        for further details.
+
+        Parameters
+        ----------
+        float time: the exposure time in seconds.
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Exposure time accepted.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Exposure time invalid
+        '''
+        self.dllSetExposureTime = dll.SetExposureTime
+        self.dllSetExposureTime.restype = c_float
+        self.dllSetExposureTime.argtypes = []
+        
+        '''
+        SetGain: I believe set EMCCDGain is prefered 
+        '''
+        self.dllSetGain = dll.SetGain
+        self.dllSetGain.restype = c_uint
+        self.dllSetGain.argtypes = [c_float]
+        
+        '''
+        SetHSSpeed: This function will set the horizontal speed to one of the
+        possible speeds of the system. It will be used for subsequent acquisitions.
+        
+        Parameters
+        ----------
+        int type: output amplification.
+        Valid values: 
+            0 electron multiplication.
+            1 conventional.
+        int index: the horizontal speed to be used
+            Valid values 0 to GetNumberHSSpeeds-1
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Shutter set
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Invalid Mode
+            DRV_P2INVALID           Index out of range
+        '''
+        
+        self.dllSetHSSpeed = dll.SetHSSpeed
+        self.dllSetHSSpeed.restype = c_uint
+        self.dllSetHSSpeed.argtypes = [c_uint, c_uint]
         
         
+        '''
+        SetImage: This function will set the horizontal and vertical binning to
+        be used when taking a full resolution image.
+        
+        Parameters
+        ----------
+        int hbin: number of pixels to bin horizontally.
+        int vbin: number of pixels to bin vertically.
+        int hstart: Start column (inclusive).
+        int hend: End column (inclusive).
+        int vstart: Start row (inclusive).
+        int vend: End row (inclusive).
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Shutter set
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Binning parameter invalid
+            DRV_P2INVALID           Binning parameter invalid
+            DRV_P3INVALID           Sub-area coordinate is invalid
+            DRV_P4INVALID           Sub-area coordinate is invalid
+            DRV_P5INVALID           Sub-area coordinate is invalid
+            DRV_P6INVALID           Sub-area coordinate is invalid
+        '''
+        
+        self.dllSetImage = dll.SetImage
+        self.dllSetImage.restype = c_uint
+        self.dllSetImage.argtypes = [c_uint, c_uint, c_uint, c_uint, c_uint, c_uint]
+        
+        '''
+        SetReadMode: This function will set the readout mode to be used on the 
+        subsequent acquisitions.
+        
+        Parameters
+        ----------
+        int mode: readout mode
+            Valid values: 
+                0 Full Vertical Binning
+                1 Multi-Track
+                2 Random-Track
+                3 Single-Track
+                4 Image
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Readout mode set.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Invalid readoutmode passed
+        '''
+        
+        self.dllSetReadMode = dll.SetReadMode
+        self.dllSetReadMode.restype = c_uint
+        self.dllSetReadMode.argtypes = [c_uint]
+        
+        '''
+        SetShutter: This function sets the shutter parameters.
+        
+        Parameters
+        ----------
+        int type:
+            0 Output TTL low signal to open shutter
+            1 Output TTL high signal to open shutter
+        int mode:
+            0 Auto
+            1 Open
+            2 Close
+        int closingtime: Time shutter takes to close (milliseconds)
+        int openingtime: Time shutter takes to open (milliseconds)
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Shutter set
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_ERROR_ACK           Unable to communicate with card.
+            DRV_P1INVALID           Invalid type
+            DRV_P2INVALID           Invalid mode
+            DRV_P3INVALID           Invalid time to open
+            DRV_P4INVALID           Invalid time to close
+        '''
+        self.dllSetShutter = dll.SetShutter
+        self.dllSetShutter.restype = c_uint
+        self.dllSetShutter.argtypes = [c_int, c_int, c_int, c_int]
+        
+        '''
+        SetShutterEx: This function sets the shutter parameters.
+        ****NOTE: No documentation is provided on the difference between
+        SetShutter and SetShutterEx, aside from the presence of the fifth 
+        input arg.
+        
+        Parameters
+        ----------
+        int type:
+            0 Output TTL low signal to open shutter
+            1 Output TTL high signal to open shutter
+        int mode:
+            0 Auto
+            1 Open
+            2 Close
+        int closingtime: Time shutter takes to close (milliseconds)
+        int openingtime: Time shutter takes to open (milliseconds)
+        int external_mode:
+            0 Auto
+            1 Open
+            2 Close
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Shutter set
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_ERROR_ACK           Unable to communicate with card.
+            DRV_P1INVALID           Invalid type
+            DRV_P2INVALID           Invalid mode
+            DRV_P3INVALID           Invalid time to open
+            DRV_P4INVALID           Invalid time to close
+        '''
+        self.dllSetShutterEx = dll.SetShutterEx
+        self.dllSetShutterEx.restype = c_uint
+        self.dllSetShutterEx.argtypes = [c_int, c_int, c_int, c_int]
+        
+        '''
+        SetTemperature: This function will set the exposure time to the nearest 
+        valid value not less than the given value. The actual exposure time used 
+        is obtained by GetAcquisitionTimings. See section on Acquisition Modes 
+        for further details.
+
+        Parameters
+        ----------
+        float time: the exposure time in seconds.
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Exposure time accepted.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Exposure time invalid
+        '''
+        self.dllSetTemperature = dll.SetTemperature
+        self.dllSetTemperature.restype = c_uint
+        self.dllSetTemperature.argtypes = [c_int]
+        
+        '''
+        SetTriggerMode: This function will set the trigger mode to either 
+        Internal, External or External Start
+        
+        Parameters
+        ----------
+        int mode: trigger mode
+            Valid values:
+                0 Internal
+                1 External
+                6 External Start (only valid in Fast Kinetics mode)
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Trigger mode set
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Trigger mode invalid
+        '''
+        
+        self.dllSetTriggerMode = dll.SetTriggerMode
+        self.dllSetTriggerMode.restype = c_uint
+        self.dllSetTriggerMode.argtypes = [c_int]
+        
+        '''
+        SetVSSpeed: This function will set the vertical speed to one of the
+        possible speeds of the system. It will be used for subsequent acquisitions.
+        
+        Parameters
+        ----------
+        int index: the horizontal speed to be used
+            Valid values 0 to GetNumberHSSpeeds-1
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Shutter set
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           Index out of range
+        '''
+        self.dllSetVSSpeed = dll.SetHSSpeed
+        self.dllSetVSSpeed.restype = c_uint
+        self.dllSetVSSpeed.argtypes = [c_uint]
+        
+        '''
+        ShutDown: This function will close the AndorMCd system down.
+        
+        Parameters
+        ----------
+        NONE
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             System shut down.
+        '''
+        self.dllShutDown = dll.ShutDown
+        self.dllShutDown.restype = c_uint
+        self.dllShutDown.argtypes = []
+        
+        '''
+        StartAcquisition: This function starts an acquisition. The status of 
+        the acquisition can be monitored via GetStatus().
+        
+        Parameters
+        ----------
+        NONE
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Acquisition started
+            DRV_NOT_INITIALIZED     System not initialized
+            DRV_ACQUIRING           Acquisition in progress
+            DRV_VXDNOTINSTALLED     VxD not loaded
+            DRV_ERROR_ACK           Unable to communicate with card.
+            DRV_INIERROR            Unable to load “DETECTOR.INI”.
+            DRV_ERROR_PAGELOCK      Unable to acquire lock on requested memory.
+            DRV_INVALID_FILTER      Filter not available for current position
+        '''
+        self.dllStartAcquisition = dll.StartAcquisition
+        self.dllStartAcquisition.restype = c_uint
+        self.dllStartAcquisition.argtypes = []
+        
+        '''
+        WaitForAcquisition: WaitForAcquisition can be called after an acquisition
+        is started using StartAcquisition to put the calling thread to sleep until
+        an Acquisition Event occurs. This can be used as a simple alternative to 
+        the functionality provided by the SetDriverEvent function, as all Event 
+        creation and handling is performed internally by the SDK library.
+        
+        Like the SetDriverEvent functionality it will use less processor resources
+        than continuously polling with the GetStatus function. If you wish to 
+        restart the calling thread without waiting for an Acquisition event,
+        call the function CancelWait.
+        
+        An Acquisition Event occurs each time a new image is acquired during an
+        Accumulation, Kinetic Series or Run-Till-Abort acquisition or at the 
+        end of a Single Scan Acquisition
+        
+        Parameters
+        ----------
+        NONE
+        
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Acquisition event occurred
+            DRV_NO_NEW_DATA         Non-Acquisition Event occurred.(e.g. CancelWait() called)
+        '''
+        self.dllWaitForAcquisition = dll.WaitForAcquisition
+        self.dllWaitForAcquisition.restype = c_uint
+        self.dllWaitForAcquisition.argtypes = []
         
         
         
@@ -372,6 +958,7 @@ class AndorEMCCD(object):
 
 
 a = AndorEMCCD()
+
 
 
 
