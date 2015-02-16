@@ -221,6 +221,16 @@ class CCDWindow(QtGui.QMainWindow):
         # Trigger mode changed
         if changed[4] == 1:
             ret = self.CCD.setTrigger(self.ui.cSettingsTrigger.currentIndex())
+            print 'Changed Trigger: {}'.format(self.CCD.parseRetCode(ret))
+            self.settings["changedSettingsFlags"][4] = 0
+
+        #changed Acquisition mode
+        if changed[5] == 1:
+            ret = self.CCD.setAcqMode(self.ui.cSettingsAcquisitionMode.currentIndex())
+            print 'Changed Acq: {}'.format(self.CCD.parseRetCode(ret))
+            self.settings["changedSettingsFlags"][5] = 0
+
+        #
 
 
 
