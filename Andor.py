@@ -31,13 +31,7 @@ class AndorEMCCD(object):
 
         if not self.isCooled:
             retFlag = self.parseRetCode(self.dllCoolerON())
-<<<<<<< HEAD
 
-
-=======
-            
-            
->>>>>>> FETCH_HEAD
             if retFlag == 'DRV_NOT_INITIALIZED':
                 print 'Instrument not initialized'
                 return
@@ -45,18 +39,10 @@ class AndorEMCCD(object):
                 print 'Acquisition running. Cannot turn on cooler'
                 return
             elif retFlag == 'DRV_ERROR_ACK':
-<<<<<<< HEAD
                 print 'Cooler card read error'
                 return
-=======
-                  print 'Cooler card read error'
-                  return
->>>>>>> FETCH_HEAD
 
             self.isCooled = True
-
-
-
         retFlag = self.dllSetTemp()
         tempFlag = self.parseRetCode(self.dllGetTemperature(self.temperature))
         if tempFlag == '':
