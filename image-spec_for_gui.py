@@ -15,6 +15,14 @@ import matplotlib.pyplot as plt
 import cosmics_hsg as cosmics
 
 class EMCCDimage(object):
+    
+    def __init__(self, image_array, bg_array, description, data_dict, experimental_dict):
+        '''
+        This init is to work with the most basic images with no specialiation
+        for HSG or PL or absorbance data.  Feels like we should have something
+        more general than those.
+        '''
+        raise NotImplementedError
 
     def __str__(self):
         '''
@@ -138,7 +146,19 @@ class EMCCDimage(object):
             info_str = ','.join(save_info)
             my_header = self.description + '\n' + parameter_str + '\n' + info_str
             np.savetxt(filename, self.bg_array_clean, delimiter=',', header=my_header)
-            
+    
+    def save_spectrum(self):
+        '''
+        Saves the general spectrum.  Unsure if we need it, but, again, seems
+        useful for novel, basic stuff.
+        '''
+        raise NotImplementedError
+    
+    def save_images(self):
+        '''
+        Saves the raw image and backgroun for the image.
+        '''
+        raise NotImplementedError
     
 #    def clean_and_save_keepers(self, folder_str, name_str, sweep=None, iternum=''):
 #        '''
