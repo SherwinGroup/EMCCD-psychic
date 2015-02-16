@@ -26,20 +26,20 @@ class AndorEMCCD(object):
             wait for it to achieve the desired temperature'''
 
         if not self.isCooled:
-	        retFlag = self.parseRetCode(self.dllCoolerON())
-	        
-	        
-	        if retFlag == 'DRV_NOT_INITIALIZED':
-	            print 'Instrument not initialized'
-	            return
-	        elif retFlag == 'DRV_ACQUIRING':
-	        	print 'Acquisition running. Cannot turn on cooler'
-	        	return
-	      	elif retFlag == 'DRV_ERROR_ACK':
-	      		print 'Cooler card read error'
-	      		return
+            retFlag = self.parseRetCode(self.dllCoolerON())
+            
+            
+            if retFlag == 'DRV_NOT_INITIALIZED':
+                print 'Instrument not initialized'
+                return
+            elif retFlag == 'DRV_ACQUIRING':
+                print 'Acquisition running. Cannot turn on cooler'
+                return
+            elif retFlag == 'DRV_ERROR_ACK':
+                  print 'Cooler card read error'
+                  return
 
-	        self.isCooled = True
+            self.isCooled = True
 
 
 
