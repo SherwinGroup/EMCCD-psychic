@@ -25,7 +25,7 @@ class myCallable(object):
         self.func(args)
         ret = 20002
         if self.st == "GetTemperature":
-            n = np.random.randint(10)
+            n = np.random.randint(2)
             if n == 1:
                 ret = 20036 # temp stabilized
             else:
@@ -53,7 +53,7 @@ class fAndorEMCCD(object):
         self.SetAcquisitionMode = myCallable(self.__voidReturn, 'SetAcqMode')
         self.SetADChannel = myCallable(self.__voidReturn, 'SetADChannel')
         self.SetEMCCDGain = myCallable(self.__voidReturn, 'SetEMCCDGain')
-        self.SetExposureTime = myCallable(self.__voidReturn, 'SetExposureTime')
+        self.SetExposureTime = myCallable(self.__setExp, 'SetExposureTime')
         self.SetGain = myCallable(self.__voidReturn, 'SetGain')
         self.SetHSSpeed = myCallable(self.__voidReturn, 'SetHSSpeed')
         self.SetImage = myCallable(self.__voidReturn, 'SetImage')
@@ -65,7 +65,7 @@ class fAndorEMCCD(object):
         self.SetVSSpeed = myCallable(self.__voidReturn, 'SetVSSpeed')
         self.ShutDown = myCallable(self.__voidReturn, "SHUT 'ER DOWN")
         self.StartAcquisition = myCallable(self.__voidReturn, 'Start Acquisition')
-        self.WaitForAcquisition = myCallable(self.__wait, 'WaitForAcuisition')
+        self.WaitForAcquisition = myCallable(self.__wait, 'WaitForAqcuisition')
 
         
     def __voidReturn(self, *args):
@@ -75,7 +75,7 @@ class fAndorEMCCD(object):
     def __getData(self, *args):
         arr = args[0][0]
         for i in range(args[0][1]):
-            arr[i] = np.random.random_integers(6000)
+            arr[i] = np.random.random_integers(100)+1000
             
     def __getDet(self, *args):
         x = args[0][0]
@@ -93,7 +93,11 @@ class fAndorEMCCD(object):
 
     def __wait(self, *args):
         # Wait a random amount of time to simulate it
-        time.sleep(np.random.randint(10, 30))
+        print "Sleeping for: {}".format(self.exposure)
+        time.sleep(self.exposure)
+
+    def __setExp(self, val):
+        self.exposure = val[0]
     
     
 

@@ -38,6 +38,7 @@ class EMCCD_image(object):
                              slits = width of slits in microns
                              dark_region (maybe not that useful if can look at y_max + n) 
                              bg_file_name = name of background file
+							 series = name for series
         '''
         self.raw_array = np.array(raw_array)
         self.file_name = file_name
@@ -189,21 +190,15 @@ class EMCCD_image(object):
         Saves the general spectrum.  Unsure if we need it, but, again, seems
         useful for novel, basic stuff.
         '''
-        try:
-            os.mkdir(folder_str)
-        except OSError, e:
-            if e.errno == errno.EEXIST:
-                pass
-            else:
-                raise
-                
-        self.equipment_dict['addenda': self.addenda]
-        self.equipment_dict['subtrahenda': self.subtrahenda]
+
+        self.equipment_dict['addenda'] = self.addenda
+        self.equipment_dict['subtrahenda'] = self.subtrahenda
         equipment_str = json.dumps(self.equipment_dict)
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
+        filename = self.file_name + "_spectrum"
         my_header = self.description + '\n' + equipment_str + origin_import
-        np.savetxt(os.path.join(folder_str, self.file_name), self.spectrum, 
-                   delimiter=',', header=my_header, comments = '#')
+        np.savetxt(os.path.join(folder_str, filename), self.spectrum,
+                   delimiter=',', header=my_header, comments = '#', fmt='%d')
     
     def save_images(self, folder_str='Raw files'):
         '''
@@ -216,22 +211,34 @@ class EMCCD_image(object):
         
         Also, I'm pretty sure self.raw_array is still ints?
         '''
+
+
+        print 'adding dict'
+        self.equipment_dict['addenda'] = self.addenda
+        self.equipment_dict['subtrahenda'] = self.subtrahenda
+        print 'json dumping'
         try:
-            os.mkdir(folder_str)
-        except OSError, e:
-            if e.errno == errno.EEXIST:
-                pass
-            else:
-                raise
-        
-        self.equipment_dict['addenda': self.addenda]
-        self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+            equipment_str = json.dumps(self.equipment_dict)
+        except:
+            print "JSON FAILED"
+            print self.equipment_dict
+            return
         
         my_header = self.description + '\n' + equipment_str
-        
-        np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array, 
-                   delimiter=',', header=my_header, comments = '#')
+
+        print 'saving'
+        try:
+            print os.path.join(folder_str, self.file_name)
+        except:
+            print "ospath failed"
+        try:
+            np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array,
+                   delimiter=',', header=my_header, comments = '#', fmt='%d')
+        except Exception as e:
+            print e
+            print 'type: {}'.format(type(self.raw_array))
+            print 'size: {}'.format(self.raw_array.size)
+
 
 
 class HSG_image(EMCCD_image):
