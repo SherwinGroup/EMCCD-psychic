@@ -1,5 +1,27 @@
 
 
+# Here's what I was imagining the UI working like:
+
+if image_array_exists:
+    if bg:
+        current_bg = EMCCD_image(array, *args)
+        current_bg.save()
+        current_bg.cosmic_ray_removal()
+    
+    if hsg:
+        current_data = HSG_image(array, *args)
+        current_data.save()
+        current_data.cosmic_ray_removal()
+        spec_data = current_data - current_bg
+        spec_data.save_spectrum()
+        
+    if pl:
+        same as hsg?
+    
+    if absorb:
+        different...
+
+
 # The class should be general. If we want
 # to have different classes for different experiments
 # (HSG, PL, Abs ...)
