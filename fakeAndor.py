@@ -23,7 +23,15 @@ class myCallable(object):
     def __call__(self, *args):
         print ' '*10+self.st, args
         self.func(args)
-        return 20002
+        ret = 20002
+        if self.st == "GetTemperature":
+            n = np.random.randint(10)
+            if n == 1:
+                ret = 20036 # temp stabilized
+            else:
+                ret = 20037
+
+        return ret
 
 class fAndorEMCCD(object):
     def __init__(self):

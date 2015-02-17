@@ -9,6 +9,8 @@ import numpy as np
 from PyQt4 import QtCore, QtGui
 from mainWindow_ui import Ui_MainWindow
 from Andor import AndorEMCCD
+import threading
+import time
 
 try:
     import visa
@@ -18,10 +20,23 @@ except:
 
 
 
+class TempThread(QtCore.QThread):
+    def __init__(self, target, args):
+        super(TempThread, self).__init__()
+        self.target = target
+        self.args = args
+
+    def run(self):
+        self.target(self.args)
 
 
 class CCDWindow(QtGui.QMainWindow):
     #signal definitions
+
+    # Thread definitions
+    setTempThread = None
+    getTempTimer = None # Timer for updating the current temperature while the detector is warming/cooling
+
     def __init__(self):
         super(CCDWindow, self).__init__()
         self.initSettings()
@@ -33,6 +48,7 @@ class CCDWindow(QtGui.QMainWindow):
 
 
         self.initUI()
+
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
 
@@ -48,9 +64,24 @@ class CCDWindow(QtGui.QMainWindow):
         s["imageUI"] = None # keep ttrack of the settings param textedits for iteration
         s["isImage"] = True # Is it an image read mode?
 
+        s["bgSaveDir"] = '' # Save dirs
+        s["imSaveDir"] = ''
+
+        # For Hunter. First time you set a temp, it will
+        # pop up and make sure you turned on the chiller
+        s['askedChiller'] = False
+
+        #Current image and background
+        self.curData = None
+        s["igNumber"] = 0
+        self.curBG = None
+        s["bgNumber"] = 0
+
+
 
 
         self.settings = s
+
     def initUI(self):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -110,6 +141,19 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.ui.bSettingsApply.clicked.connect(self.updateSettings)
         self.ui.bSettingsCancel.clicked.connect(self.cancelSettings)
+
+
+        self.ui.bSettingsBGDirectory.clicked.connect(self.chooseSaveDir)
+        self.ui.tSettingsBGDirectory.setEnabled(False)
+        self.ui.bSettingsIMGDirectory.clicked.connect(self.chooseSaveDir)
+        self.ui.tSettingsIMGDirectory.setEnabled(False)
+
+        self.ui.bSetTemp.clicked.connect(self.doTempSet)
+
+        self.ui.bCCDImage.clicked.connect(self.takeImage)
+        self.ui.bCCDBack.clicked.connect(self.takeBackground)
+
+        self.pSigImage = self.ui.gCCDImage
 
 
         self.show()
@@ -180,7 +224,7 @@ class CCDWindow(QtGui.QMainWindow):
         if changed[0] == 1:
             ret = self.CCD.setAD(int(self.ui.cSettingsADChannel.currentText()))
             print 'Change AD Channel: {}'.format(self.CCD.parseRetCode(ret))
-            if ret == 20002:
+            if ret != 20002:
                 print 'Bad return'
                 return
 
@@ -224,21 +268,24 @@ class CCDWindow(QtGui.QMainWindow):
             print 'Changed Trigger: {}'.format(self.CCD.parseRetCode(ret))
             self.settings["changedSettingsFlags"][4] = 0
 
-        #changed Acquisition mode
+        # changed Acquisition mode
         if changed[5] == 1:
             ret = self.CCD.setAcqMode(self.ui.cSettingsAcquisitionMode.currentIndex())
             print 'Changed Acq: {}'.format(self.CCD.parseRetCode(ret))
             self.settings["changedSettingsFlags"][5] = 0
 
-        #
+        # Now change the settings parameters
+        if 1 in self.settings["changedImageFlags"]:
+            # Get the array to change to
+            vals = [int(i.text()) for i in self.settings["imageUI"]]
+            ret = self.CCD.setImage(vals)
+            print "Changed image: {}".format(self.CCD.parseRetCode(ret))
+            self.settings["changedImageFlags"] = [0, 0, 0, 0, 0, 0]
+
 
 
 
         self.ui.bSettingsApply.setEnabled(False)
-
-
-
-
 
     def cancelSettings(self):
         self.ui.cSettingsADChannel.setCurrentIndex(
@@ -262,15 +309,178 @@ class CCDWindow(QtGui.QMainWindow):
         for (i, uiEle) in enumerate(self.settings["imageUI"]):
             uiEle.setText(str(self.CCD.cameraSettings['imageSettings'][i]))
 
+    def chooseSaveDir(self):
+        sent = self.sender()
+
+        if sent == self.ui.bSettingsBGDirectory:
+            hint = "Choose Background Directory"
+            prevDir = self.settings["bgSaveDir"]
+        else:
+            hint = "Choose Image Directory"
+            prevDir = self.settings["bgSaveDir"]
+        file = str(QtGui.QFileDialog.getExistingDirectory(self, hint, prevDir))
+        if file == '':
+            return
+        #Update the appropriate file
+        if sent == self.ui.bSettingsBGDirectory:
+            self.settings["bgSaveDir"] = file
+            self.ui.tSettingsBGDirectory.setText(file)
+        else:
+            self.settings["bgSaveDir"] = file
+            self.ui.tSettingsIMGDirectory.setText(file)
+
+    def doTempSet(self, temp = None):
+        # temp is so that it can be called during cleanup.
+        if not self.settings['askedChiller']:
+            self.settings['askedChiller'] = True
+            self.dump = ChillerBox()
+            self.dump.show()
+
+            # Set up a timer to destroy the window after some time.
+            # Really, letting python garbage collecting take care of it
+            QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
+        if temp is None:
+            temp = int(self.ui.tSettingsGotoTemp.text())
+
+        # Disable the buttons we don't want messed with
+        self.ui.bCCDBack.setEnabled(False)
+        self.ui.bCCDImage.setEnabled(False)
+        self.ui.bSetTemp.setEnabled(False)
+
+        # Set up a thread which will handle the monitoring of the temperature
+        self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = temp)
+        self.setTempThread.finished.connect(self.cleanupSetTemp)
+        # This timer will update the UI with the changes in temperature
+        self.getTempTimer = QtCore.QTimer(self)
+        self.getTempTimer.timeout.connect(self.updateTemp)
+        self.getTempTimer.start(1000)
+        self.setTempThread.start()
+
+    def cleanupSetTemp(self):
+        self.ui.bCCDImage.setEnabled(True)
+        self.ui.bCCDBack.setEnabled(True)
+        self.ui.bSetTemp.setEnabled(True)
+        self.getTempTimer.stop()
+
+        self.updateTemp()
+
+    def updateTemp(self):
+        self.ui.tSettingsCurrTemp.setText(str(self.CCD.temperature))
+        self.ui.tSettingsTempResponse.setText(self.CCD.tempRetCode)
+
+    def takeImage(self):
+        if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
+            self.CCD.setExposure(float(self.ui.tEMCCDExp))
+        if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
+            self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+
+
+        # Need to do a ccd.dllStartAcquisition and all that timing!
+
+
+        self.curData = self.CCD.getImage()
+        self.pSigImage.setImage(self.curData)
+
+
+
+
+    def takeBackground(self):
+        pass
+
     def closeEvent(self, event):
-        print 'closing'
+        print 'closing,', event.type()
+        try:
+            self.getTempTimer.stop()
+        except:
+            pass
+        try:
+            self.setTempThread.wait()
+        except:
+            pass
+
+        # if the detector is cooled, need to warm it back up
+        if self.CCD.temperature<0:
+            if self.setTempThread.isRunning():
+                print "Please wait for detector to warm"
+                return
+            print 'Need to warm up the detector'
+            self.doTempSet(0)
+            event.ignore()
+            return
+
+        self.CCD.dllCoolerOFF()
+        self.CCD.dllShutDown()
+
         self.CCD.cameraSettings=dict()  # Something is throwing an error when this isn't here
                                         # I think a memory leak somewhere?
         self.CCD.dll = None
         self.CCD = None
+
+
         self.close()
 
+class ChillerBox(QtGui.QDialog):
+    def __init__(self, parent=None):
+        super(ChillerBox, self).__init__(parent)
+        self.setupUi(self)
 
+    def setupUi(self, Dialog):
+        Dialog.setObjectName("Dialog")
+        Dialog.setEnabled(False)
+        Dialog.resize(238, 42)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(Dialog.sizePolicy().hasHeightForWidth())
+        Dialog.setSizePolicy(sizePolicy)
+        Dialog.setWindowOpacity(53.0)
+        self.horizontalLayout = QtGui.QHBoxLayout(Dialog)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.label = QtGui.QLabel(Dialog)
+        font = QtGui.QFont()
+        font.setPointSize(18)
+        self.label.setFont(font)
+        self.label.setObjectName("label")
+        self.horizontalLayout.addWidget(self.label)
+
+        self.retranslateUi(Dialog)
+        QtCore.QMetaObject.connectSlotsByName(Dialog)
+
+    def retranslateUi(self, Dialog):
+        Dialog.setWindowTitle(_translate("Dialog", "Turn On The Chiller", None))
+        self.label.setText(_translate("Dialog", "Did you turn on the chiller?", None))
+
+# Stuff for the dialog
+_encoding = QtGui.QApplication.UnicodeUTF8
+def _translate(context, text, disambig):
+    return QtGui.QApplication.translate(context, text, disambig, _encoding)
+
+class Ui_Dialog(object):
+    def setupUi(self, Dialog):
+        Dialog.setObjectName(_fromUtf8("Dialog"))
+        Dialog.setEnabled(False)
+        Dialog.resize(238, 42)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(Dialog.sizePolicy().hasHeightForWidth())
+        Dialog.setSizePolicy(sizePolicy)
+        Dialog.setWindowOpacity(53.0)
+        self.horizontalLayout = QtGui.QHBoxLayout(Dialog)
+        self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
+        self.label = QtGui.QLabel(Dialog)
+        font = QtGui.QFont()
+        font.setPointSize(18)
+        self.label.setFont(font)
+        self.label.setObjectName(_fromUtf8("label"))
+        self.horizontalLayout.addWidget(self.label)
+
+        self.retranslateUi(Dialog)
+        QtCore.QMetaObject.connectSlotsByName(Dialog)
+
+    def retranslateUi(self, Dialog):
+        Dialog.setWindowTitle(_translate("Dialog", "Turn On The Chiller", None))
+        self.label.setText(_translate("Dialog", "Did you turn on the chiller?", None))
 
 if __name__ == '__main__':
     import sys

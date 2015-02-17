@@ -5,8 +5,10 @@ Created on Mon Feb 02 10:17:34 2015
 @author: dvalovcin
 """
 
-import numpy as np
+
 from ctypes import *
+import time
+import numpy as np
 
 
 
@@ -20,6 +22,7 @@ class AndorEMCCD(object):
         print 'Initialized: {}'.format(ret)
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
+        self.tempRetCode = '' # code to
         self.cameraSettings = dict() # A dictionary to hold various parameters of the camera
 
         self.data = None
@@ -33,7 +36,7 @@ class AndorEMCCD(object):
             retFlag = self.parseRetCode(self.dllCoolerON())
 
             if retFlag == 'DRV_NOT_INITIALIZED':
-                print 'Instrument not initialized'
+                print 'CoolerON: Instrument not initialized'
                 return
             elif retFlag == 'DRV_ACQUIRING':
                 print 'Acquisition running. Cannot turn on cooler'
@@ -43,14 +46,19 @@ class AndorEMCCD(object):
                 return
 
             self.isCooled = True
-        retFlag = self.dllSetTemp()
-        tempFlag = self.parseRetCode(self.dllGetTemperature(self.temperature))
-        if tempFlag == '':
-            pass
+        retFlag = self.parseRetCode(self.dllSetTemperature(temp))
+        if not retFlag == "DRV_SUCCESS":
+            print "Error setting temperature, {}".format(retFlag)
 
+        tempTemp = c_int(0)
+        self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
+        self.temperature = tempTemp.value
+        while self.tempRetCode == "DRV_TEMPERATURE_NOT_REACHED":
+            time.sleep(1)
+            self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
+            self.temperature = tempTemp.value
+            # print 'Current temp: {}'.format(self.temperature)
 
-
-    
     def initialize(self, ad = 0, outputAmp = 0):
         
         # get detector size
@@ -90,6 +98,12 @@ class AndorEMCCD(object):
         # default internal triggering
         self.setTrigger(0)
 
+        #default gain/exposure
+        self.setExposure(0.5)
+        self.setGain(1)
+
+        #SETUP THE SHUTTER
+        # self.dllSetShutter()
 
     def setHSS(self, idx):
         ret = self.dllSetHSSpeed(self.cameraSettings['outputAmp'],
@@ -111,7 +125,6 @@ class AndorEMCCD(object):
             self.cameraSettings['curADChannel'] = ad
         return ret
 
-
     def setAcqMode(self, idx):
         if idx in (0, 6, 7, 8):
             # invalid by the CCD designation
@@ -124,6 +137,7 @@ class AndorEMCCD(object):
         ret = self.dllSetAcquisitionMode(idx)
         if ret == 20002:
             self.cameraSettings['curAcqMode'] = d[idx]
+        return ret
 
     def setRead(self, idx):
         d = {0:"Full Vertical Binning",
@@ -134,6 +148,7 @@ class AndorEMCCD(object):
         ret = self.dllSetReadMode(idx)
         if ret == 20002:
             self.cameraSettings['curReadMode'] = d[idx]
+        return ret
 
     def setTrigger(self, idx):
         d = {0:"Internal",
@@ -141,7 +156,7 @@ class AndorEMCCD(object):
         ret = self.dllSetTriggerMode(idx)
         if ret == 20002:
             self.cameraSettings['curTrig'] = d[idx]
-
+        return ret
 
     def setImage(self, vals):
         ret = self.dllSetImage(vals[0], vals[1],
@@ -149,8 +164,7 @@ class AndorEMCCD(object):
                                 vals[4], vals[5])
         if ret == 20002:
             self.cameraSettings['imageSettings'] = vals  #Set the default size for the image to be collected
-
-
+        return ret
 
     def getHSS(self):
         num = c_int(0)
@@ -177,11 +191,52 @@ class AndorEMCCD(object):
         for idx in range(self.cameraSettings['numVSS']):
             self.dllGetVSSpeed(idx, speed)
             self.cameraSettings['VSS'].append(speed.value)
-        
-        
-        
-    
-    
+
+    def setExposure(self, exp):
+        ret = self.dllSetExposureTime(exp)
+        if ret == 20002:
+            self.cameraSettings['exposureTime'] = exp
+        return ret
+
+    def setGain(self, val):
+        ret = self.dllSetEMCCDGain(val)
+        if ret == 20002:
+            self.cameraSettings['gain'] = val
+        return ret
+
+    def getImage(self):
+        """
+        :return: array of image value
+
+        This function will automatically read the image from the CCD and
+        then return a numpy array of the correct shape
+        """
+
+        # the image settings, for readability
+        image = self.cameraSettings["imageSettings"]
+
+        # figure out the dimensions of the image based on the specified settings
+        # think I need a +1 since each end is inclusive
+        x = int(round(
+            (image[3]-image[2])/image[0]
+        ))
+        y = int(round(
+            (image[5]-image[4]/image[1])
+        ))
+
+        retdata = (c_int * (x * y))()
+
+        self.dllGetAcquiredData(retdata, x * y )
+
+        retnums = []
+        for i in range(x*y):
+            retnums.append(retdata[i])
+
+        retnums = np.reshape(retnums, (x, y))
+
+        return retnums
+
+
     def registerFunctions(self):
         """ This function serves to import all of the functions
         from the DLL, define them as the class's own for neatness, and
@@ -961,11 +1016,7 @@ class AndorEMCCD(object):
         self.dllWaitForAcquisition = dll.WaitForAcquisition
         self.dllWaitForAcquisition.restype = c_uint
         self.dllWaitForAcquisition.argtypes = []
-        
-        
-        
-        
-        
+
     @staticmethod
     def parseRetCode(value):
         """Pass in the return value of a function and this will return 
@@ -1037,16 +1088,13 @@ class AndorEMCCD(object):
         return ret 
             
             
-            
-
-
-
-
 
 
 
 
 # a = AndorEMCCD()
+# a.initialize()
+# print a.getImage().shape
 
 
 
