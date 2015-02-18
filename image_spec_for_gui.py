@@ -198,7 +198,7 @@ class EMCCD_image(object):
         filename = self.file_name + "_spectrum"
         my_header = self.description + '\n' + equipment_str + origin_import
         np.savetxt(os.path.join(folder_str, filename), self.spectrum,
-                   delimiter=',', header=my_header, comments = '#', fmt='%d')
+                   delimiter=',', header=my_header, comments = '#', fmt='%f')
     
     def save_images(self, folder_str='Raw files'):
         '''
@@ -310,7 +310,7 @@ class HSG_image(EMCCD_image):
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
         my_header = self.description + '\n' + hsg_str + '\n' + equipment_str + origin_import
         np.savetxt(os.path.join(folder_str, save_file_name), self.spectrum, 
-                   delimiter=',', header=my_header, comments = '#')
+                   delimiter=',', header=my_header, comments='#', fmt='%f')
 
     def save_images(self, folder_str='Raw files'):
         '''
@@ -339,7 +339,7 @@ class HSG_image(EMCCD_image):
         my_header = self.description + '\n' + hsg_str + '\n' + equipment_str
         
         np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array, 
-                   delimiter=',', header=my_header, comments = '#')
+                   delimiter=',', header=my_header, comments='#', fmt='%d')
 
 
 class PL_image(EMCCD_image):
@@ -402,7 +402,7 @@ class PL_image(EMCCD_image):
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
         my_header = self.description + '\n' + pl_str + '\n' + equipment_str + origin_import
         np.savetxt(os.path.join(folder_str, save_file_name), self.spectrum, 
-                   delimiter=',', header=my_header, comments = '#')
+                   delimiter=',', header=my_header, comments='#', fmt='%f')
 
     def save_images(self, folder_str='Raw files'):
         '''
@@ -431,7 +431,7 @@ class PL_image(EMCCD_image):
         my_header = self.description + '\n' + pl_str + '\n' + equipment_str
         
         np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array, 
-                   delimiter=',', header=my_header, comments = '#')
+                   delimiter=',', header=my_header, comments='#', fmt='%d')
     
 class Abs_image(EMCCD_image):
     '''
@@ -565,7 +565,7 @@ class Abs_image(EMCCD_image):
         origin_import = '\nWavelength,Blank,Transmitted,Absorbance\nnm,arb. u.,arb. u.,log10'
         my_header = self.description + '\n' + abs_str + '\n' + equipment_str + origin_import
         np.savetxt(os.path.join(folder_str, save_file_name), self.spectrum, 
-                   delimiter=',', header=my_header, comments = '#')
+                   delimiter=',', header=my_header, comments='#', fmt='%f')
 
     def save_images(self, folder_str='Raw files'):
         '''
@@ -594,10 +594,10 @@ class Abs_image(EMCCD_image):
         my_header = self.description + '\n' + abs_str + '\n' + equipment_str
         
         np.savetxt(os.path.join(folder_str, self.file_name), self.trans_array, 
-                   delimiter=',', header=my_header, comments = '#')
+                   delimiter=',', header=my_header, comments='#', fmt='%f')
         np.savetxt(os.path.join(folder_str, self.blank_file_name), 
                    self.blank_array, delimiter=',', header=my_header, 
-                   comments = '#')
+                   comments='#', fmt='%d')
         
 def gen_wavelengths(center_lambda, grating):
     '''
