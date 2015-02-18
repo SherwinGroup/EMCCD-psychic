@@ -12,6 +12,7 @@ from Andor import AndorEMCCD
 import pyqtgraph as pg
 from image_spec_for_gui import EMCCD_image
 import copy
+from Instruments import *
 
 try:
     import visa
@@ -68,6 +69,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.CCD.initialize()
 
         self.initUI()
+        self.Spectrometer = None
+        self.Agilent = None
+        self.openSpectrometer()
 
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
@@ -91,10 +95,10 @@ class CCDWindow(QtGui.QMainWindow):
             # Pretty sure we can safely say it's
             # ASRL1
             idx = s['GPIBlist'].index('ASRL1::INSTR')
-            s["specGPIB"] = idx
+            s["specGPIBidx"] = idx
         except ValueError:
             # otherwise, just set it to the fake index
-            s["specGPIB"] = s['GPIBlist'].index('Fake')
+            s["specGPIBidx"] = s['GPIBlist'].index('Fake')
 
         # Which settings combo boxes have been changed?
         # AD, VSS, Read, HSS, Trigg, Acq
@@ -152,6 +156,10 @@ class CCDWindow(QtGui.QMainWindow):
         # Updating menus in the settings/CCD settings portion
         self.ui.cSettingsADChannel.addItems([str(i) for i in range(
             self.CCD.cameraSettings['numADChannels'])])
+
+        #####################
+        # Setting the Speeds and image settings
+        ###################
         self.ui.cSettingsVSS.addItems([str(i) for i in self.CCD.cameraSettings['VSS']])
         self.ui.cSettingsHSS.addItems([str(i) for i in self.CCD.cameraSettings['HSS']])
         self.ui.tHBin.setText(str(self.CCD.cameraSettings['imageSettings'][0]))
@@ -161,14 +169,19 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tVStart.setText(str(self.CCD.cameraSettings['imageSettings'][4]))
         self.ui.tVEnd.setText(str(self.CCD.cameraSettings['imageSettings'][5]))
 
-
+        ################
+        # Connect all of the setting changes
+        ###############
         self.ui.cSettingsReadMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsADChannel.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsVSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        
         self.ui.cSettingsHSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsTrigger.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsAcquisitionMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
+
+        ####################
+        # Create a list of the ui setting handles for iteration
+        ###################
         self.settings["settingsUI"] = [self.ui.cSettingsADChannel,
                                        self.ui.cSettingsVSS,
                                        self.ui.cSettingsReadMode,
@@ -176,37 +189,62 @@ class CCDWindow(QtGui.QMainWindow):
                                        self.ui.cSettingsTrigger,
                                        self.ui.cSettingsAcquisitionMode]
 
+        #########################
+        # Connect all of the changes to the image parameters
+        #########################
         self.ui.tHBin.textAccepted[object].connect(self.parseImageChange)
         self.ui.tHStart.textAccepted[object].connect(self.parseImageChange)
         self.ui.tHEnd.textAccepted[object].connect(self.parseImageChange)
         self.ui.tVBin.textAccepted[object].connect(self.parseImageChange)
         self.ui.tVStart.textAccepted[object].connect(self.parseImageChange)
         self.ui.tVEnd.textAccepted[object].connect(self.parseImageChange)
+
+        ######################
+        # Array of setting changes for easy iteration
+        #####################
         self.settings["imageUI"] = [self.ui.tHBin,
                                     self.ui.tVBin,
                                     self.ui.tHStart,
                                     self.ui.tHEnd,
                                     self.ui.tVStart,
                                     self.ui.tVEnd]
+
+        ######################
+        # Setting up spectrometer UI elements
+        ######################
+        self.ui.cSpecGPIB.addItems(self.settings['GPIBlist'])
+        self.ui.cSpecGPIB.setCurrentIndex(self.settings["specGPIBidx"])
+        self.ui.cSpecGPIB.currentIndexChanged.connect(self.SpecGPIBChanged)
+        self.ui.bSpecSetWl.clicked.connect(self.updateSpecWavelength)
+        self.ui.bSpecSetGr.clicked.connect(self.updateSpecGrating)
+
+        ###################
+        # Setting up oscilloscope values
+        ##################
+        self.ui.cOGPIB.addItems(self.settings['GPIBlist'])
                                     
-        
+        ####################
+        # Connect more things
+        ###################
         self.ui.cSettingsVSS.setCurrentIndex(1)
-
         self.ui.bSettingsApply.setEnabled(False)
-
         self.ui.bSettingsApply.clicked.connect(self.updateSettings)
         self.ui.bSettingsCancel.clicked.connect(self.cancelSettings)
+        self.ui.bSetTemp.clicked.connect(self.doTempSet)
+        self.ui.bCCDImage.clicked.connect(lambda: self.startTakeImage("img"))
+        self.ui.bCCDBack.clicked.connect(lambda: self.startTakeImage("bg"))
 
+        ####################
+        # Save file connection
+        ##################
         self.ui.bSettingsBGDirectory.clicked.connect(self.chooseSaveDir)
         self.ui.tSettingsBGDirectory.setEnabled(False)
         self.ui.bSettingsIMGDirectory.clicked.connect(self.chooseSaveDir)
         self.ui.tSettingsIMGDirectory.setEnabled(False)
 
-        self.ui.bSetTemp.clicked.connect(self.doTempSet)
-
-        self.ui.bCCDImage.clicked.connect(lambda: self.startTakeImage("img"))
-        self.ui.bCCDBack.clicked.connect(lambda: self.startTakeImage("bg"))
-
+        ##################
+        # Connections for updating image counters when user-changed
+        ##################
         self.ui.tCCDImageNum.textAccepted.connect(
             lambda: self.updateImageNumbers(True))
         self.ui.tCCDBGNum.textAccepted.connect(
@@ -236,6 +274,29 @@ class CCDWindow(QtGui.QMainWindow):
         plotitem.setLabel('bottom',text='Counts')
 
         self.show()
+
+    def SpecGPIBChanged(self):
+        self.Spectrometer.close()
+        self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
+        self.openSpectrometer()
+
+    def openSpectrometer(self):
+        self.Spectrometer = ActonSP(
+            self.settings["GPIBlist"][self.settings["specGPIBidx"]]
+        )
+        self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
+        self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
+
+    def updateSpecWavelength(self):
+        desired = float(self.ui.sbSpecWavelength.value())
+        new = self.Spectrometer.goAndAsk(desired)
+        self.ui.tSpecCurWl.setText(str(new))
+
+    def updateSpecGrating(self):
+        desired = int(self.ui.sbSpecGrating.value())
+        self.Spectrometer.setGrating(desired)
+        new = self.Spectrometer.getGrating()
+        self.ui.tSpecCurGr.setText(str(new))
 
     def updateImageNumbers(self, isIm = True):
         """
@@ -557,8 +618,8 @@ class CCDWindow(QtGui.QMainWindow):
         s["gain"] = int(self.CCD.cameraSettings["gain"])
         s["y_min"] = int(self.ui.tCCDYMin.text())
         s["y_max"] = int(self.ui.tCCDYMax.text())
-        s["grating"] = self.ui.sbSpecGrating.value()
-        s["center_lambda"] = self.ui.sbSpecWavelength.value()
+        s["grating"] = int(self.ui.tSpecCurGr.text())
+        s["center_lambda"] = float(self.ui.tSpecCurWl.text())
         s["slits"] = str(self.ui.tCCDSlits.text())
         s["dark_region"] = None
         s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.text())
@@ -621,6 +682,7 @@ class CCDWindow(QtGui.QMainWindow):
         to a signal; main thread doesn't like to get update from outside itself
         """
         element.setText(str(val))
+        
     def closeEvent(self, event):
         print 'closing,', event.type()
         try:
@@ -661,6 +723,10 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.tSettingsGotoTemp.setText('20')
             self.killFast = True
             self.doTempSet(0)
+            try:
+                self.setTempThread.finished.connect(self.dump.close())
+            except:
+                print "Couldn't connect thread to closing"
             event.ignore()
             return
 
@@ -668,6 +734,7 @@ class CCDWindow(QtGui.QMainWindow):
         print "ooler off ret: {}".format(self.CCD.parseRetCode(ret))
         ret = self.CCD.dllShutDown()
         print "shutdown ret: {}".format(self.CCD.parseRetCode(ret))
+        self.Spectrometer.close()
 
         self.CCD.cameraSettings = dict()  # Something is throwing an error when this isn't here
                                         # I think a memory leak somewhere?
