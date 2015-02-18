@@ -153,6 +153,9 @@ class EMCCD_image(object):
         
         returns a clean my_array
         '''
+        
+        self.clean_array = self.raw_array
+        return
         image_removal = cosmics.cosmicsimage(self.raw_array, gain=mygain, # I don't understand gain
                                              readnoise=myreadnoise, 
                                              sigclip=mysigclip, 

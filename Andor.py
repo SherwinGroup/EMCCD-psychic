@@ -20,6 +20,8 @@ class AndorEMCCD(object):
         self.registerFunctions()
         ret = self.dllInitialize('')
         print 'Initialized: {}'.format(ret)
+        if ret == 20992:
+            return ret
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
         self.tempRetCode = '' # code to
@@ -28,10 +30,13 @@ class AndorEMCCD(object):
         self.data = None
 
 
-    def gotoTemperature(self, temp):
+    def gotoTemperature(self, *args):
         """Sets the specified temperature and goes through a loop to
             wait for it to achieve the desired temperature"""
-
+        print "args: {}".format(args)
+        temp = args[0][0]
+        killFast = args[0][1]
+        print "temp: {}, killfast: {}".format(temp, killFast)
         if not self.isCooled:
             retFlag = self.parseRetCode(self.dllCoolerON())
 
@@ -47,17 +52,25 @@ class AndorEMCCD(object):
 
             self.isCooled = True
         retFlag = self.parseRetCode(self.dllSetTemperature(temp))
-        if not retFlag == "DRV_SUCCESS":
+        if retFlag == "DRV_SUCCESS":
+            print "Set temperature to {}C".format(temp)
+        else:
             print "Error setting temperature, {}".format(retFlag)
 
         tempTemp = c_int(0)
         self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
         self.temperature = tempTemp.value
-        while self.tempRetCode == "DRV_TEMPERATURE_NOT_REACHED":
-            time.sleep(1)
-            self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
-            self.temperature = tempTemp.value
-            # print 'Current temp: {}'.format(self.temperature)
+        if not killFast:
+            while self.tempRetCode != "DRV_TEMPERATURE_STABILIZED":
+                time.sleep(1)
+                self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
+                self.temperature = tempTemp.value
+                # print 'Current temp: {}'.format(self.temperature)
+        else:
+            while self.tempRetCode != "DRV_TEMPERATURE_STABILIZED" and self.temperature<0:
+                time.sleep(1)
+                self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
+                self.temperature = tempTemp.value
 
     def initialize(self, ad = 0, outputAmp = 0):
         
@@ -65,9 +78,10 @@ class AndorEMCCD(object):
         x = c_int(0)
         y = c_int(0)
         self.dllGetDetector(x, y)
+        print 'Detector got. x={}, y={}'.format(x.value, y.value)
         self.cameraSettings['xPixels'] = x.value
         self.cameraSettings['yPixels'] = y.value
-        self.setImage([1, 1, 0, x.value, 0, y.value])
+        print 'setImage return: {}'.format(self.parseRetCode(self.setImage([1, 1, 1, x.value, 1, y.value])))
 
         
         # get the number of ad channels
@@ -87,7 +101,7 @@ class AndorEMCCD(object):
 
         # set the initial HSSp/VSSp to the first one possible
         self.setHSS(0)
-        self.setVSS(0)
+        self.setVSS(1)
 
         # set to the single-scan mode
         self.setAcqMode(1)
@@ -103,7 +117,8 @@ class AndorEMCCD(object):
         self.setGain(1)
 
         #SETUP THE SHUTTER
-        # self.dllSetShutter()
+        # assume TTL high, automatic usage, 10ms open/close
+        self.dllSetShutter(1, 0, 10, 10)
 
     def setHSS(self, idx):
         ret = self.dllSetHSSpeed(self.cameraSettings['outputAmp'],
@@ -219,10 +234,10 @@ class AndorEMCCD(object):
         # think I need a +1 since each end is inclusive
         x = int(round(
             (image[3]-image[2])/image[0]
-        ))
+        )) + 1
         y = int(round(
             (image[5]-image[4]/image[1])
-        ))
+        )) + 1
 
         retdata = (c_int * (x * y))()
 
@@ -232,7 +247,8 @@ class AndorEMCCD(object):
         for i in range(x*y):
             retnums.append(retdata[i])
 
-        retnums = np.reshape(retnums, (x, y))
+        retnums = np.reshape(retnums, (y, x)).T
+        retnums = np.flipud(retnums)
 
         return retnums
 
@@ -245,12 +261,12 @@ class AndorEMCCD(object):
         All functions follow the convention self.dllFunctionName so that it
         is easier to see which are coming directly from the dll."""
         try:
-            dll = CDLL('atmcd64d') #Change this to the appropriate name
+            dll = CDLL('atmcd64dFAKE') #Change this to the appropriate name
         except:
             try:
                 import os
                 os.chdir('C:\\Program Files\\Andor SDK')
-                dll = CDLL('atmcd64d')
+                dll = CDLL('atmcd64dFAKE')
             except:
                 print 'Error loading the DLL. Setting you up with a fake one'
                 from fakeAndor import fAndorEMCCD
@@ -714,8 +730,8 @@ class AndorEMCCD(object):
             DRV_P1INVALID           Exposure time invalid
         """
         self.dllSetExposureTime = dll.SetExposureTime
-        self.dllSetExposureTime.restype = c_float
-        self.dllSetExposureTime.argtypes = []
+        self.dllSetExposureTime.restype = c_uint
+        self.dllSetExposureTime.argtypes = [c_float]
         
         """
         SetGain: I believe set EMCCDGain is prefered 

@@ -18,8 +18,12 @@ try:
 except:
     print 'GPIB VISA library not installed'
     raise
-
-
+    
+try:
+    a = QtCore.QString()
+except AttributeError:
+    QtCore.QString = str
+        
 
 class TempThread(QtCore.QThread):
     """ Creates a QThread which will monitor the temperature changes in the
@@ -57,7 +61,10 @@ class CCDWindow(QtGui.QMainWindow):
 
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
-        self.CCD = AndorEMCCD()
+        try:
+            self.CCD = AndorEMCCD()
+        except TypeError:
+            self.close()
         self.CCD.initialize()
 
         self.initUI()
@@ -68,6 +75,26 @@ class CCDWindow(QtGui.QMainWindow):
 
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
+
+        # Get the GPIB instrument list
+        try:
+            import visa
+            rm = visa.ResourceManager()
+            ar = [i.encode('ascii') for i in rm.list_resources()]
+            ar.append('Fake')
+            s['GPIBlist'] = ar
+        except:
+            print 'Error loading GPIB list'
+            ar = ['a', 'b', 'c', 'Fake']
+            s['GPIBlist'] = ar
+        try:
+            # Pretty sure we can safely say it's
+            # ASRL1
+            idx = s['GPIBlist'].index('ASRL1::INSTR')
+            s["specGPIB"] = idx
+        except ValueError:
+            # otherwise, just set it to the fake index
+            s["specGPIB"] = s['GPIBlist'].index('Fake')
 
         # Which settings combo boxes have been changed?
         # AD, VSS, Read, HSS, Trigg, Acq
@@ -101,7 +128,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         # The current value contaiend in the progress bar
         s["progress"] = 0
-
+        self.killFast = False
         self.settings = s
 
     def initUI(self):
@@ -116,7 +143,10 @@ class CCDWindow(QtGui.QMainWindow):
         disable = [0, 6, 7, 8]
         for i in disable:
             j = self.ui.cSettingsAcquisitionMode.model().index(i, 0)
-            self.ui.cSettingsAcquisitionMode.model().setData(j, QtCore.QVariant(0), QtCore.Qt.UserRole-1)
+            try:
+                self.ui.cSettingsAcquisitionMode.model().setData(j, QtCore.QVariant(0), QtCore.Qt.UserRole-1)
+            except TypeError:
+                self.ui.cSettingsAcquisitionMode.model().setData(j, 0, QtCore.Qt.UserRole-1)
 
 
         # Updating menus in the settings/CCD settings portion
@@ -135,6 +165,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cSettingsReadMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsADChannel.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsVSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
+        
         self.ui.cSettingsHSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsTrigger.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsAcquisitionMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
@@ -157,6 +188,9 @@ class CCDWindow(QtGui.QMainWindow):
                                     self.ui.tHEnd,
                                     self.ui.tVStart,
                                     self.ui.tVEnd]
+                                    
+        
+        self.ui.cSettingsVSS.setCurrentIndex(1)
 
         self.ui.bSettingsApply.setEnabled(False)
 
@@ -373,7 +407,7 @@ class CCDWindow(QtGui.QMainWindow):
             prevDir = self.settings["bgSaveDir"]
         else:
             hint = "Choose Image Directory"
-            prevDir = self.settings["bgSaveDir"]
+            prevDir = self.settings["imSaveDir"]
         file = str(QtGui.QFileDialog.getExistingDirectory(self, hint, prevDir))
         if file == '':
             return
@@ -382,21 +416,22 @@ class CCDWindow(QtGui.QMainWindow):
             self.settings["bgSaveDir"] = file
             self.ui.tSettingsBGDirectory.setText(file)
         else:
-            self.settings["bgSaveDir"] = file
+            self.settings["imSaveDir"] = file
             self.ui.tSettingsIMGDirectory.setText(file)
 
     def doTempSet(self, temp = None):
         # temp is so that it can be called during cleanup.
         if not self.settings['askedChiller']:
             self.settings['askedChiller'] = True
-            self.dump = ChillerBox()
+            self.dump = ChillerBox(self, "Did you turn on the chiller?")
             self.dump.show()
 
             # Set up a timer to destroy the window after some time.
             # Really, letting python garbage collecting take care of it
             QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
-        if temp is None:
-            temp = int(self.ui.tSettingsGotoTemp.text())
+            QtCore.QTimer.singleShot(3000, lambda: self.dump.close())
+#        if temp is None:
+        temp = int(self.ui.tSettingsGotoTemp.text())
 
         # Disable the buttons we don't want messed with
         self.ui.bCCDBack.setEnabled(False)
@@ -404,7 +439,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bSetTemp.setEnabled(False)
 
         # Set up a thread which will handle the monitoring of the temperature
-        self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = temp)
+        self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = (temp, self.killFast))
         self.setTempThread.finished.connect(self.cleanupSetTemp)
         # This timer will update the UI with the changes in temperature
         self.getTempTimer = QtCore.QTimer(self)
@@ -472,7 +507,10 @@ class CCDWindow(QtGui.QMainWindow):
                                             str(self.ui.tImageName.text())+str(self.ui.tCCDImageNum.text()),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
-            self.curDataEMCCD.save_images(self.settings["imSaveDir"])
+            try:
+                self.curDataEMCCD.save_images(self.settings["imSaveDir"])
+            except Exception as e:
+                print "Error saving data image", e
             try:
                 self.curDataEMCCD.cosmic_ray_removal()
             except Exception as e:
@@ -486,14 +524,20 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curDataEMCCD.make_spectrum()
             except Exception as e:
                 print e
-            self.curDataEMCCD.save_spectrum(self.settings["imSaveDir"])
+            try:
+                self.curDataEMCCD.save_spectrum(self.settings["imSaveDir"])
+            except Exception as e:
+                print "Error saving spectrum,",e
             self.updateDataSig.emit(True, True) # update with the cleaned data
         else:
             self.curBGEMCCD = EMCCD_image(self.curBG,
                                             str(self.ui.tBackgroundName.text())+str(self.ui.tCCDBGNum.text()),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
-            self.curBGEMCCD.save_images(self.settings["bgSaveDir"])
+            try:
+                self.curBGEMCCD.save_images(self.settings["bgSaveDir"])
+            except Exception as e:
+                print "Error saving background iamge", e
             self.curBGEMCCD.cosmic_ray_removal()
             self.curBGEMCCD.make_spectrum()
             self.updateDataSig.emit(False, True) # update with the cleaned data
@@ -599,19 +643,33 @@ class CCDWindow(QtGui.QMainWindow):
             print "No image being collected."
 
         # if the detector is cooled, need to warm it back up
-        if self.CCD.temperature<0:
+        try:
             if self.setTempThread.isRunning():
                 print "Please wait for detector to warm"
                 return
+        except:
+            pass
+        if self.CCD.temperature<0:
             print 'Need to warm up the detector'
+
+            self.dump = ChillerBox(self, "Please wait for detector to warm up")
+            self.dump.show()
+
+            # Set up a timer to destroy the window after some time.
+            # Really, letting python garbage collecting take care of it
+            QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
+            self.ui.tSettingsGotoTemp.setText('20')
+            self.killFast = True
             self.doTempSet(0)
             event.ignore()
             return
 
-        self.CCD.dllCoolerOFF()
-        self.CCD.dllShutDown()
+        ret = self.CCD.dllCoolerOFF()
+        print "ooler off ret: {}".format(self.CCD.parseRetCode(ret))
+        ret = self.CCD.dllShutDown()
+        print "shutdown ret: {}".format(self.CCD.parseRetCode(ret))
 
-        self.CCD.cameraSettings=dict()  # Something is throwing an error when this isn't here
+        self.CCD.cameraSettings = dict()  # Something is throwing an error when this isn't here
                                         # I think a memory leak somewhere?
         self.CCD.dll = None
         self.CCD = None
@@ -620,8 +678,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.close()
 
 class ChillerBox(QtGui.QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, message = ""):
         super(ChillerBox, self).__init__(parent)
+        self.message = message
         self.setupUi(self)
 
     def setupUi(self, Dialog):
@@ -647,8 +706,8 @@ class ChillerBox(QtGui.QDialog):
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
     def retranslateUi(self, Dialog):
-        Dialog.setWindowTitle(_translate("Dialog", "Turn On The Chiller", None))
-        self.label.setText(_translate("Dialog", "Did you turn on the chiller?", None))
+        Dialog.setWindowTitle(_translate("Dialog", "Notice", None))
+        self.label.setText(_translate("Dialog", self.message, None))
 
 # Stuff for the dialog
 _encoding = QtGui.QApplication.UnicodeUTF8
