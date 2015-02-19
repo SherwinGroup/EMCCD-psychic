@@ -261,13 +261,16 @@ class AndorEMCCD(object):
         All functions follow the convention self.dllFunctionName so that it
         is easier to see which are coming directly from the dll."""
         try:
-            dll = CDLL('atmcd64dFAKE') #Change this to the appropriate name
+            dll = CDLL('atmcd64d') #Change this to the appropriate name
         except:
             try:
                 import os
-                os.chdir('C:\\Program Files\\Andor SDK')
-                dll = CDLL('atmcd64dFAKE')
+                curdir = os.getcwd()
+                os.chdir('C:\\Program Files\\Andor SOLIS\\Drivers')
+                dll = CDLL('atmcd64d')
+                os.chdir(curdir)
             except:
+                os.chdir(curdir)
                 print 'Error loading the DLL. Setting you up with a fake one'
                 from fakeAndor import fAndorEMCCD
                 dll = fAndorEMCCD()

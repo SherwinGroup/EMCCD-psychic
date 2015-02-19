@@ -89,7 +89,7 @@ class fAndorEMCCD(object):
     
     def __getNum(self, *args):
         x = args[0][-1]
-        x.value = np.random.randint(1, 5)
+        x.value = np.random.randint(3, 5)
 
     def __wait(self, *args):
         # Wait a random amount of time to simulate it

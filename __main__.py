@@ -270,8 +270,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.pSpec = self.ui.gCCDBin.plot()
         plotitem = self.ui.gCCDBin.getPlotItem()
         plotitem.setLabel('top',text='Spectrum')
-        plotitem.setLabel('left',text='Wavelength',units='nm')
-        plotitem.setLabel('bottom',text='Counts')
+        plotitem.setLabel('bottom',text='Wavelength',units='nm')
+        plotitem.setLabel('left',text='Counts')
 
         self.show()
 
@@ -285,7 +285,9 @@ class CCDWindow(QtGui.QMainWindow):
             self.settings["GPIBlist"][self.settings["specGPIBidx"]]
         )
         self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
+        self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
         self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
+        self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
 
     def updateSpecWavelength(self):
         desired = float(self.ui.sbSpecWavelength.value())
@@ -618,8 +620,10 @@ class CCDWindow(QtGui.QMainWindow):
         s["gain"] = int(self.CCD.cameraSettings["gain"])
         s["y_min"] = int(self.ui.tCCDYMin.text())
         s["y_max"] = int(self.ui.tCCDYMax.text())
-        s["grating"] = int(self.ui.tSpecCurGr.text())
-        s["center_lambda"] = float(self.ui.tSpecCurWl.text())
+#        s["grating"] = int(self.ui.tSpecCurGr.text())
+#        s["center_lambda"] = float(self.ui.tSpecCurWl.text())
+        s["grating"] = int(self.ui.sbSpecGrating.value())
+        s["center_lambda"] = float(self.ui.sbSpecWavelength.value())
         s["slits"] = str(self.ui.tCCDSlits.text())
         s["dark_region"] = None
         s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.text())
@@ -719,19 +723,19 @@ class CCDWindow(QtGui.QMainWindow):
 
             # Set up a timer to destroy the window after some time.
             # Really, letting python garbage collecting take care of it
-            QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
+#            QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
             self.ui.tSettingsGotoTemp.setText('20')
             self.killFast = True
             self.doTempSet(0)
             try:
-                self.setTempThread.finished.connect(self.dump.close())
-            except:
-                print "Couldn't connect thread to closing"
+                self.setTempThread.finished.connect(self.dump.close)
+            except Exception as e:
+                print "Couldn't connect thread to closing,", e
             event.ignore()
             return
 
         ret = self.CCD.dllCoolerOFF()
-        print "ooler off ret: {}".format(self.CCD.parseRetCode(ret))
+        print "cooler off ret: {}".format(self.CCD.parseRetCode(ret))
         ret = self.CCD.dllShutDown()
         print "shutdown ret: {}".format(self.CCD.parseRetCode(ret))
         self.Spectrometer.close()

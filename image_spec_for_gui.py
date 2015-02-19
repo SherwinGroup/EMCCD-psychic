@@ -154,8 +154,8 @@ class EMCCD_image(object):
         returns a clean my_array
         '''
         
-        self.clean_array = self.raw_array
-        return
+#        self.clean_array = self.raw_array
+#        return
         image_removal = cosmics.cosmicsimage(self.raw_array, gain=mygain, # I don't understand gain
                                              readnoise=myreadnoise, 
                                              sigclip=mysigclip, 
@@ -196,9 +196,9 @@ class EMCCD_image(object):
 
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
-        filename = self.file_name + "_spectrum"
+        filename = self.file_name + "_spectrum.txt"
         my_header = self.description + '\n' + equipment_str + origin_import
         np.savetxt(os.path.join(folder_str, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '#', fmt='%f')
@@ -221,13 +221,15 @@ class EMCCD_image(object):
         self.equipment_dict['subtrahenda'] = self.subtrahenda
         print 'json dumping'
         try:
-            equipment_str = json.dumps(self.equipment_dict)
+            equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         except:
             print "JSON FAILED"
             print self.equipment_dict
             return
         
         my_header = self.description + '\n' + equipment_str
+        
+        filename = self.file_name + '.txt'
 
         print 'saving'
         try:
@@ -235,7 +237,7 @@ class EMCCD_image(object):
         except:
             print "ospath failed"
         try:
-            np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array,
+            np.savetxt(os.path.join(folder_str, filename), self.raw_array,
                    delimiter=',', header=my_header, comments = '#', fmt='%d')
         except Exception as e:
             print e
@@ -307,7 +309,7 @@ class HSG_image(EMCCD_image):
         hsg_str = json.dumps(self.hsg_dict)
         self.equipment_dict['addenda': self.addenda]
         self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         
         save_file_name = 'hsg_' + self.file_name
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
@@ -337,7 +339,7 @@ class HSG_image(EMCCD_image):
         hsg_str = json.dumps(self.hsg_dict)
         self.equipment_dict['addenda': self.addenda]
         self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         
         my_header = self.description + '\n' + hsg_str + '\n' + equipment_str
         
@@ -399,7 +401,7 @@ class PL_image(EMCCD_image):
         pl_str = json.dumps(self.pl_dict)
         self.equipment_dict['addenda': self.addenda]
         self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         
         save_file_name = 'pl_' + self.file_name
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
@@ -429,7 +431,7 @@ class PL_image(EMCCD_image):
         pl_str = json.dumps(self.pl_dict)
         self.equipment_dict['addenda': self.addenda]
         self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         
         my_header = self.description + '\n' + pl_str + '\n' + equipment_str
         
@@ -562,7 +564,7 @@ class Abs_image(EMCCD_image):
         abs_str = json.dumps(self.abs_dict)
         self.equipment_dict['addenda': self.addenda]
         self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         
         save_file_name = 'abs_' + self.file_name
         origin_import = '\nWavelength,Blank,Transmitted,Absorbance\nnm,arb. u.,arb. u.,log10'
@@ -592,11 +594,12 @@ class Abs_image(EMCCD_image):
         abs_str = json.dumps(self.abs_dict)
         self.equipment_dict['addenda': self.addenda]
         self.equipment_dict['subtrahenda': self.subtrahenda]
-        equipment_str = json.dumps(self.equipment_dict)
+        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
+        filename = self.file_name + '.txt'
         
         my_header = self.description + '\n' + abs_str + '\n' + equipment_str
         
-        np.savetxt(os.path.join(folder_str, self.file_name), self.trans_array, 
+        np.savetxt(os.path.join(folder_str, filename), self.trans_array, 
                    delimiter=',', header=my_header, comments='#', fmt='%f')
         np.savetxt(os.path.join(folder_str, self.blank_file_name), 
                    self.blank_array, delimiter=',', header=my_header, 
