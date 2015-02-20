@@ -11,6 +11,23 @@ import time
 import numpy as np
 
 
+class AndorCapabilities(Structure):
+    """ Class for retrieving the available parameters of the camera
+        http://forge.abcd.harvard.edu/gf/project/storm_control/scmgit/?p=storm_control;a=blob_plain;f=hal4000/andor/andorcontroller.py;hb=ec7d862398760cf292dfc53fc5add8ebc39eeb74
+
+    """
+    _fields_ = [("ulSize", c_ulong),
+                ("ulAcqModes", c_ulong),
+                ("ulReadModes", c_ulong),
+                ("ulTriggerModes", c_ulong),
+                ("ulCameraType", c_ulong),
+                ("ulPixelMode", c_ulong),
+                ("ulSetFunctions", c_ulong),
+                ("ulGetFunctions", c_ulong),
+                ("ulFeatures", c_ulong),
+                ("ulPCICard", c_ulong),
+                ("ulEMGainCapability", c_ulong),
+                ("ulFTReadModes", c_ulong)]
 
 class AndorEMCCD(object):
     
@@ -28,6 +45,7 @@ class AndorEMCCD(object):
         self.cameraSettings = dict() # A dictionary to hold various parameters of the camera
 
         self.data = None
+        self.capabilities = AndorCapabilities(sizeof(c_ulong)*12,0,0,0,0,0,0,0,0,0,0,0)
 
 
     def gotoTemperature(self, *args):
@@ -118,7 +136,7 @@ class AndorEMCCD(object):
 
         #SETUP THE SHUTTER
         # assume TTL high, automatic usage, 10ms open/close
-        self.dllSetShutter(1, 0, 10, 10)
+        self.setShutterEx(0, 0)
 
     def setHSS(self, idx):
         ret = self.dllSetHSSpeed(self.cameraSettings['outputAmp'],
@@ -252,6 +270,30 @@ class AndorEMCCD(object):
 
         return retnums
 
+    def setShutterEx(self, intMode, exMode):
+        """
+        :param intMode: internal mode
+        :param exMode: external mode
+        0=auto, 1=open, 2=close
+        :return:
+        """
+
+        # screw you, you only get TTL high and 10ms open/closing times for now
+        ret = self.dllSetShutterEx(1, intMode, 10, 10, exMode)
+
+        # I'm too tired to justify this
+        d = {0: "Fully Auto",
+             1: "Permanently Open",
+             2: "Permanently Closed"}
+        if ret == 20002:
+            self.cameraSettings["shutter"] = [intMode, exMode]
+            self.cameraSettings["curShutterInt"] = d[intMode]
+            self.cameraSettings["curShutterEx"] = d[exMode]
+        return ret
+
+    def getCapabilities(self):
+        ret = self.dllGetCapabilities(self.capabilities)
+        print "GetCapabilities: {}".format(self.parseRetCode(ret))
 
     def registerFunctions(self):
         """ This function serves to import all of the functions
@@ -261,13 +303,13 @@ class AndorEMCCD(object):
         All functions follow the convention self.dllFunctionName so that it
         is easier to see which are coming directly from the dll."""
         try:
-            dll = CDLL('atmcd64d') #Change this to the appropriate name
+            dll = CDLL('atmcd64dF') #Change this to the appropriate name
         except:
             try:
                 import os
                 curdir = os.getcwd()
                 os.chdir('C:\\Program Files\\Andor SOLIS\\Drivers')
-                dll = CDLL('atmcd64d')
+                dll = CDLL('atmcd64dF')
                 os.chdir(curdir)
             except:
                 os.chdir(curdir)
@@ -337,17 +379,17 @@ class AndorEMCCD(object):
         self.dllCoolerOFF = dll.CoolerOFF
         self.dllCoolerOFF.restype = c_uint
         self.dllCoolerOFF.argtypes = []
-        
+
         """
-        GetAcquiredData: This function will return the data from the last 
-        acquisition. The data are returned as long integers (32-bit signed 
+        GetAcquiredData: This function will return the data from the last
+        acquisition. The data are returned as long integers (32-bit signed
         integers). The “array” must be large enough to hold the complete data set.
-        
+
         Parameters
         ----------
         long* array: pointer to data storage allocated by the user.
         long size: total number of pixels.
-        
+
         Return
         ------
         unsigned int
@@ -361,7 +403,37 @@ class AndorEMCCD(object):
         self.dllGetAcquiredData = dll.GetAcquiredData
         self.dllGetAcquiredData.resType = c_uint
         self.dllGetAcquiredData.argtypes = [POINTER(c_long), c_long]
-        
+
+        """
+        GetCapabilities: This function will fill in an AndorCapabilities
+        structure with the capabilities associated with the connected camera.
+        Before passing the address of an AndorCapabilites structure to the
+        function the ulSize member of the structure should be set to the size
+        of the structure. In C++ this can be done with the line:
+            caps->ulSize = sizeof(AndorCapabilities);
+        Individual capabilities are determined by examining certain bits and
+        combinations of bits in the member variables of the AndorCapabilites
+        structure. The next few pages contain a summary of the capabilities
+        currently returned.
+
+        Parameters
+        ----------
+        Andor capabilities* caps: the capabilities structure to be filled in.
+
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS         Capabilities returned
+            DRV_NOT_INITIALIZED System not initialized.
+            DRV_P1INVALID       Invalid caps parameter (i.e. NULL).
+        """
+        self.dllGetCapabilities = dll.GetCapabilities
+        self.dllGetCapabilities.resType = c_uint
+        self.dllGetCapabilities.argtypes = [POINTER(AndorCapabilities)]
+
+
+
+
         """
         GetDetector: This function returns the size of the detector in 
         pixels. The horizontal axis is taken to be the axis parallel to the

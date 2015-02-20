@@ -10,8 +10,9 @@ from PyQt4 import QtCore, QtGui
 from mainWindow_ui import Ui_MainWindow
 from Andor import AndorEMCCD
 import pyqtgraph as pg
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import EMCCD_image
-import copy
 from Instruments import *
 
 try:
@@ -55,6 +56,8 @@ class CCDWindow(QtGui.QMainWindow):
 
     getImageThread = None
     updateProgTimer = None # timer for updating the progress bar
+
+    getContinuousThread = None
 
     def __init__(self):
         super(CCDWindow, self).__init__()
@@ -101,8 +104,8 @@ class CCDWindow(QtGui.QMainWindow):
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
 
         # Which settings combo boxes have been changed?
-        # AD, VSS, Read, HSS, Trigg, Acq
-        s["changedSettingsFlags"] = [0, 0, 0, 0, 0, 0]
+        # AD, VSS, Read, HSS, Trigg, Acq, intShutter, exShutter
+        s["changedSettingsFlags"] = [0, 0, 0, 0, 0, 0, 0, 0]
 
         # Which image boxes have been changed?
         # HBin, VBin, HSt, HEn, VSt, VEn
@@ -133,6 +136,11 @@ class CCDWindow(QtGui.QMainWindow):
         # The current value contaiend in the progress bar
         s["progress"] = 0
         self.killFast = False
+
+        # do you want me to remove cosmic rays?
+        s["doCRR"] = True
+        s["takeContinuous"] = False
+
         self.settings = s
 
     def initUI(self):
@@ -178,6 +186,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cSettingsHSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsTrigger.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsAcquisitionMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
+        self.ui.cSettingsShutter.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
+        self.ui.cSettingsShutterEx.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
 
         ####################
         # Create a list of the ui setting handles for iteration
@@ -187,7 +197,9 @@ class CCDWindow(QtGui.QMainWindow):
                                        self.ui.cSettingsReadMode,
                                        self.ui.cSettingsHSS,
                                        self.ui.cSettingsTrigger,
-                                       self.ui.cSettingsAcquisitionMode]
+                                       self.ui.cSettingsAcquisitionMode,
+                                       self.ui.cSettingsShutter,
+                                       self.ui.cSettingsShutterEx]
 
         #########################
         # Connect all of the changes to the image parameters
@@ -250,6 +262,14 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tCCDBGNum.textAccepted.connect(
             lambda: self.updateImageNumbers(False))
 
+        ##################
+        # Connections for file menu things
+        ##################
+        # All I want it to do is set a flag which gets checked later.
+        self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
+        self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
+        self.ui.mFileTakeContinuous.triggered[bool].connect(self.startTakeContinuous)
+
         # Follow the pyqtgraph example for how to set up
         # an image plot and histogram, without the other obnoxious stuff
         # included in a plain ImageView
@@ -267,7 +287,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.pBackHist.setImageItem(self.pBackImage)
         self.ui.gCCDBack.addItem(self.pBackHist)
 
-        self.pSpec = self.ui.gCCDBin.plot()
+        self.pSpec = self.ui.gCCDBin.plot(pen='k')
         plotitem = self.ui.gCCDBin.getPlotItem()
         plotitem.setLabel('top',text='Spectrum')
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
@@ -357,9 +377,25 @@ class CCDWindow(QtGui.QMainWindow):
         elif idx == 2:
             self.ui.gbImageParams.setEnabled(True)
             self.settings["isImage"] = True
-
-
-
+        # Error above mentioned about identical settings has to be handled for the shutter,
+        # as both share the same names
+        # 
+        # Here it is for the first shutter
+        elif idx == 6:
+            if st == self.CCD.cameraSettings["curShutterInt"]:
+                self.settings["changedSettingsFlags"][idx] = 0
+            else:
+                self.settings["changedSettingsFlags"][idx] = 1
+        elif idx == 7:
+            if st == self.CCD.cameraSettings["curShutterEx"]:
+                self.settings["changedSettingsFlags"][idx] = 0
+            else:
+                self.settings["changedSettingsFlags"][idx] = 1
+            
+                
+            
+        
+        
 
         # Check to see if anything was changed in these settings or in the
         # text boxes for the Image settings.
@@ -427,6 +463,16 @@ class CCDWindow(QtGui.QMainWindow):
             print 'Changed Acq: {}'.format(self.CCD.parseRetCode(ret))
             self.settings["changedSettingsFlags"][5] = 0
 
+        # Did either of the shutter values changed
+        if 1 in changed[6:8]:
+            ret = self.CCD.setShutterEx(
+                self.ui.cSettingsShutter.currentIndex(),
+                self.ui.cSettingsShutterEx.currentIndex()
+            )
+            print 'Changed shutter: {}'.format(self.CCD.parseRetCode(ret))
+            self.settings["changedSettingsFlags"][6:8] = [0, 0]
+
+
         # Now change the settings parameters
         if 1 in self.settings["changedImageFlags"]:
             # Get the array to change to
@@ -434,9 +480,6 @@ class CCDWindow(QtGui.QMainWindow):
             ret = self.CCD.setImage(vals)
             print "Changed image: {}".format(self.CCD.parseRetCode(ret))
             self.settings["changedImageFlags"] = [0, 0, 0, 0, 0, 0]
-
-
-
 
         self.ui.bSettingsApply.setEnabled(False)
 
@@ -458,6 +501,12 @@ class CCDWindow(QtGui.QMainWindow):
 
         idx = self.ui.cSettingsAcquisitionMode.findText(str(self.CCD.cameraSettings['curAcqMode']))
         self.ui.cSettingsAcquisitionMode.setCurrentIndex(idx)
+
+        idx = self.ui.cSettingsShutter.findText(str(self.CCD.cameraSettings["curShutterInt"]))
+        self.ui.cSettingsShutter.setCurrentIndex(idx)
+
+        idx = self.ui.cSettingsShutterEx.findText(str(self.CCD.cameraSettings["curShutterEx"]))
+        self.ui.cSettingsShutterEx.setCurrentIndex(idx)
 
         for (i, uiEle) in enumerate(self.settings["imageUI"]):
             uiEle.setText(str(self.CCD.cameraSettings['imageSettings'][i]))
@@ -509,8 +558,10 @@ class CCDWindow(QtGui.QMainWindow):
         self.getTempTimer.timeout.connect(self.updateTemp)
         self.getTempTimer.start(1000)
         self.setTempThread.start()
+        self.ui.mFileBreakTemp.setEnabled(True)
 
     def cleanupSetTemp(self):
+        self.ui.mFileBreakTemp.setEnabled(False)
         self.ui.bCCDImage.setEnabled(True)
         self.ui.bCCDBack.setEnabled(True)
         self.ui.bSetTemp.setEnabled(True)
@@ -525,6 +576,7 @@ class CCDWindow(QtGui.QMainWindow):
     def startTakeImage(self, imtype = "img"):
         self.ui.bCCDImage.setEnabled(False)
         self.ui.bCCDBack.setEnabled(False)
+        self.ui.gbSettings.setEnabled(False)
         self.settings["progress"] = 0
         self.getImageThread = TempThread(target = self.takeImage, args=imtype)
 
@@ -574,14 +626,19 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curDataEMCCD.save_images(self.settings["imSaveDir"])
             except Exception as e:
                 print "Error saving data image", e
-            try:
-                self.curDataEMCCD.cosmic_ray_removal()
-            except Exception as e:
-                print "cosmic,",e
+
+            if self.settings["doCRR"]:
+                try:
+                    self.curDataEMCCD.cosmic_ray_removal()
+                except Exception as e:
+                    print "cosmic,",e
+            else:
+                self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
+
             try:
                 self.curDataEMCCD = self.curDataEMCCD - self.curBGEMCCD
             except Exception as e:
-                print e
+                print 'subraction:', e
 
             try:
                 self.curDataEMCCD.make_spectrum()
@@ -601,13 +658,44 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curBGEMCCD.save_images(self.settings["bgSaveDir"])
             except Exception as e:
                 print "Error saving background iamge", e
-            self.curBGEMCCD.cosmic_ray_removal()
+
+            if self.settings["doCRR"]:
+                self.curBGEMCCD.cosmic_ray_removal()
+            else:
+                self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
+
             self.curBGEMCCD.make_spectrum()
             self.updateDataSig.emit(False, True) # update with the cleaned data
 
         self.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.ui.bCCDImage.setEnabled(True)
         self.ui.bCCDBack.setEnabled(True)
+        self.ui.gbSettings.setEnabled(True)
+
+    def startTakeContinuous(self, val):
+        if val is True:
+        # Update exposure/gain if necesssary
+            if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
+                self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
+            if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
+                self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+            self.ui.gbSettings.setEnabled(False)
+            self.ui.bCCDBack.setEnabled(False)
+            self.ui.bCCDImage.setEnabled(False)
+            self.getContinuousThread = TempThread(target = self.takeContinuous)
+            self.getContinuousThread.start()
+
+    def takeContinuous(self):
+        while self.ui.mFileTakeContinuous.isChecked():
+            self.CCD.dllStartAcquisition()
+            self.CCD.dllWaitForAcquisition()
+            self.curData = self.CCD.getImage()
+            self.updateDataSig.emit(True, False)
+
+        self.ui.gbSettings.setEnabled(True)
+        self.ui.bCCDBack.setEnabled(True)
+        self.ui.bCCDImage.setEnabled(True)
+
 
     def genEquipmentDict(self):
         """
@@ -632,6 +720,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["FELP"] = str(self.ui.tCCDFELP.text())
         s["FELRR"] = str(self.ui.tCCDFELRR.text())
         s["FEL_lambda"] = str(self.ui.tCCDFELFreq.text())
+        s["Sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
 
         st = str(self.ui.tCCDSeries.text())
         # NIRP, NIRW, FELF, FELP, SLITS

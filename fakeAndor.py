@@ -25,7 +25,7 @@ class myCallable(object):
         self.func(args)
         ret = 20002
         if self.st == "GetTemperature":
-            n = np.random.randint(2)
+            n = np.random.randint(100)
             if n == 1:
                 ret = 20036 # temp stabilized
             else:
@@ -39,6 +39,7 @@ class fAndorEMCCD(object):
         self.CoolerOFF = myCallable(self.__voidReturn, 'CoolerOFF')
         self.CancelWait = myCallable(self.__voidReturn, 'CancelWait')
         self.GetAcquiredData = myCallable(self.__getData, 'GetAcquiredData')
+        self.GetCapabilities = myCallable(self.__voidReturn, 'GetCapabilities')
         self.GetDetector = myCallable(self.__getDet, 'GetDetector')
         self.GetHSSpeed = myCallable(self.__getHSS, 'GetHSSpeed')
         self.GetMostRecentImage = myCallable(self.__voidReturn, 'GetMostRecentImage')

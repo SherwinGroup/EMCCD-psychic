@@ -24,7 +24,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <property name="elideMode">
        <enum>Qt::ElideRight</enum>
@@ -44,7 +44,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_7">
         <item>
-         <widget class="QGroupBox" name="groupBox_2">
+         <widget class="QGroupBox" name="gbSettings">
           <property name="title">
            <string>CCD Settings</string>
           </property>
@@ -300,6 +300,92 @@
                   <item>
                    <property name="text">
                     <string>Time delayed integration</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QGroupBox" name="groupBox_50">
+               <property name="title">
+                <string>External Shutter</string>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_42">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>10</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QComboBox" name="cSettingsShutterEx">
+                  <item>
+                   <property name="text">
+                    <string>Fully Auto</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Permanently Open</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Permanently Closed</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QGroupBox" name="groupBox_51">
+               <property name="title">
+                <string>Internal Shutter</string>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_43">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>10</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QComboBox" name="cSettingsShutter">
+                  <item>
+                   <property name="text">
+                    <string>Fully Auto</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Permanently Open</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Permanently Closed</string>
                    </property>
                   </item>
                  </widget>
@@ -811,46 +897,15 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_10">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_35" stretch="0,1">
+         <layout class="QHBoxLayout" name="horizontalLayout_35" stretch="1,100">
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_9" stretch="0,1">
             <item>
              <layout class="QGridLayout" name="gridLayout">
-              <item row="4" column="1">
-               <widget class="QGroupBox" name="groupBox_35">
+              <item row="0" column="2">
+               <widget class="QGroupBox" name="groupBox_42">
                 <property name="title">
-                 <string>Gain</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <layout class="QHBoxLayout" name="horizontalLayout_33">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <item>
-                  <widget class="QINumberEdit" name="tEMCCDGain">
-                   <property name="text">
-                    <string>1</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="3" column="2">
-               <widget class="QGroupBox" name="groupBox_37">
-                <property name="title">
-                 <string>Image Number</string>
+                 <string>Series</string>
                 </property>
                 <property name="flat">
                  <bool>true</bool>
@@ -858,7 +913,7 @@
                 <property name="checkable">
                  <bool>false</bool>
                 </property>
-                <layout class="QGridLayout" name="gridLayout_7">
+                <layout class="QGridLayout" name="gridLayout_12">
                  <property name="leftMargin">
                   <number>0</number>
                  </property>
@@ -875,276 +930,27 @@
                   <number>0</number>
                  </property>
                  <item row="0" column="0">
-                  <widget class="QINumberEdit" name="tCCDImageNum">
-                   <property name="text">
-                    <string>0</string>
+                  <widget class="QLineEdit" name="tCCDSeries">
+                   <property name="toolTip">
+                    <string>NIRP, NIRW, FELF, FELP, SLITS</string>
                    </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="3" column="1">
-               <widget class="QGroupBox" name="groupBox_34">
-                <property name="title">
-                 <string>Exposure (s)</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <layout class="QHBoxLayout" name="horizontalLayout_32">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <item>
-                  <widget class="QFNumberEdit" name="tEMCCDExp">
-                   <property name="text">
-                    <string>0.5</string>
+                   <property name="statusTip">
+                    <string/>
                    </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="4" column="2">
-               <widget class="QGroupBox" name="groupBox_38">
-                <property name="title">
-                 <string>Background Number</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_8">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <item row="0" column="0">
-                  <widget class="QINumberEdit" name="tCCDBGNum">
-                   <property name="text">
-                    <string>0</string>
+                   <property name="whatsThis">
+                    <string/>
                    </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QGroupBox" name="groupBox_36">
-                <property name="title">
-                 <string>NIR Wavelength (nm)</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_6">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDNIRwavelength">
-                   <property name="text">
-                    <string>0</string>
+                   <property name="accessibleName">
+                    <string/>
                    </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="2" column="0">
-               <widget class="QGroupBox" name="groupBox_45">
-                <property name="title">
-                 <string>Slits</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_15">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDSlits">
-                   <property name="text">
-                    <string>0</string>
+                   <property name="accessibleDescription">
+                    <string/>
                    </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="1" column="1">
-               <widget class="QGroupBox" name="groupBox_40">
-                <property name="title">
-                 <string>FEL Power</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_10">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDFELP">
-                   <property name="text">
-                    <string>0</string>
+                   <property name="inputMethodHints">
+                    <set>Qt::ImhNone</set>
                    </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="4" column="0">
-               <widget class="QPushButton" name="bCCDBack">
-                <property name="text">
-                 <string>Take Background</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="2">
-               <widget class="QGroupBox" name="groupBox_41">
-                <property name="title">
-                 <string>Rep Rate (s)</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_11">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDFELRR">
                    <property name="text">
-                    <string>0.75</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item row="3" column="0">
-               <widget class="QPushButton" name="bCCDImage">
-                <property name="text">
-                 <string>Take Image</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="2">
-               <widget class="QGroupBox" name="groupBox_44">
-                <property name="title">
-                 <string>Ymax</string>
-                </property>
-                <property name="flat">
-                 <bool>true</bool>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QGridLayout" name="gridLayout_14">
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>10</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDYMax">
-                   <property name="text">
-                    <string>400</string>
+                    <string/>
                    </property>
                   </widget>
                  </item>
@@ -1154,7 +960,7 @@
               <item row="0" column="0">
                <widget class="QGroupBox" name="groupBox_4">
                 <property name="title">
-                 <string>NIR Power (mw)</string>
+                 <string>NIR Power (mW)</string>
                 </property>
                 <property name="flat">
                  <bool>true</bool>
@@ -1179,7 +985,7 @@
                   <number>0</number>
                  </property>
                  <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDNIRP">
+                  <widget class="QFNumberEdit" name="tCCDNIRP">
                    <property name="text">
                     <string>0</string>
                    </property>
@@ -1262,10 +1068,17 @@
                 </layout>
                </widget>
               </item>
-              <item row="0" column="2">
-               <widget class="QGroupBox" name="groupBox_42">
+              <item row="5" column="0">
+               <widget class="QPushButton" name="bCCDBack">
+                <property name="text">
+                 <string>Take Background</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="2">
+               <widget class="QGroupBox" name="groupBox_41">
                 <property name="title">
-                 <string>Series</string>
+                 <string>Rep Rate (s)</string>
                 </property>
                 <property name="flat">
                  <bool>true</bool>
@@ -1273,7 +1086,7 @@
                 <property name="checkable">
                  <bool>false</bool>
                 </property>
-                <layout class="QGridLayout" name="gridLayout_12">
+                <layout class="QGridLayout" name="gridLayout_11">
                  <property name="leftMargin">
                   <number>0</number>
                  </property>
@@ -1290,29 +1103,329 @@
                   <number>0</number>
                  </property>
                  <item row="0" column="0">
-                  <widget class="QLineEdit" name="tCCDSeries">
-                   <property name="toolTip">
-                    <string>NIRP, NIRW, FELF, FELP, SLITS</string>
-                   </property>
-                   <property name="statusTip">
-                    <string/>
-                   </property>
-                   <property name="whatsThis">
-                    <string/>
-                   </property>
-                   <property name="accessibleName">
-                    <string/>
-                   </property>
-                   <property name="accessibleDescription">
-                    <string/>
-                   </property>
-                   <property name="inputMethodHints">
-                    <set>Qt::ImhNone</set>
-                   </property>
+                  <widget class="QLineEdit" name="tCCDFELRR">
                    <property name="text">
-                    <string/>
+                    <string>0.75</string>
                    </property>
                   </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QGroupBox" name="groupBox_40">
+                <property name="title">
+                 <string>FEL Power</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_10">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QLineEdit" name="tCCDFELP">
+                   <property name="text">
+                    <string>0</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QGroupBox" name="groupBox_35">
+                <property name="title">
+                 <string>Gain</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_33">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QINumberEdit" name="tEMCCDGain">
+                   <property name="text">
+                    <string>1</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="5" column="2">
+               <widget class="QGroupBox" name="groupBox_38">
+                <property name="title">
+                 <string>Bg Number</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_8">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QINumberEdit" name="tCCDBGNum">
+                   <property name="text">
+                    <string>0</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QPushButton" name="bCCDImage">
+                <property name="text">
+                 <string>Take Image</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QGroupBox" name="groupBox_34">
+                <property name="title">
+                 <string>Exposure (s)</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_32">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QFNumberEdit" name="tEMCCDExp">
+                   <property name="text">
+                    <string>0.5</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QGroupBox" name="groupBox_45">
+                <property name="title">
+                 <string>Slits</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_15">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QLineEdit" name="tCCDSlits">
+                   <property name="text">
+                    <string>0</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QGroupBox" name="groupBox_36">
+                <property name="title">
+                 <string>NIR Wavelength (nm)</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_6">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QLineEdit" name="tCCDNIRwavelength">
+                   <property name="text">
+                    <string>0</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="2" column="2">
+               <widget class="QGroupBox" name="groupBox_44">
+                <property name="title">
+                 <string>Ymax</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_14">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QLineEdit" name="tCCDYMax">
+                   <property name="text">
+                    <string>400</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="4" column="2">
+               <widget class="QGroupBox" name="groupBox_37">
+                <property name="title">
+                 <string>Image Number</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+                <layout class="QGridLayout" name="gridLayout_7">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QINumberEdit" name="tCCDImageNum">
+                   <property name="text">
+                    <string>0</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QGroupBox" name="groupBox_2">
+                <property name="title">
+                 <string>Sample Temp</string>
+                </property>
+                <property name="flat">
+                 <bool>true</bool>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_44">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
+                 <item>
+                  <widget class="QLineEdit" name="tCCDSampleTemp"/>
                  </item>
                 </layout>
                </widget>
@@ -1938,8 +2051,49 @@
      <height>21</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuOther_Settings">
+    <property name="title">
+     <string>Other Settings</string>
+    </property>
+    <addaction name="mFileDoCRR"/>
+    <addaction name="mFileBreakTemp"/>
+    <addaction name="mFileTakeContinuous"/>
+   </widget>
+   <addaction name="menuOther_Settings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="mFileDoCRR">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Do cosmic ray removal</string>
+   </property>
+  </action>
+  <action name="mFileBreakTemp">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Break temperature loop</string>
+   </property>
+  </action>
+  <action name="mFileTakeContinuous">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Take continuous</string>
+   </property>
+  </action>
+  <action name="actionValue">
+   <property name="text">
+    <string>value</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

@@ -1,0 +1,8 @@
+V0.3.2
+ * Added the ability to retrieve the capabilities of the camera via the GetCapabilities function. See code for vague usage.
+ * resized the signal/bg image plots
+ * Can control the shutter operation
+ * can abort a temperature set (analagous to Start Anyway)
+ * Can take an image continuously
+ * Added an option to choose whether to do cosmic ray removal or not
+ * Added box for sample temp
