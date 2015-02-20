@@ -41,9 +41,14 @@ class EMCCD_image(object):
 							 series = name for series
         '''
         self.raw_array = np.array(raw_array)
+        self.raw_shape = self.raw_array.shape
         self.file_name = file_name
         self.description = description
         self.equipment_dict = equipment_dict
+        if self.equipment_dict['y_max'] - self.equipment_dict['y_min'] > int(self.raw_shape[0]):
+            print "y_min and y_max were set incorrectly"
+            self.equipment_dict['y_max'] = int(self.raw_shape[0]) - 1
+            self.equipment_dict['y_min'] = 0
         self.clean_array = None
         self.spectrum = None
         self.addenda = [0, file_name] # This is important for keeping track of addition and subtraction
@@ -67,7 +72,7 @@ class EMCCD_image(object):
         dictionary entry works.  It could get ugly without double checking.
         '''
         if self.clean_array is None:
-            raise Exception('The first array has not been cleaned yet')
+            raise Exception('Source: EMCCD_image.__add__\nThe first array has not been cleaned yet')
         ret = copy.deepcopy(self)
         
         # Add a constant offset to the data
@@ -84,7 +89,7 @@ class EMCCD_image(object):
                 ret.addenda.extend(other.addenda[1:])
                 ret.subtrahenda.extend(other.subtrahenda)
             else:
-                raise Exception('These are not from the same grating settings')
+                raise Exception('Source: EMCCD_image.__add__\nThese are not from the same grating settings')
         return ret
 
     def __sub__(self, other):
@@ -97,7 +102,7 @@ class EMCCD_image(object):
         dictionary entry works.  It could get ugly without double checking.
         '''
         if self.clean_array is None:
-            raise Exception('The first array has not been cleaned yet')
+            raise Exception('Source: EMCCD_image.__sub__\nThe first array has not been cleaned yet')
         ret = copy.deepcopy(self)
         
         if type(other) in (int, float):
@@ -111,7 +116,7 @@ class EMCCD_image(object):
                 ret.subtrahenda.extend(other.addenda[1:])
                 ret.addenda.extend(other.subtrahenda)
             else:
-                raise Exception('These are not from the same grating settings')
+                raise Exception('Source: EMCCD_image.__sub__\nThese are not from the same grating settings')
         return ret
         
     def __getslice__(self, *args):
@@ -182,11 +187,14 @@ class EMCCD_image(object):
         the mean is set to zero.  It will also measure the standard deviation 
         of the noise for use later.
         '''
-        dark_region = self.clean_array[:,self.ymax + 40] # This is a total kludge
+        dark_region = self.clean_array[:,0] # This is a total kludge
         self.dark_mean = np.mean(dark_region)
         self.std_dev = np.std(dark_region)
-        self.spectrum[:,1] = self.spectrum[:, 1] - np.mean(dark_region)
-        self.addenda[0] += self.dark_mean
+        print "Base line is ", self.dark_mean
+        print "Standard deviation is ", self.std_dev
+        height = self.equipment_dict['y_max'] - self.equipment_dict['y_min']
+        self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
+        self.addenda[0] += self.dark_mean*height
     
     def save_spectrum(self, folder_str='Spectrum files'):
         '''
@@ -199,9 +207,9 @@ class EMCCD_image(object):
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
         filename = self.file_name + "_spectrum.txt"
-        my_header = self.description + '\n' + equipment_str + origin_import
+        my_header = '#' + self.description + '\n#' + equipment_str + origin_import
         np.savetxt(os.path.join(folder_str, filename), self.spectrum,
-                   delimiter=',', header=my_header, comments = '#', fmt='%f')
+                   delimiter=',', header=my_header, comments = '', fmt='%f')
     
     def save_images(self, folder_str='Raw files'):
         '''
@@ -214,8 +222,6 @@ class EMCCD_image(object):
         
         Also, I'm pretty sure self.raw_array is still ints?
         '''
-
-
         print 'adding dict'
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
