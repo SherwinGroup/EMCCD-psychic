@@ -131,7 +131,7 @@ class EMCCD_image(object):
         self.equipment_dict['y_min'] = y_min
         self.equipment_dict['y_max'] = y_max
     
-    def cosmic_ray_removal(self, mygain=2.2, myreadnoise=3.0, mysigclip=5.0, mysigfrac=0.5, myobjlim=5.0, myverbose=True):
+    def cosmic_ray_removal(self, mygain=1, myreadnoise=3.0, mysigclip=5.0, mysigfrac=0.3, myobjlim=3.0, myverbose=True):
         '''
         This is a single operation of cosmic ray removal.
 
