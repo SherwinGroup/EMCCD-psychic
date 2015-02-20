@@ -1,0 +1,14 @@
+HARD:
+-----------------------------------
+Pulse counting
+Implement run til abort
+
+EASY:
+-----------------------------------
+Label first sideband in spectrum
+
+
+
+
+IMPLEMENTED:
+-----------------------------------

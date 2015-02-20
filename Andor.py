@@ -303,13 +303,13 @@ class AndorEMCCD(object):
         All functions follow the convention self.dllFunctionName so that it
         is easier to see which are coming directly from the dll."""
         try:
-            dll = CDLL('atmcd64dF') #Change this to the appropriate name
+            dll = CDLL('atmcd64d') #Change this to the appropriate name
         except:
             try:
                 import os
                 curdir = os.getcwd()
                 os.chdir('C:\\Program Files\\Andor SOLIS\\Drivers')
-                dll = CDLL('atmcd64dF')
+                dll = CDLL('atmcd64d')
                 os.chdir(curdir)
             except:
                 os.chdir(curdir)

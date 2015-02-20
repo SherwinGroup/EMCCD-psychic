@@ -1,4 +1,4 @@
-V0.3.2
+V0.3.0.0 (20/2/2015)
  * Added the ability to retrieve the capabilities of the camera via the GetCapabilities function. See code for vague usage.
  * resized the signal/bg image plots
  * Can control the shutter operation
