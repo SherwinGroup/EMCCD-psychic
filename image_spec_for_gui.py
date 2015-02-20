@@ -229,7 +229,7 @@ class EMCCD_image(object):
         try:
             equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         except:
-            print "JSON FAILED"
+            print "Source: EMCCD_image.save_images\nJSON FAILED"
             print self.equipment_dict
             return
         
@@ -241,12 +241,13 @@ class EMCCD_image(object):
         try:
             print os.path.join(folder_str, self.file_name)
         except:
-            print "ospath failed"
+            print "Source: EMCCD_image.save_images\nospath failed"
         try:
             np.savetxt(os.path.join(folder_str, filename), self.raw_array,
                    delimiter=',', header=my_header, comments = '#', fmt='%d')
         except Exception as e:
             print e
+            print "Source: EMCCD_image.save_images"
             print 'type: {}'.format(type(self.raw_array))
             print 'size: {}'.format(self.raw_array.size)
 
