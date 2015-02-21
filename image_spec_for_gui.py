@@ -207,7 +207,7 @@ class EMCCD_image(object):
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
         filename = self.file_name + "_spectrum.txt"
-        my_header = '#' + self.description + '\n#' + equipment_str + origin_import
+        my_header = '#' + equipment_str + '#' + self.description + '\n' + origin_import
         np.savetxt(os.path.join(folder_str, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
     
@@ -233,7 +233,7 @@ class EMCCD_image(object):
             print self.equipment_dict
             return
         
-        my_header = self.description + '\n' + equipment_str
+        my_header = equipment_str + '\n' +  self.description
         
         filename = self.file_name + '.txt'
 

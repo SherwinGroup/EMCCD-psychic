@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'Z:\Darren\Python\EMCCD-psychic\mainWindow.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\mainWindow.ui'
 #
-# Created: Thu Feb 19 16:51:15 2015
+# Created: Fri Feb 20 14:48:53 2015
 #      by: PyQt4 UI code generator 4.9.6
 #
 # WARNING! All changes made in this file will be lost!
@@ -272,26 +272,13 @@ class Ui_MainWindow(object):
         self.horizontalLayout_5 = QtGui.QHBoxLayout(self.groupBox_9)
         self.horizontalLayout_5.setContentsMargins(0, 10, 0, 0)
         self.horizontalLayout_5.setObjectName(_fromUtf8("horizontalLayout_5"))
-        self.tSettingsBGDirectory = QtGui.QLineEdit(self.groupBox_9)
-        self.tSettingsBGDirectory.setObjectName(_fromUtf8("tSettingsBGDirectory"))
-        self.horizontalLayout_5.addWidget(self.tSettingsBGDirectory)
+        self.tSettingsDirectory = QtGui.QLineEdit(self.groupBox_9)
+        self.tSettingsDirectory.setObjectName(_fromUtf8("tSettingsDirectory"))
+        self.horizontalLayout_5.addWidget(self.tSettingsDirectory)
         self.bSettingsBGDirectory = QtGui.QPushButton(self.groupBox_9)
         self.bSettingsBGDirectory.setObjectName(_fromUtf8("bSettingsBGDirectory"))
         self.horizontalLayout_5.addWidget(self.bSettingsBGDirectory)
         self.verticalLayout_3.addWidget(self.groupBox_9)
-        self.groupBox_10 = QtGui.QGroupBox(self.groupBox_5)
-        self.groupBox_10.setFlat(True)
-        self.groupBox_10.setObjectName(_fromUtf8("groupBox_10"))
-        self.horizontalLayout_6 = QtGui.QHBoxLayout(self.groupBox_10)
-        self.horizontalLayout_6.setContentsMargins(0, 10, 0, 0)
-        self.horizontalLayout_6.setObjectName(_fromUtf8("horizontalLayout_6"))
-        self.tSettingsIMGDirectory = QtGui.QLineEdit(self.groupBox_10)
-        self.tSettingsIMGDirectory.setObjectName(_fromUtf8("tSettingsIMGDirectory"))
-        self.horizontalLayout_6.addWidget(self.tSettingsIMGDirectory)
-        self.bSettingsIMGDirectory = QtGui.QPushButton(self.groupBox_10)
-        self.bSettingsIMGDirectory.setObjectName(_fromUtf8("bSettingsIMGDirectory"))
-        self.horizontalLayout_6.addWidget(self.bSettingsIMGDirectory)
-        self.verticalLayout_3.addWidget(self.groupBox_10)
         self.verticalLayout_7.addWidget(self.groupBox_5)
         self.groupBox_3 = QtGui.QGroupBox(self.tabSettings)
         self.groupBox_3.setObjectName(_fromUtf8("groupBox_3"))
@@ -810,7 +797,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuOther_Settings.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         self.cSettingsReadMode.setCurrentIndex(4)
         self.cSettingsAcquisitionMode.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -829,11 +816,9 @@ class Ui_MainWindow(object):
         MainWindow.setTabOrder(self.bSettingsApply, self.bSettingsCancel)
         MainWindow.setTabOrder(self.bSettingsCancel, self.tBackgroundName)
         MainWindow.setTabOrder(self.tBackgroundName, self.tImageName)
-        MainWindow.setTabOrder(self.tImageName, self.tSettingsBGDirectory)
-        MainWindow.setTabOrder(self.tSettingsBGDirectory, self.bSettingsBGDirectory)
-        MainWindow.setTabOrder(self.bSettingsBGDirectory, self.tSettingsIMGDirectory)
-        MainWindow.setTabOrder(self.tSettingsIMGDirectory, self.bSettingsIMGDirectory)
-        MainWindow.setTabOrder(self.bSettingsIMGDirectory, self.tSettingsCurrTemp)
+        MainWindow.setTabOrder(self.tImageName, self.tSettingsDirectory)
+        MainWindow.setTabOrder(self.tSettingsDirectory, self.bSettingsBGDirectory)
+        MainWindow.setTabOrder(self.bSettingsBGDirectory, self.tSettingsCurrTemp)
         MainWindow.setTabOrder(self.tSettingsCurrTemp, self.tSettingsGotoTemp)
         MainWindow.setTabOrder(self.tSettingsGotoTemp, self.bSetTemp)
         MainWindow.setTabOrder(self.bSetTemp, self.tSettingsTempResponse)
@@ -916,13 +901,11 @@ class Ui_MainWindow(object):
         self.bSettingsCancel.setText(_translate("MainWindow", "Cancel", None))
         self.groupBox_5.setTitle(_translate("MainWindow", "Save settings", None))
         self.groupBox_8.setTitle(_translate("MainWindow", "Background Name", None))
-        self.tBackgroundName.setText(_translate("MainWindow", "test", None))
+        self.tBackgroundName.setText(_translate("MainWindow", "testBG", None))
         self.groupBox_7.setTitle(_translate("MainWindow", "Image Name", None))
-        self.tImageName.setText(_translate("MainWindow", "tesyu", None))
-        self.groupBox_9.setTitle(_translate("MainWindow", "Background Directory", None))
+        self.tImageName.setText(_translate("MainWindow", "test", None))
+        self.groupBox_9.setTitle(_translate("MainWindow", "Save Directory", None))
         self.bSettingsBGDirectory.setText(_translate("MainWindow", "Choose..", None))
-        self.groupBox_10.setTitle(_translate("MainWindow", "Image Directory", None))
-        self.bSettingsIMGDirectory.setText(_translate("MainWindow", "Choose..", None))
         self.groupBox_3.setTitle(_translate("MainWindow", "Temperature Control", None))
         self.groupBox_22.setTitle(_translate("MainWindow", "Current Temp", None))
         self.tSettingsCurrTemp.setText(_translate("MainWindow", "20", None))
@@ -992,5 +975,5 @@ class Ui_MainWindow(object):
         self.mFileTakeContinuous.setText(_translate("MainWindow", "Take continuous", None))
         self.actionValue.setText(_translate("MainWindow", "value", None))
 
-from customQt import QINumberEdit, QFNumberEdit
+from InstsAndQt.customQt import QINumberEdit, QFNumberEdit
 from pyqtgraph import PlotWidget, GraphicsLayoutWidget

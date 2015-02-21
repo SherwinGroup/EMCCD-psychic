@@ -1,4 +1,4 @@
-V0.3.0.0 (20/2/2015)
+V0.3.0.0 (19/2/2015)
  * Added the ability to retrieve the capabilities of the camera via the GetCapabilities function. See code for vague usage.
  * resized the signal/bg image plots
  * Can control the shutter operation
@@ -6,3 +6,7 @@ V0.3.0.0 (20/2/2015)
  * Can take an image continuously
  * Added an option to choose whether to do cosmic ray removal or not
  * Added box for sample temp
+
+V0.3.0.1 (20/2/2015)
+ * Added more clarity for exceptions
+ * json information is now the first line

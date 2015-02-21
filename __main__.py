@@ -13,7 +13,7 @@ import pyqtgraph as pg
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import EMCCD_image
-from Instruments import *
+from InstsAndQt.Instruments import *
 
 try:
     import visa
@@ -115,8 +115,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["imageUI"] = None # keep ttrack of the settings param textedits for iteration
         s["isImage"] = True # Is it an image read mode?
 
-        s["bgSaveDir"] = '' # Save dirs
-        s["imSaveDir"] = ''
+        s["saveDir"] = '' # Directory for saving
 
         # For Hunter. First time you set a temp, it will
         # pop up and make sure you turned on the chiller
@@ -249,10 +248,8 @@ class CCDWindow(QtGui.QMainWindow):
         ####################
         # Save file connection
         ##################
-        self.ui.bSettingsBGDirectory.clicked.connect(self.chooseSaveDir)
-        self.ui.tSettingsBGDirectory.setEnabled(False)
-        self.ui.bSettingsIMGDirectory.clicked.connect(self.chooseSaveDir)
-        self.ui.tSettingsIMGDirectory.setEnabled(False)
+        self.ui.bSettingsDirectory.clicked.connect(self.chooseSaveDir)
+        self.ui.tSettingsDirectory.setEnabled(False)
 
         ##################
         # Connections for updating image counters when user-changed
@@ -512,24 +509,14 @@ class CCDWindow(QtGui.QMainWindow):
             uiEle.setText(str(self.CCD.cameraSettings['imageSettings'][i]))
 
     def chooseSaveDir(self):
-        sent = self.sender()
-
-        if sent == self.ui.bSettingsBGDirectory:
-            hint = "Choose Background Directory"
-            prevDir = self.settings["bgSaveDir"]
-        else:
-            hint = "Choose Image Directory"
-            prevDir = self.settings["imSaveDir"]
+        prevDir = self.settings["saveDir"]
+        hint = "Choose save directory..."
         file = str(QtGui.QFileDialog.getExistingDirectory(self, hint, prevDir))
         if file == '':
             return
         #Update the appropriate file
-        if sent == self.ui.bSettingsBGDirectory:
-            self.settings["bgSaveDir"] = file
-            self.ui.tSettingsBGDirectory.setText(file)
-        else:
-            self.settings["imSaveDir"] = file
-            self.ui.tSettingsIMGDirectory.setText(file)
+        self.settings["saveDir"] = file
+        self.ui.tSettingsIMGDirectory.setText(file)
 
     def doTempSet(self, temp = None):
         # temp is so that it can be called during cleanup.
