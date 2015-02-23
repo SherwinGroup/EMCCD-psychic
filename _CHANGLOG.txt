@@ -7,6 +7,10 @@ V0.3.0.0 (19/2/2015)
  * Added an option to choose whether to do cosmic ray removal or not
  * Added box for sample temp
 
-V0.3.0.1 (20/2/2015)
+V0.3.0.1 (Exception handling) (20/2/2015)
  * Added more clarity for exceptions
  * json information is now the first line
+
+V3.0.2 (23/2/2015)
+ * Images and spectra now save in different directories
+ * If camera can't be initialized, sets up a fake camera

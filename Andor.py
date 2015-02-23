@@ -34,11 +34,15 @@ class AndorEMCCD(object):
     def __init__(self):
 
         self.dll = None
-        self.registerFunctions()
+        self.registerFunctions(wantFake = False)
         ret = self.dllInitialize('')
         print 'Initialized: {}'.format(ret)
-        if ret == 20992:
-            return ret
+        if ret != 20002:
+            print "Error initializing camera\n\tCode :{}".format(
+                self.parseRetCode(ret)
+            )
+            self.dll = None
+            self.registerFunctions(wantFake = True)
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
         self.tempRetCode = '' # code to
@@ -295,28 +299,32 @@ class AndorEMCCD(object):
         ret = self.dllGetCapabilities(self.capabilities)
         print "GetCapabilities: {}".format(self.parseRetCode(ret))
 
-    def registerFunctions(self):
+    def registerFunctions(self, wantFake = False):
         """ This function serves to import all of the functions
         from the DLL, define them as the class's own for neatness, and
         set up prototypes.
         
         All functions follow the convention self.dllFunctionName so that it
         is easier to see which are coming directly from the dll."""
-        name = "atmcd64dF"
-        try:
-            dll = CDLL(name) #Change this to the appropriate name
-        except:
+        name = "atmcd64d"
+        if wantFake:
+            from fakeAndor import fAndorEMCCD
+            dll = fAndorEMCCD()
+        else:
             try:
-                import os
-                curdir = os.getcwd()
-                os.chdir('C:\\Program Files\\Andor SOLIS\\Drivers')
-                dll = CDLL(name)
-                os.chdir(curdir)
+                dll = CDLL(name) #Change this to the appropriate name
             except:
-                os.chdir(curdir)
-                print 'Error loading the DLL. Setting you up with a fake one'
-                from fakeAndor import fAndorEMCCD
-                dll = fAndorEMCCD()
+                try:
+                    import os
+                    curdir = os.getcwd()
+                    os.chdir('C:\\Program Files\\Andor SOLIS\\Drivers')
+                    dll = CDLL(name)
+                    os.chdir(curdir)
+                except:
+                    os.chdir(curdir)
+                    print 'Error loading the DLL. Setting you up with a fake one'
+                    from fakeAndor import fAndorEMCCD
+                    dll = fAndorEMCCD()
         
         self.dll = dll # For if it's ever needed to call things directly
         

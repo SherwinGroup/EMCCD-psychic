@@ -14,6 +14,7 @@ pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import EMCCD_image
 from InstsAndQt.Instruments import *
+import os
 
 try:
     import visa
@@ -187,6 +188,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cSettingsAcquisitionMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsShutter.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsShutterEx.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
+        self.ui.tImageName.editingFinished.connect(self.makeSpectraFolder)
 
         ####################
         # Create a list of the ui setting handles for iteration
@@ -511,12 +513,46 @@ class CCDWindow(QtGui.QMainWindow):
     def chooseSaveDir(self):
         prevDir = self.settings["saveDir"]
         hint = "Choose save directory..."
-        file = str(QtGui.QFileDialog.getExistingDirectory(self, hint, prevDir))
-        if file == '':
+        filen = str(QtGui.QFileDialog.getExistingDirectory(self, hint, prevDir))
+        if filen == '':
             return
+        print "filename: {}".format(filen)
         #Update the appropriate file
-        self.settings["saveDir"] = file
-        self.ui.tSettingsIMGDirectory.setText(file)
+        self.settings["saveDir"] = filen
+        self.ui.tSettingsDirectory.setText(filen)
+
+        #create the appropriate folders
+        newIm = os.path.join(filen, 'Images')
+        newSpec = os.path.join(filen, 'Spectra')
+
+        # See if the folders exists and try to make them if they don't
+        if not os.path.exists(newIm):
+            try:
+                os.mkdir(newIm)
+            except:
+                print "Failed creating new image directory, {}".format(newIm)
+
+        if not os.path.exists(newSpec):
+            try:
+                os.mkdir(newSpec)
+            except:
+                print "Failed creating new spectra directory, {}".format(newSpec)
+
+        # Changed the path, want to make a new spectrum folder for the current
+        # name. That is, unless it's the default name, which likely means
+        # the user just started up and changed the dir
+        if str(self.ui.tImageName.text()) != "test":
+            self.makeSpectraFolder()
+
+    def makeSpectraFolder(self):
+        specFold = os.path.join(self.settings["saveDir"],
+                                'Spectra', str(self.ui.tImageName.text()))
+        if not os.path.exists(specFold):
+            try:
+                os.mkdir(specFold)
+            except Exception as e:
+                st = "__main__.makeSpectraFolder\n\tFailed to make folder for spectrum, {}\n\tReason given as {}"
+                print st.format(specFold)
 
     def doTempSet(self, temp = None):
         # temp is so that it can be called during cleanup.
@@ -606,11 +642,12 @@ class CCDWindow(QtGui.QMainWindow):
 
         if imtype=="img":
             self.curDataEMCCD = EMCCD_image(self.curData,
-                                            str(self.ui.tImageName.text())+str(self.ui.tCCDImageNum.text()),
+                                            str(self.ui.tImageName.text()),
+                                            str(self.ui.tCCDImageNum.text()),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
             try:
-                self.curDataEMCCD.save_images(self.settings["imSaveDir"])
+                self.curDataEMCCD.save_images(self.settings["saveDir"])
             except Exception as e:
                 print "Error saving data image", e
 
@@ -632,19 +669,20 @@ class CCDWindow(QtGui.QMainWindow):
             except Exception as e:
                 print e
             try:
-                self.curDataEMCCD.save_spectrum(self.settings["imSaveDir"])
+                self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
             except Exception as e:
-                print "Error saving spectrum,",e
+                print "__main__.takeImage\nError saving spectrum,",e
             self.updateDataSig.emit(True, True) # update with the cleaned data
         else:
             self.curBGEMCCD = EMCCD_image(self.curBG,
-                                            str(self.ui.tBackgroundName.text())+str(self.ui.tCCDBGNum.text()),
+                                            str(self.ui.tBackgroundName.text()),
+                                            str(self.ui.tCCDBGNum.text()),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
             try:
-                self.curBGEMCCD.save_images(self.settings["bgSaveDir"])
+                self.curBGEMCCD.save_images(self.settings["saveDir"])
             except Exception as e:
-                print "Error saving background iamge", e
+                print "__main__.takeImage\nError saving background iamge", e
 
             if self.settings["doCRR"]:
                 self.curBGEMCCD.cosmic_ray_removal()
@@ -695,8 +733,6 @@ class CCDWindow(QtGui.QMainWindow):
         s["gain"] = int(self.CCD.cameraSettings["gain"])
         s["y_min"] = int(self.ui.tCCDYMin.text())
         s["y_max"] = int(self.ui.tCCDYMax.text())
-#        s["grating"] = int(self.ui.tSpecCurGr.text())
-#        s["center_lambda"] = float(self.ui.tSpecCurWl.text())
         s["grating"] = int(self.ui.sbSpecGrating.value())
         s["center_lambda"] = float(self.ui.sbSpecWavelength.value())
         s["slits"] = str(self.ui.tCCDSlits.text())
@@ -709,6 +745,9 @@ class CCDWindow(QtGui.QMainWindow):
         s["FEL_lambda"] = str(self.ui.tCCDFELFreq.text())
         s["Sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
 
+        # If the user has the series box as {<variable>} where variable is
+        # any of the keys below, we want to replace it with the relavent value
+        # Potentially unnecessary at this point...
         st = str(self.ui.tCCDSeries.text())
         # NIRP, NIRW, FELF, FELP, SLITS
         st = st.format(NIRP=s["NIRP"], NIRW=s["NIR_lambda"], FELF=s["FEL_lambda"],

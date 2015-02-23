@@ -710,7 +710,7 @@
                <widget class="QLineEdit" name="tSettingsDirectory"/>
               </item>
               <item>
-               <widget class="QPushButton" name="bSettingsBGDirectory">
+               <widget class="QPushButton" name="bSettingsDirectory">
                 <property name="text">
                  <string>Choose..</string>
                 </property>
@@ -2070,12 +2070,12 @@
   <customwidget>
    <class>QFNumberEdit</class>
    <extends>QLineEdit</extends>
-   <header>customQt</header>
+   <header>InstsAndQt.customQt</header>
   </customwidget>
   <customwidget>
    <class>QINumberEdit</class>
    <extends>QLineEdit</extends>
-   <header>customQt</header>
+   <header>InstsAndQt.customQt</header>
   </customwidget>
   <customwidget>
    <class>GraphicsLayoutWidget</class>
@@ -2101,7 +2101,7 @@
   <tabstop>tBackgroundName</tabstop>
   <tabstop>tImageName</tabstop>
   <tabstop>tSettingsDirectory</tabstop>
-  <tabstop>bSettingsBGDirectory</tabstop>
+  <tabstop>bSettingsDirectory</tabstop>
   <tabstop>tSettingsCurrTemp</tabstop>
   <tabstop>tSettingsGotoTemp</tabstop>
   <tabstop>bSetTemp</tabstop>

@@ -17,8 +17,8 @@ import cosmics_hsg as cosmics
 
 class EMCCD_image(object):
     
-    def __init__(self, raw_array, file_name, description, equipment_dict):
-        '''
+    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+        """
         This init is to work with the most basic images with no specialiation
         for HSG or PL or absorbance data.  Feels like we should have something
         more general than those.
@@ -39,10 +39,11 @@ class EMCCD_image(object):
                              dark_region (maybe not that useful if can look at y_max + n) 
                              bg_file_name = name of background file
 							 series = name for series
-        '''
+        """
         self.raw_array = np.array(raw_array)
         self.raw_shape = self.raw_array.shape
         self.file_name = file_name
+        self.file_no = file_no
         self.description = description
         self.equipment_dict = equipment_dict
         if self.equipment_dict['y_max'] - self.equipment_dict['y_min'] > int(self.raw_shape[0]):
@@ -206,10 +207,14 @@ class EMCCD_image(object):
         self.equipment_dict['subtrahenda'] = self.subtrahenda
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
-        filename = self.file_name + "_spectrum.txt"
-        my_header = '#' + equipment_str + '#' + self.description + '\n' + origin_import
-        np.savetxt(os.path.join(folder_str, filename), self.spectrum,
+        filename = self.file_name + self.file_no + "_spectrum.txt"
+        my_header = '#' + equipment_str + '\n' + '#' + self.description + origin_import
+        np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
+
+        print "Save image.\nDirectory: {}".format(
+            os.path.join(folder_str, 'Spectra', self.file_name, filename)
+        )
     
     def save_images(self, folder_str='Raw files'):
         '''
@@ -222,10 +227,8 @@ class EMCCD_image(object):
         
         Also, I'm pretty sure self.raw_array is still ints?
         '''
-        print 'adding dict'
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
-        print 'json dumping'
         try:
             equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         except:
@@ -234,22 +237,24 @@ class EMCCD_image(object):
             return
         
         my_header = equipment_str + '\n' +  self.description
-        
-        filename = self.file_name + '.txt'
+        filename = self.file_name + self.file_no + '.txt'
 
-        print 'saving'
         try:
             print os.path.join(folder_str, self.file_name)
         except:
             print "Source: EMCCD_image.save_images\nospath failed"
         try:
-            np.savetxt(os.path.join(folder_str, filename), self.raw_array,
+            np.savetxt(os.path.join(folder_str, "Images", filename), self.raw_array,
                    delimiter=',', header=my_header, comments = '#', fmt='%d')
+            print "Saved image\nDirectory: {}".format(
+                os.path.join(folder_str, "Images", filename)
+            )
         except Exception as e:
             print e
             print "Source: EMCCD_image.save_images"
             print 'type: {}'.format(type(self.raw_array))
             print 'size: {}'.format(self.raw_array.size)
+
 
 
 
@@ -444,6 +449,8 @@ class PL_image(EMCCD_image):
         
         np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array, 
                    delimiter=',', header=my_header, comments='#', fmt='%d')
+
+
     
 class Abs_image(EMCCD_image):
     '''
