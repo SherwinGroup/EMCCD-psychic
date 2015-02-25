@@ -14,3 +14,8 @@ V0.3.0.1 (Exception handling) (20/2/2015)
 V3.0.2 (23/2/2015)
  * Images and spectra now save in different directories
  * If camera can't be initialized, sets up a fake camera
+
+V0.4.0.0 (25/2/2015)
+ * Photon counting possible
+ * Progress bar is now valid
+   - Timing is handled dynamically to account for invalid stepping. Necessary for effective photon counting

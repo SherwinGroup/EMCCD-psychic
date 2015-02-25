@@ -11,12 +11,11 @@ from mainWindow_ui import Ui_MainWindow
 from Andor import AndorEMCCD
 import pyqtgraph as pg
 import scipy.integrate as spi
-pg.setConfigOption('background', 'w')
-pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import EMCCD_image
 from InstsAndQt.Instruments import *
 import os
-
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 try:
     import visa
 except:
@@ -274,7 +273,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cOGPIB.addItems(self.settings['GPIBlist'])
         self.ui.cOGPIB.setCurrentIndex(self.settings["agilGPIBidx"])
         self.ui.bOPause.clicked[bool].connect(self.toggleScopePause)
-        self.ui.cOChannel.currentIndexChanged.connect(self.openAgilent)
+        self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
 
         self.pOsc = self.ui.gOsc.plot(pen='k')
         plotitem = self.ui.gOsc.getPlotItem()
@@ -429,7 +428,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
         self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
 
-    def openAgilent(self):
+    def openAgilent(self, idx = None):
+
         self.settings["shouldScopeLoop"] = False
         isPaused = self.settings["isScopePaused"] # For intelligently restarting scope afterwards
         if isPaused:
@@ -441,26 +441,32 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             self.Agilent.close()
         except Exception as e:
-            "__main__.openAgilent:\nError closing Agilent,",e
+            print "__main__.openAgilent:\nError closing Agilent,",e
         try:
             self.Agilent = Agilent6000(
                 self.settings["GPIBlist"][int(self.ui.cOGPIB.currentIndex())]
             )
             print 'Agilent opened'
         except Exception as e:
-            "__main__.openAgilent:\nError opening Agilent,",e
+            print "__main__.openAgilent:\nError opening Agilent,",e
             self.Agilent = Agilent6000("Fake")
-            self.ui.cOChannel.setCurrentIndex(
+            # If you change the index programatically,
+            # it signals again. But that calls this thread again
+            # which really fucks up with the threading stuff
+            # Cheap way is to just disconnect it and then reconnect it
+            self.ui.cOGPIB.currentIndexChanged.disconnect()
+            self.ui.cOGPIB.setCurrentIndex(
                 self.settings["GPIBlist"].index("Fake")
             )
+            self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
 
         self.Agilent.setTrigger()
         self.settings['shouldScopeLoop'] = True
+        if isPaused:
+            self.toggleScopePause(True)
 
         self.scopeCollectionThread = TempThread(target = self.collectScopeLoop)
         self.scopeCollectionThread.start()
-        if isPaused:
-            self.toggleScopePause(True)
 
     def toggleScopePause(self, val):
         print "Toggle scope. val={}".format(val)
@@ -479,10 +485,12 @@ class CCDWindow(QtGui.QMainWindow):
                 #If we want to pause, make a fake event loop and terminate it from outside forces
                 self.scopePausingLoop = QtCore.QEventLoop()
                 self.scopePausingLoop.exec_()
+                continue
             pyData = self.Agilent.getSingleChannel(int(self.ui.cOChannel.currentIndex())+1)
             if not self.settings['isScopePaused']:
                 self.pyDataSig.emit(pyData)
                 self.updateOscDataSig.emit()
+        print "LEAVING SCOPE COLLECTION LOOP VALIDLY"
 
     def doPhotonCountingLoop(self):
         while self.settings["doPhotonCounting"]:
@@ -843,21 +851,29 @@ class CCDWindow(QtGui.QMainWindow):
         if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
             self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
 
-        self.updateProgTimer = QtCore.QTimer()
-        self.updateProgTimer.timeout.connect(self.updateProgress)
-        self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
+        # self.updateProgTimer = QtCore.QTimer()
+        # self.updateProgTimer.timeout.connect(self.updateProgress)
+        # self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
+        self.elapsedTimer = QtCore.QElapsedTimer()
+        self.settings["exposing"] = True
+        self.elapsedTimer.start()
+        QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
+                                 self.updateProgress)
 
         self.getImageThread.start()
 
     def takeImage(self, imtype):
-
-        self.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
+        """
+        Want to have the exposing flags set here just so there's no funny business
+        Sometimes the other thread may msibehave and we don't want photons to keep on
+        counting
+        """
         self.settings["exposing"] = True
+        self.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
         self.CCD.dllStartAcquisition()
         self.CCD.dllWaitForAcquisition()
-        self.killTimerSig.emit(self.updateProgTimer)
-        self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
         self.settings["exposing"] = False
+        # self.killTimerSig.emit(self.updateProgTimer)
         data = self.CCD.getImage()
 
         if imtype=="img":
@@ -1023,8 +1039,17 @@ class CCDWindow(QtGui.QMainWindow):
                 self.pBackHist.setLevels(self.curBG.min(), self.curBG.max())
 
     def updateProgress(self):
-        self.settings["progress"] += 1
-        self.ui.pCCD.setValue(self.settings["progress"])
+        if self.settings["progress"] < 100:
+            self.settings["progress"] += 1
+            self.ui.pCCD.setValue(self.settings["progress"])
+            newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
+                      - (self.elapsedTimer.elapsed())
+            QtCore.QTimer.singleShot(newTime,
+                                     self.updateProgress)
+        else:
+            self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
+            self.settings["exposing"] = False
+            self.elapsedTimer = None
 
     def updateUIElement(self, element, val):
         """
