@@ -10,6 +10,7 @@ from PyQt4 import QtCore, QtGui
 from mainWindow_ui import Ui_MainWindow
 from Andor import AndorEMCCD
 import pyqtgraph as pg
+import scipy.integrate as spi
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import EMCCD_image
@@ -50,6 +51,11 @@ class CCDWindow(QtGui.QMainWindow):
     killTimerSig = QtCore.pyqtSignal(object) # To kill a timer started in the main thread from a sub-thread
      # to update either image, whether it is clean or not
     updateDataSig = QtCore.pyqtSignal(object, object)
+    # Has the oscilloscope updated and data is now ready
+    # for processing?
+    updateOscDataSig = QtCore.pyqtSignal()
+    # Can now update the graph
+    pyDataSig = QtCore.pyqtSignal(object)
 
     # Thread definitions
     setTempThread = None
@@ -58,7 +64,17 @@ class CCDWindow(QtGui.QMainWindow):
     getImageThread = None
     updateProgTimer = None # timer for updating the progress bar
 
-    getContinuousThread = None
+    getContinuousThread = None # Thread for acquiring continuously
+
+    scopeCollectionThread = None # Thread which polls the scope
+    scopePausingLoop = None # A QEventLoop which causes the scope collection
+                            # thread to wait
+
+    photonCountingThread = None # A thread whose only sad purpose
+                                # in life is to wait for data to
+                                # be emitted and to process
+                                # and count it
+    photonWaitingLoop = None # Loop while photon counting waits for more
 
     def __init__(self):
         super(CCDWindow, self).__init__()
@@ -76,10 +92,14 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer = None
         self.Agilent = None
         self.openSpectrometer()
+        self.openAgilent()
 
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
         self.updateDataSig.connect(self.updateImage)
+        self.pyDataSig.connect(self.updateOscilloscopeGraph)
+        self.photonCountingThread = TempThread(target = self.doPhotonCountingLoop)
+        self.photonCountingThread.start()
 
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
@@ -103,6 +123,23 @@ class CCDWindow(QtGui.QMainWindow):
         except ValueError:
             # otherwise, just set it to the fake index
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
+            s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
+
+        # This will be used to toggle pausing on the scope
+        s["isScopePaused"] = True
+        # This flag will be used for safely terminating the
+        # oscilloscope thread
+        s["shouldScopeLoop"] = True
+        s["doPhotonCounting"] = True
+        s["exposing"] = False # For whether or not an exposure is happening
+
+        # How many pulses are there?
+        s["FELPulses"] = 0
+        s['pyData'] = None
+        # lists for holding the boundaries of the linear regions
+        s['bcpyBG'] = [0, 0]
+        s['bcpyFP'] = [0, 0]
+        s['bcpyCD'] = [0, 0]
 
         # Which settings combo boxes have been changed?
         # AD, VSS, Read, HSS, Trigg, Acq, intShutter, exShutter
@@ -235,6 +272,29 @@ class CCDWindow(QtGui.QMainWindow):
         # Setting up oscilloscope values
         ##################
         self.ui.cOGPIB.addItems(self.settings['GPIBlist'])
+        self.ui.cOGPIB.setCurrentIndex(self.settings["agilGPIBidx"])
+        self.ui.bOPause.clicked[bool].connect(self.toggleScopePause)
+        self.ui.cOChannel.currentIndexChanged.connect(self.openAgilent)
+
+        self.pOsc = self.ui.gOsc.plot(pen='k')
+        plotitem = self.ui.gOsc.getPlotItem()
+        plotitem.setLabel('top',text='Reference Detector')
+        plotitem.setLabel('bottom',text='time scale',units='s')
+        plotitem.setLabel('left',text='Voltage', units='V')
+
+        #Now we make an array of all the textboxes for the linear regions to make it
+        #easier to iterate through them. Set it up in memory identical to how it
+        #appears on the panel for sanity, in a row-major fashion
+        lrtb = [[self.ui.tBgSt, self.ui.tBgEn],
+                [self.ui.tFpSt, self.ui.tFpEn],
+                [self.ui.tCdSt, self.ui.tCdEn]]
+        # Connect the changes to update the Linear Regions
+        for i in lrtb:
+            for j in i:
+                j.textAccepted.connect(self.updateLinearRegionsFromText)
+
+        self.linearRegionTextBoxes = lrtb
+        self.initLinearRegions()
                                     
         ####################
         # Connect more things
@@ -294,12 +354,73 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.show()
 
+    def initLinearRegions(self):
+        #initialize array for all 5 boxcar regions
+        self.boxcarRegions = [None]*3
+
+        bgCol = pg.mkBrush(QtGui.QColor(255, 0, 0, 50))
+        fpCol = pg.mkBrush(QtGui.QColor(0, 0, 255, 50))
+        sgCol = pg.mkBrush(QtGui.QColor(0, 255, 0, 50))
+
+        #Background region for the pyro plot
+        self.boxcarRegions[0] = pg.LinearRegionItem(self.settings['bcpyBG'], brush = bgCol)
+        self.boxcarRegions[1] = pg.LinearRegionItem(self.settings['bcpyFP'], brush = fpCol)
+        self.boxcarRegions[2] = pg.LinearRegionItem(self.settings['bcpyCD'], brush = sgCol)
+
+        #Connect it all to something that will update values when these all change
+        for i in self.boxcarRegions:
+            i.sigRegionChangeFinished.connect(self.updateLinearRegionValues)
+
+        self.ui.gOsc.addItem(self.boxcarRegions[0])
+        self.ui.gOsc.addItem(self.boxcarRegions[1])
+        self.ui.gOsc.addItem(self.boxcarRegions[2])
+
+    def updateLinearRegionValues(self):
+        sender = self.sender()
+        sendidx = -1
+        for (i, v) in enumerate(self.boxcarRegions):
+            #I was debugging something. I tried to use id(), which is effectively the memory
+            #location to try and fix it. Found out it was anohter issue, but
+            #id() seems a little safer(?) than just equating them in the sense that
+            #it's explicitly asking if they're the same object, isntead of potentially
+            #calling some weird __eq__() pyqt/graph may have set up
+            if id(sender) == id(v):
+                sendidx = i
+        i = sendidx
+        #Just being paranoid, no reason to think it wouldn't find the proper thing
+        if sendidx<0:
+            return
+        self.linearRegionTextBoxes[i][0].setText('{:.9g}'.format(sender.getRegion()[0]))
+        self.linearRegionTextBoxes[i][1].setText('{:.9g}'.format(sender.getRegion()[1]))
+
+    def updateLinearRegionsFromText(self):
+        sender = self.sender()
+        #figure out where this was sent
+        sendi, sendj = -1, -1
+        for (i, v)in enumerate(self.linearRegionTextBoxes):
+            for (j, w) in enumerate(v):
+                if id(w) == id(sender):
+                    sendi = i
+                    sendj = j
+
+        i = sendi
+        j = sendj
+        curVals = list(self.boxcarRegions[i].getRegion())
+        curVals[j] = float(sender.text())
+        self.boxcarRegions[i].setRegion(tuple(curVals))
+
     def SpecGPIBChanged(self):
         self.Spectrometer.close()
         self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
         self.openSpectrometer()
 
+    # def AgilGPIBChanged(self):
+    #     self.settings[]
+    #     self.openAgilent()
+
     def openSpectrometer(self):
+        # THIS should really be in a try:except: loop for if
+        # the spec timeouts or cant be connected to
         self.Spectrometer = ActonSP(
             self.settings["GPIBlist"][self.settings["specGPIBidx"]]
         )
@@ -307,6 +428,117 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
         self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
         self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+
+    def openAgilent(self):
+        self.settings["shouldScopeLoop"] = False
+        isPaused = self.settings["isScopePaused"] # For intelligently restarting scope afterwards
+        if isPaused:
+            self.toggleScopePause(False)
+        try:
+            self.scopeCollectionThread.wait()
+        except:
+            pass
+        try:
+            self.Agilent.close()
+        except Exception as e:
+            "__main__.openAgilent:\nError closing Agilent,",e
+        try:
+            self.Agilent = Agilent6000(
+                self.settings["GPIBlist"][int(self.ui.cOGPIB.currentIndex())]
+            )
+            print 'Agilent opened'
+        except Exception as e:
+            "__main__.openAgilent:\nError opening Agilent,",e
+            self.Agilent = Agilent6000("Fake")
+            self.ui.cOChannel.setCurrentIndex(
+                self.settings["GPIBlist"].index("Fake")
+            )
+
+        self.Agilent.setTrigger()
+        self.settings['shouldScopeLoop'] = True
+
+        self.scopeCollectionThread = TempThread(target = self.collectScopeLoop)
+        self.scopeCollectionThread.start()
+        if isPaused:
+            self.toggleScopePause(True)
+
+    def toggleScopePause(self, val):
+        print "Toggle scope. val={}".format(val)
+        self.settings["isScopePaused"] = val
+        if not val: # We want to stop any pausing thread if neceesary
+            try:
+                self.scopePausingLoop.exit()
+            except:
+                pass
+
+    def collectScopeLoop(self):
+        while self.settings['shouldScopeLoop']:
+            if self.settings['isScopePaused']:
+                #Have the scope updating remotely so it can be changed if needed
+                self.Agilent.write(':RUN')
+                #If we want to pause, make a fake event loop and terminate it from outside forces
+                self.scopePausingLoop = QtCore.QEventLoop()
+                self.scopePausingLoop.exec_()
+            pyData = self.Agilent.getSingleChannel(int(self.ui.cOChannel.currentIndex())+1)
+            if not self.settings['isScopePaused']:
+                self.pyDataSig.emit(pyData)
+                self.updateOscDataSig.emit()
+
+    def doPhotonCountingLoop(self):
+        while self.settings["doPhotonCounting"]:
+            self.photonWaitingLoop = QtCore.QEventLoop()
+            self.updateOscDataSig.connect(self.photonWaitingLoop.exit)
+            self.photonWaitingLoop.exec_()
+            if self.settings["exposing"]:
+                pyBG, pyFP, pyCD = self.integrateData()
+                if (
+                    (pyFP > pyBG * self.ui.tOscFPRatio.value()) and
+                    (pyCD > pyBG * self.ui.tOscCDRatio.value())
+                ):
+                    print "PULSE COUNTED!"
+                    self.settings["FELPulses"] += 1
+                    self.updateElementSig.emit(self.ui.tOscPulses, self.settings["FELPulses"])
+                else:
+                    print "PULSE NOT COUNTED!"
+
+
+    def integrateData(self):
+        #Neater and maybe solve issues if the data happens to update
+        #while trying to do analysis?
+        pyD = self.settings['pyData']
+
+        pyBGbounds = self.boxcarRegions[0].getRegion()
+        pyBGidx = self.findIndices(pyBGbounds, pyD[:,0])
+
+        pyFPbounds = self.boxcarRegions[1].getRegion()
+        pyFPidx = self.findIndices(pyFPbounds, pyD[:,0])
+
+        pyCDbounds = self.boxcarRegions[2].getRegion()
+        pyCDidx = self.findIndices(pyCDbounds, pyD[:,0])
+
+        pyBG = spi.simps(pyD[pyBGidx[0]:pyBGidx[1],1], pyD[pyBGidx[0]:pyBGidx[1], 0])
+        pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
+        pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
+
+        return pyBG, pyFP, pyCD
+
+    def findIndices(self, values, dataset):
+        '''Given an ordered dataset and a pair of values, returns the indices which
+           correspond to these bounds  '''
+        indx = list((dataset>values[0]) & (dataset<values[1]))
+        #convert to string for easy finding
+        st = ''.join([str(int(i)) for i in indx])
+        start = st.find('1')
+        if start == -1:
+            start = 0
+        end = start + st[start:].find('0')
+        if end<=0:
+            end = 1
+        return start, end
+
+    def updateOscilloscopeGraph(self, data):
+        self.settings['pyData'] = data
+        self.pOsc.setData(data[:,0], data[:,1])
 
     def updateSpecWavelength(self):
         desired = float(self.ui.sbSpecWavelength.value())
@@ -601,6 +833,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bCCDBack.setEnabled(False)
         self.ui.gbSettings.setEnabled(False)
         self.settings["progress"] = 0
+        self.settings["FELPulses"] = 0
+        self.ui.tOscPulses.setText("0")
         self.getImageThread = TempThread(target = self.takeImage, args=imtype)
 
         # Update exposure/gain if necesssary
@@ -618,12 +852,12 @@ class CCDWindow(QtGui.QMainWindow):
     def takeImage(self, imtype):
 
         self.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
-
+        self.settings["exposing"] = True
         self.CCD.dllStartAcquisition()
         self.CCD.dllWaitForAcquisition()
         self.killTimerSig.emit(self.updateProgTimer)
         self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
-
+        self.settings["exposing"] = False
         data = self.CCD.getImage()
 
         if imtype=="img":
@@ -744,6 +978,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["FELRR"] = str(self.ui.tCCDFELRR.text())
         s["FEL_lambda"] = str(self.ui.tCCDFELFreq.text())
         s["Sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
+        s["FEL_pulses"] = int(self.ui.tOscPulses.text())
 
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value
@@ -848,6 +1083,44 @@ class CCDWindow(QtGui.QMainWindow):
                 print "Couldn't connect thread to closing,", e
             event.ignore()
             return
+
+
+        #########
+        # All clear, start closing things down
+        #########
+
+        self.settings['shouldScopeLoop'] = False
+        self.settings["doPhotonCounting"] = False
+        #Stop pausing
+        try:
+            self.scopePausingLoop.exit()
+        except:
+            pass
+        # Stop waiting for data
+        try:
+            self.photonWaitingLoop.exit()
+        except:
+            pass
+        # Stop thread waiting for data
+        try:
+            self.waitingForDataLoop.exit()
+        except:
+            pass
+
+        #Stop the runnign thread for collecting from scope
+        try:
+            self.scopeCollectionThread.wait()
+        except:
+            pass
+        # Stop the thread which processing osc data
+        try:
+            self.photonCountingThread.wait()
+        except:
+            pass
+
+
+        #Restart the scope to trigger as normal.
+        self.Agilent.write(':RUN')
 
         ret = self.CCD.dllCoolerOFF()
         print "cooler off ret: {}".format(self.CCD.parseRetCode(ret))

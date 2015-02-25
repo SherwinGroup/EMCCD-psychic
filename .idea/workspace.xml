@@ -3,10 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="b7aacb68-34e0-48d1-94f4-059bc172d3e3" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mainWindow.ui" afterPath="$PROJECT_DIR$/mainWindow.ui" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Andor.py" afterPath="$PROJECT_DIR$/Andor.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/_CHANGLOG.txt" afterPath="$PROJECT_DIR$/_CHANGLOG.txt" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/__main__.py" afterPath="$PROJECT_DIR$/__main__.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/image_spec_for_gui.py" afterPath="$PROJECT_DIR$/image_spec_for_gui.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mainWindow_ui.py" afterPath="$PROJECT_DIR$/mainWindow_ui.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
@@ -31,7 +28,7 @@
     <favorites_list name="EMCCD-psychic" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.3842466">
+    <splitter split-orientation="horizontal" split-proportion="0.44041097">
       <split-first>
         <leaf>
           <file leaf-file-name="Andor.py" pinned="false" current-in-tab="false">
@@ -47,8 +44,42 @@
           <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/__main__.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.18307692" vertical-offset="0" max-vertical-offset="16524">
-                  <caret line="7" column="18" selection-start-line="7" selection-start-column="18" selection-end-line="7" selection-end-column="18" />
+                <state vertical-scroll-proportion="0.75076926" vertical-offset="16172" max-vertical-offset="21165">
+                  <caret line="980" column="30" selection-start-line="980" selection-start-column="30" selection-end-line="980" selection-end-column="30" />
+                  <folding>
+                    <element signature="e#84#102#0" expanded="true" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="Instruments.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/Instruments.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="0.0" vertical-offset="1022" max-vertical-offset="10285">
+                  <caret line="75" column="40" selection-start-line="75" selection-start-column="40" selection-end-line="75" selection-end-column="40" />
+                  <folding>
+                    <element signature="e#2591#5065#0" expanded="false" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="mainWindow_ui.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="0.0" vertical-offset="17013" max-vertical-offset="17663">
+                  <caret line="1032" column="40" selection-start-line="1032" selection-start-column="40" selection-end-line="1032" selection-end-column="40" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="customQt.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state vertical-scroll-proportion="0.0" vertical-offset="430" max-vertical-offset="2210">
+                  <caret line="41" column="32" selection-start-line="41" selection-start-column="32" selection-end-line="41" selection-end-column="32" />
                   <folding />
                 </state>
               </provider>
@@ -91,11 +122,9 @@
           <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/__main__.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.6666667" vertical-offset="8959" max-vertical-offset="16524">
-                  <caret line="553" column="112" selection-start-line="553" selection-start-column="112" selection-end-line="553" selection-end-column="112" />
-                  <folding>
-                    <element signature="e#84#102#0" expanded="true" />
-                  </folding>
+                <state vertical-scroll-proportion="0.62" vertical-offset="8063" max-vertical-offset="21080">
+                  <caret line="503" column="0" selection-start-line="503" selection-start-column="0" selection-end-line="503" selection-end-column="0" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -111,10 +140,11 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/fakeAndor.py" />
-        <option value="$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py" />
         <option value="$PROJECT_DIR$/mainWindow_ui.py" />
         <option value="$PROJECT_DIR$/image_spec_for_gui.py" />
         <option value="$PROJECT_DIR$/Andor.py" />
+        <option value="$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py" />
+        <option value="$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/Instruments.py" />
         <option value="$PROJECT_DIR$/__main__.py" />
       </list>
     </option>
@@ -369,7 +399,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1696" height="1026" extended-state="6" />
-    <editor active="false" />
+    <editor active="true" />
     <layout>
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32998884" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.13441832" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -415,6 +445,22 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/fakeAndor.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="238" max-vertical-offset="2822">
+          <caret line="62" column="50" selection-start-line="62" selection-start-column="50" selection-end-line="62" selection-end-column="50" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/__main__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="16456">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/Andor.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="4845" max-vertical-offset="20995">
@@ -451,9 +497,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="102" max-vertical-offset="15861">
           <caret line="6" column="0" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -501,9 +545,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="15861">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -551,9 +593,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="15861">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -569,9 +609,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="16082">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -635,9 +673,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="7293">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -677,9 +713,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="10268">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -711,9 +745,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="574" max-vertical-offset="8789">
           <caret line="95" column="37" selection-start-line="95" selection-start-column="37" selection-end-line="95" selection-end-column="37" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -721,9 +753,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="204" max-vertical-offset="9333">
           <caret line="37" column="42" selection-start-line="37" selection-start-column="42" selection-end-line="37" selection-end-column="42" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -739,9 +769,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="9333">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -749,9 +777,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="9333">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+          <folding />
         </state>
       </provider>
     </entry>
@@ -778,14 +804,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.79173046" vertical-offset="16092" max-vertical-offset="16745">
-          <caret line="977" column="16" selection-start-line="977" selection-start-column="16" selection-end-line="977" selection-end-column="16" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/image_spec_for_gui.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="3609" max-vertical-offset="11050">
@@ -802,13 +820,37 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="17013" max-vertical-offset="17663">
+          <caret line="1032" column="40" selection-start-line="1032" selection-start-column="40" selection-end-line="1032" selection-end-column="40" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="430" max-vertical-offset="2210">
+          <caret line="41" column="32" selection-start-line="41" selection-start-column="32" selection-end-line="41" selection-end-column="32" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/Instruments.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="1022" max-vertical-offset="10285">
+          <caret line="75" column="40" selection-start-line="75" selection-start-column="40" selection-end-line="75" selection-end-column="40" />
+          <folding>
+            <element signature="e#2591#5065#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/__main__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.6666667" vertical-offset="8959" max-vertical-offset="16524">
-          <caret line="553" column="112" selection-start-line="553" selection-start-column="112" selection-end-line="553" selection-end-column="112" />
-          <folding>
-            <element signature="e#84#102#0" expanded="true" />
-          </folding>
+        <state vertical-scroll-proportion="0.62" vertical-offset="8063" max-vertical-offset="21080">
+          <caret line="503" column="0" selection-start-line="503" selection-start-column="0" selection-end-line="503" selection-end-column="0" />
+          <folding />
         </state>
       </provider>
     </entry>
