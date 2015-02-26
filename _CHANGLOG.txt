@@ -27,3 +27,7 @@ V0.4.0.1 (25/2/2015)
 
 V0.4.0.1a (25/2/2015)
  * Resized spectra graph
+
+V0.4.1.0 (25/2/2015)
+ * Oscilloscope graph can now pop out
+ xBUG Signs of my social life have now disappeared.

@@ -43,6 +43,21 @@ class TempThread(QtCore.QThread):
         else:
             self.target(self.args)
 
+class pgPlot(QtGui.QMainWindow):
+    """ Dirt simple class for a window
+        that allows me to emit a signal wh en it's closed
+    """
+    closedSig = QtCore.pyqtSignal()
+    def __init__(self, parent = None):
+        super(pgPlot, self).__init__(parent)
+        self.pw = pg.PlotWidget()
+        self.setCentralWidget(self.pw)
+        self.show()
+
+    def closeEvent(self, event):
+        self.closedSig.emit()
+        event.accept()
+
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -92,6 +107,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.Agilent = None
         self.openSpectrometer()
         self.openAgilent()
+        self.poppedPlotWindow = None
 
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
@@ -280,6 +296,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cOGPIB.setCurrentIndex(self.settings["agilGPIBidx"])
         self.ui.bOPause.clicked[bool].connect(self.toggleScopePause)
         self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
+        self.ui.bOPop.clicked.connect(self.popoutOscilloscope)
 
         self.pOsc = self.ui.gOsc.plot(pen='k')
         plotitem = self.ui.gOsc.getPlotItem()
@@ -359,7 +376,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.show()
 
-    def initLinearRegions(self):
+    def initLinearRegions(self, item = None):
         #initialize array for all 5 boxcar regions
         self.boxcarRegions = [None]*3
 
@@ -376,9 +393,12 @@ class CCDWindow(QtGui.QMainWindow):
         for i in self.boxcarRegions:
             i.sigRegionChangeFinished.connect(self.updateLinearRegionValues)
 
-        self.ui.gOsc.addItem(self.boxcarRegions[0])
-        self.ui.gOsc.addItem(self.boxcarRegions[1])
-        self.ui.gOsc.addItem(self.boxcarRegions[2])
+        if item is None:
+            item = self.ui.gOsc
+        item.addItem(self.boxcarRegions[0])
+        item.addItem(self.boxcarRegions[1])
+        item.addItem(self.boxcarRegions[2])
+
 
     def updateLinearRegionValues(self):
         sender = self.sender()
@@ -398,6 +418,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.linearRegionTextBoxes[i][0].setText('{:.9g}'.format(sender.getRegion()[0]))
         self.linearRegionTextBoxes[i][1].setText('{:.9g}'.format(sender.getRegion()[1]))
 
+        # Update the dicionary values so that the bounds are proper when
+        d = {0: "bcpyBG",
+             1: "bcpyFP",
+             2: "bcpyCD"
+        }
+        self.settings[d[i]] = list(sender.getRegion())
+
     def updateLinearRegionsFromText(self):
         sender = self.sender()
         #figure out where this was sent
@@ -413,6 +440,33 @@ class CCDWindow(QtGui.QMainWindow):
         curVals = list(self.boxcarRegions[i].getRegion())
         curVals[j] = float(sender.text())
         self.boxcarRegions[i].setRegion(tuple(curVals))
+        # Update the dicionary values so that the bounds are proper when
+        d = {0: "bcpyBG",
+             1: "bcpyFP",
+             2: "bcpyCD"
+        }
+        self.settings[d[i]] = list(curVals)
+
+    def popoutOscilloscope(self):
+        if self.poppedPlotWindow is None:
+            self.poppedPlotWindow = pgPlot()
+            self.oldpOsc = self.pOsc
+            for i in self.boxcarRegions:
+                self.ui.gOsc.removeItem(i)
+            self.pOsc = self.poppedPlotWindow.pw.plot(pen='k')
+            plotitem = self.poppedPlotWindow.pw.getPlotItem()
+            plotitem.setLabel('top',text='Reference Detector')
+            plotitem.setLabel('bottom',text='time scale',units='s')
+            plotitem.setLabel('left',text='Voltage', units='V')
+            self.poppedPlotWindow.closedSig.connect(self.cleanupCloseOsc)
+            self.initLinearRegions(self.poppedPlotWindow.pw)
+        else:
+            self.poppedPlotWindow.raise_()
+
+    def cleanupCloseOsc(self):
+        self.poppedPlotWindow = None
+        self.pOsc = self.oldpOsc
+        self.initLinearRegions()
 
     def SpecGPIBChanged(self):
         self.Spectrometer.close()
