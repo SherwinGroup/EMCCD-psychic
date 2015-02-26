@@ -19,3 +19,5 @@ V0.4.0.0 (25/2/2015)
  * Photon counting possible
  * Progress bar is now valid
    - Timing is handled dynamically to account for invalid stepping. Necessary for effective photon counting
+   - Suggest externally triggering camera for accuracy
+   - Oscilloscope cannot be paused for accuracy. 

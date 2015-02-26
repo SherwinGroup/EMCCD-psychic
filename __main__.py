@@ -105,7 +105,6 @@ class CCDWindow(QtGui.QMainWindow):
 
         # Get the GPIB instrument list
         try:
-            import visa
             rm = visa.ResourceManager()
             ar = [i.encode('ascii') for i in rm.list_resources()]
             ar.append('Fake')
@@ -122,7 +121,7 @@ class CCDWindow(QtGui.QMainWindow):
         except ValueError:
             # otherwise, just set it to the fake index
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
-            s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
+        s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
 
         # This will be used to toggle pausing on the scope
         s["isScopePaused"] = True
@@ -854,13 +853,24 @@ class CCDWindow(QtGui.QMainWindow):
         # self.updateProgTimer = QtCore.QTimer()
         # self.updateProgTimer.timeout.connect(self.updateProgress)
         # self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
+
         self.elapsedTimer = QtCore.QElapsedTimer()
+        if self.settings["isScopePaused"]:
+            self.settings["exposing"] = True
+            self.elapsedTimer.start()
+            QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
+                                     self.updateProgress)
+        else:
+            self.updateOscDataSig.connect(self.startProgressBar)
+        self.getImageThread.start()
+        
+    def startProgressBar(self):
         self.settings["exposing"] = True
         self.elapsedTimer.start()
         QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
                                  self.updateProgress)
-
-        self.getImageThread.start()
+        self.updateOscDataSig.disconnect(self.startProgressBar)
+        
 
     def takeImage(self, imtype):
         """
@@ -1044,8 +1054,11 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.pCCD.setValue(self.settings["progress"])
             newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
                       - (self.elapsedTimer.elapsed())
-            QtCore.QTimer.singleShot(newTime,
-                                     self.updateProgress)
+            try:
+                QtCore.QTimer.singleShot(newTime,
+                                         self.updateProgress)
+            except:
+                pass
         else:
             self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
             self.settings["exposing"] = False
