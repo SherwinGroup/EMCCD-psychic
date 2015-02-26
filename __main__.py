@@ -121,7 +121,14 @@ class CCDWindow(QtGui.QMainWindow):
         except ValueError:
             # otherwise, just set it to the fake index
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
-        s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
+        try:
+            # Pretty sure we can safely say it's
+            # ASRL1
+            idx = s['GPIBlist'].index('GPIB0::5::INSTR')
+            s["agilGPIBidx"] = idx
+        except ValueError:
+            # otherwise, just set it to the fake index
+            s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
 
         # This will be used to toggle pausing on the scope
         s["isScopePaused"] = True
@@ -489,7 +496,6 @@ class CCDWindow(QtGui.QMainWindow):
             if not self.settings['isScopePaused']:
                 self.pyDataSig.emit(pyData)
                 self.updateOscDataSig.emit()
-        print "LEAVING SCOPE COLLECTION LOOP VALIDLY"
 
     def doPhotonCountingLoop(self):
         while self.settings["doPhotonCounting"]:
