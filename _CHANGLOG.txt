@@ -24,3 +24,6 @@ V0.4.0.0 (25/2/2015)
 
 V0.4.0.1 (25/2/2015)
  * Scope GPIB is automatically set to 5. 
+
+V0.4.0.1a (25/2/2015)
+ * Resized spectra graph
