@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\mainWindow.ui'
 #
-# Created: Tue Feb 24 18:05:17 2015
+# Created: Wed Feb 25 18:51:03 2015
 #      by: PyQt4 UI code generator 4.9.6
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(902, 838)
+        MainWindow.resize(902, 845)
         MainWindow.setToolTip(_fromUtf8(""))
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
@@ -335,7 +335,9 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.tabSettings, _fromUtf8(""))
         self.tabEMCCD = QtGui.QWidget()
         self.tabEMCCD.setObjectName(_fromUtf8("tabEMCCD"))
-        self.verticalLayout_10 = QtGui.QVBoxLayout(self.tabEMCCD)
+        self.horizontalLayout_49 = QtGui.QHBoxLayout(self.tabEMCCD)
+        self.horizontalLayout_49.setObjectName(_fromUtf8("horizontalLayout_49"))
+        self.verticalLayout_10 = QtGui.QVBoxLayout()
         self.verticalLayout_10.setObjectName(_fromUtf8("verticalLayout_10"))
         self.horizontalLayout_35 = QtGui.QHBoxLayout()
         self.horizontalLayout_35.setObjectName(_fromUtf8("horizontalLayout_35"))
@@ -568,6 +570,10 @@ class Ui_MainWindow(object):
         spacerItem2 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_34.addItem(spacerItem2)
         self.verticalLayout_10.addLayout(self.horizontalLayout_34)
+        self.verticalLayout_10.setStretch(0, 4)
+        self.verticalLayout_10.setStretch(1, 9)
+        self.verticalLayout_10.setStretch(2, 1)
+        self.horizontalLayout_49.addLayout(self.verticalLayout_10)
         self.tabWidget.addTab(self.tabEMCCD, _fromUtf8(""))
         self.tabSpec = QtGui.QWidget()
         self.tabSpec.setObjectName(_fromUtf8("tabSpec"))
@@ -843,7 +849,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuOther_Settings.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(3)
+        self.tabWidget.setCurrentIndex(1)
         self.cSettingsReadMode.setCurrentIndex(4)
         self.cSettingsAcquisitionMode.setCurrentIndex(1)
         self.tabWidget_2.setCurrentIndex(0)

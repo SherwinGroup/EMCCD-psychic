@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b7aacb68-34e0-48d1-94f4-059bc172d3e3" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/_CHANGLOG.txt" afterPath="$PROJECT_DIR$/_CHANGLOG.txt" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/__main__.py" afterPath="$PROJECT_DIR$/__main__.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mainWindow.ui" afterPath="$PROJECT_DIR$/mainWindow.ui" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mainWindow_ui.py" afterPath="$PROJECT_DIR$/mainWindow_ui.py" />
     </list>
     <ignored path="EMCCD-psychic.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -45,7 +44,7 @@
               <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
                 <entry file="file://$PROJECT_DIR$/__main__.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="-0.053291537" vertical-offset="16439" max-vertical-offset="21454">
+                    <state vertical-scroll-proportion="-0.05345912" vertical-offset="16439" max-vertical-offset="21454">
                       <caret line="974" column="8" selection-start-line="974" selection-start-column="8" selection-end-line="974" selection-end-column="8" />
                       <folding />
                     </state>
@@ -65,8 +64,8 @@
               <file leaf-file-name="mainWindow_ui.py" pinned="false" current-in-tab="false">
                 <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="17013" max-vertical-offset="17663">
-                      <caret line="1032" column="40" selection-start-line="1032" selection-start-column="40" selection-end-line="1032" selection-end-column="40" />
+                    <state vertical-scroll-proportion="0.0" vertical-offset="17115" max-vertical-offset="17765">
+                      <caret line="1038" column="40" selection-start-line="1038" selection-start-column="40" selection-end-line="1038" selection-end-column="40" />
                       <folding />
                     </state>
                   </provider>
@@ -135,7 +134,7 @@
           <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/__main__.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state vertical-scroll-proportion="0.6332843" vertical-offset="17267" max-vertical-offset="21454">
+                <state vertical-scroll-proportion="0.6342183" vertical-offset="17267" max-vertical-offset="21454">
                   <caret line="1049" column="72" selection-start-line="1049" selection-start-column="72" selection-end-line="1050" selection-end-column="45" />
                   <folding />
                 </state>
@@ -421,7 +420,7 @@
       <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.23496027" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.20133482" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.20133482" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.11995178" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -835,8 +834,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="17013" max-vertical-offset="17663">
-          <caret line="1032" column="40" selection-start-line="1032" selection-start-column="40" selection-end-line="1032" selection-end-column="40" />
+        <state vertical-scroll-proportion="0.0" vertical-offset="17115" max-vertical-offset="17765">
+          <caret line="1038" column="40" selection-start-line="1038" selection-start-column="40" selection-end-line="1038" selection-end-column="40" />
           <folding />
         </state>
       </provider>
@@ -859,7 +858,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/__main__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-0.053291537" vertical-offset="16439" max-vertical-offset="21454">
+        <state vertical-scroll-proportion="-0.05345912" vertical-offset="16439" max-vertical-offset="21454">
           <caret line="974" column="8" selection-start-line="974" selection-start-column="8" selection-end-line="974" selection-end-column="8" />
           <folding />
         </state>
