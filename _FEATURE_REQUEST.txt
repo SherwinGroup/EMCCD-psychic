@@ -15,10 +15,7 @@ Add linear regions for image plot when doing continuous scan
   Change widget weightings to make the image larger
 If NIRW > 1200, convert from WN to wavelength
 Implement dark region substraction
-raise osc window when main window raised
 Add a series flag for the spectrometer center wavelength
-Add UI tooltip for osc GPIB
-Add another box for the pulse counts in the progressbar
 Make electric field calculator
 Sort JSON values not with upper/lowercase. Shit's frustrating, yo
 
@@ -26,5 +23,8 @@ Sort JSON values not with upper/lowercase. Shit's frustrating, yo
 
 IMPLEMENTED:
 -----------------------------------
-Pulse counting
-Implement run til abort NOT FEASIBLE
+Pulse counting (V0.4.1.0)
+Implement run til abort --- NOT FEASIBLE
+Add UI tooltip for osc GPIB (V0.4.2.0)
+raise osc window when main window raised (V0.4.2.0)
+Add another box for the pulse counts in the progressbar (V0.4.2.0)

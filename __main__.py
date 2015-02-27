@@ -374,6 +374,7 @@ class CCDWindow(QtGui.QMainWindow):
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
 
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
 
     def initLinearRegions(self, item = None):
@@ -462,6 +463,12 @@ class CCDWindow(QtGui.QMainWindow):
             self.initLinearRegions(self.poppedPlotWindow.pw)
         else:
             self.poppedPlotWindow.raise_()
+
+    def focusInEvent(self, event):
+        print "in focus"
+        if self.poppedPlotWindow is not None:
+            self.poppedPlotWindow.raise_()
+            self.raise_()
 
     def cleanupCloseOsc(self):
         self.poppedPlotWindow = None
@@ -1220,6 +1227,8 @@ class CCDWindow(QtGui.QMainWindow):
 
         #Restart the scope to trigger as normal.
         self.Agilent.write(':RUN')
+        if self.poppedPlotWindow is not None:
+            self.poppedPlotWindow.close()
 
         ret = self.CCD.dllCoolerOFF()
         print "cooler off ret: {}".format(self.CCD.parseRetCode(ret))
