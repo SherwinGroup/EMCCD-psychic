@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>902</width>
-    <height>845</height>
+    <width>856</width>
+    <height>735</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,7 +24,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <property name="elideMode">
        <enum>Qt::ElideRight</enum>
@@ -900,7 +900,7 @@
                    <item row="0" column="0">
                     <widget class="QLineEdit" name="tCCDSeries">
                      <property name="toolTip">
-                      <string>NIRP, NIRW, FELF, FELP, SLITS</string>
+                      <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
                      </property>
                      <property name="statusTip">
                       <string/>
@@ -1447,7 +1447,10 @@
            <widget class="PlotWidget" name="gCCDBin"/>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_34">
+           <layout class="QHBoxLayout" name="horizontalLayout_34" stretch="9,1,1,1">
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <widget class="QProgressBar" name="pCCD">
               <property name="value">
@@ -1474,6 +1477,18 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_54">
+              <property name="title">
+               <string>FEL Pulses</string>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout_50">
+               <item>
+                <widget class="QLineEdit" name="tCCDFELPulses"/>
+               </item>
+              </layout>
+             </widget>
             </item>
            </layout>
           </item>
@@ -2058,7 +2073,11 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QComboBox" name="cOGPIB"/>
+              <widget class="QComboBox" name="cOGPIB">
+               <property name="toolTip">
+                <string>GPIB0::5::INSTR</string>
+               </property>
+              </widget>
              </item>
             </layout>
            </widget>
@@ -2144,7 +2163,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>902</width>
+     <width>856</width>
      <height>21</height>
     </rect>
    </property>
