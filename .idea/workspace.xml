@@ -2,8 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="b7aacb68-34e0-48d1-94f4-059bc172d3e3" name="Default" comment="">
+<<<<<<< HEAD
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mainWindow.ui" afterPath="$PROJECT_DIR$/mainWindow.ui" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mainWindow_ui.py" afterPath="$PROJECT_DIR$/mainWindow_ui.py" />
+=======
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/__main__.py" afterPath="$PROJECT_DIR$/__main__.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+>>>>>>> origin/master
     </list>
     <ignored path="EMCCD-psychic.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -26,7 +32,7 @@
     <favorites_list name="EMCCD-psychic" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.44041097">
+    <splitter split-orientation="horizontal" split-proportion="0.5376271">
       <split-first>
         <splitter split-orientation="vertical" split-proportion="0.5">
           <split-first>
@@ -34,8 +40,8 @@
               <file leaf-file-name="Andor.py" pinned="false" current-in-tab="false">
                 <entry file="file://$PROJECT_DIR$/Andor.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="328" max-vertical-offset="21131">
-                      <caret line="22" column="16" selection-start-line="22" selection-start-column="16" selection-end-line="22" selection-end-column="16" />
+                    <state vertical-scroll-proportion="0.0" vertical-offset="705" max-vertical-offset="18645">
+                      <caret line="49" column="0" selection-start-line="49" selection-start-column="0" selection-end-line="49" selection-end-column="0" />
                       <folding />
                     </state>
                   </provider>
@@ -44,17 +50,25 @@
               <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
                 <entry file="file://$PROJECT_DIR$/__main__.py">
                   <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
                     <state vertical-scroll-proportion="-0.05345912" vertical-offset="16439" max-vertical-offset="21454">
                       <caret line="974" column="8" selection-start-line="974" selection-start-column="8" selection-end-line="974" selection-end-column="8" />
                       <folding />
+=======
+                    <state vertical-scroll-proportion="0.50728863" vertical-offset="6066" max-vertical-offset="20145">
+                      <caret line="416" column="18" selection-start-line="416" selection-start-column="18" selection-end-line="416" selection-end-column="18" />
+                      <folding>
+                        <element signature="e#84#102#0" expanded="true" />
+                      </folding>
+>>>>>>> origin/master
                     </state>
                   </provider>
                 </entry>
               </file>
               <file leaf-file-name="Instruments.py" pinned="false" current-in-tab="false">
-                <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/Instruments.py">
+                <entry file="file://$USER_HOME$/InstrumentLibrary-yolo/InstsAndQt/Instruments.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="986" max-vertical-offset="11458">
+                    <state vertical-scroll-proportion="0.0" vertical-offset="207" max-vertical-offset="10155">
                       <caret line="60" column="16" selection-start-line="60" selection-start-column="16" selection-end-line="60" selection-end-column="16" />
                       <folding />
                     </state>
@@ -64,18 +78,23 @@
               <file leaf-file-name="mainWindow_ui.py" pinned="false" current-in-tab="false">
                 <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
                   <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
                     <state vertical-scroll-proportion="0.0" vertical-offset="17115" max-vertical-offset="17765">
                       <caret line="1038" column="40" selection-start-line="1038" selection-start-column="40" selection-end-line="1038" selection-end-column="40" />
+=======
+                    <state vertical-scroll-proportion="0.0" vertical-offset="9829" max-vertical-offset="15675">
+                      <caret line="665" column="13" selection-start-line="665" selection-start-column="13" selection-end-line="665" selection-end-column="13" />
+>>>>>>> origin/master
                       <folding />
                     </state>
                   </provider>
                 </entry>
               </file>
               <file leaf-file-name="customQt.py" pinned="false" current-in-tab="false">
-                <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py">
+                <entry file="file://$USER_HOME$/InstrumentLibrary-yolo/InstsAndQt/customQt.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="430" max-vertical-offset="2210">
-                      <caret line="41" column="32" selection-start-line="41" selection-start-column="32" selection-end-line="41" selection-end-column="32" />
+                    <state vertical-scroll-proportion="0.0" vertical-offset="585" max-vertical-offset="2190">
+                      <caret line="41" column="16" selection-start-line="41" selection-start-column="16" selection-end-line="41" selection-end-column="16" />
                       <folding />
                     </state>
                   </provider>
@@ -84,7 +103,7 @@
               <file leaf-file-name="image_spec_for_gui.py" pinned="false" current-in-tab="false">
                 <entry file="file://$PROJECT_DIR$/image_spec_for_gui.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="3609" max-vertical-offset="11050">
+                    <state vertical-scroll-proportion="0.0" vertical-offset="3480" max-vertical-offset="9750">
                       <caret line="238" column="28" selection-start-line="238" selection-start-column="28" selection-end-line="238" selection-end-column="28" />
                       <folding />
                     </state>
@@ -94,7 +113,7 @@
               <file leaf-file-name="testingImages.py" pinned="false" current-in-tab="false">
                 <entry file="file://$PROJECT_DIR$/testingImages.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="634" max-vertical-offset="1734">
+                    <state vertical-scroll-proportion="0.0" vertical-offset="630" max-vertical-offset="1530">
                       <caret line="44" column="11" selection-start-line="44" selection-start-column="11" selection-end-line="44" selection-end-column="11" />
                       <folding />
                     </state>
@@ -104,7 +123,7 @@
               <file leaf-file-name="fakeAndor.py" pinned="false" current-in-tab="false">
                 <entry file="file://$PROJECT_DIR$/fakeAndor.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.0" vertical-offset="238" max-vertical-offset="2822">
+                    <state vertical-scroll-proportion="0.0" vertical-offset="915" max-vertical-offset="2490">
                       <caret line="62" column="50" selection-start-line="62" selection-start-column="50" selection-end-line="62" selection-end-column="50" />
                       <folding />
                     </state>
@@ -118,8 +137,8 @@
               <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
                 <entry file="file://$PROJECT_DIR$/__main__.py">
                   <provider selected="true" editor-type-id="text-editor">
-                    <state vertical-scroll-proportion="0.49520767" vertical-offset="14601" max-vertical-offset="21454">
-                      <caret line="876" column="34" selection-start-line="876" selection-start-column="34" selection-end-line="876" selection-end-column="34" />
+                    <state vertical-scroll-proportion="0.647929" vertical-offset="5601" max-vertical-offset="20025">
+                      <caret line="396" column="31" selection-start-line="396" selection-start-column="31" selection-end-line="396" selection-end-column="31" />
                       <folding />
                     </state>
                   </provider>
@@ -130,6 +149,7 @@
         </splitter>
       </split-first>
       <split-second>
+<<<<<<< HEAD
         <leaf>
           <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/__main__.py">
@@ -142,6 +162,40 @@
             </entry>
           </file>
         </leaf>
+=======
+        <splitter split-orientation="vertical" split-proportion="0.5">
+          <split-first>
+            <leaf>
+              <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
+                <entry file="file://$PROJECT_DIR$/__main__.py">
+                  <provider selected="true" editor-type-id="text-editor">
+                    <state vertical-scroll-proportion="0.2186589" vertical-offset="6615" max-vertical-offset="20025">
+                      <caret line="454" column="42" selection-start-line="454" selection-start-column="42" selection-end-line="454" selection-end-column="42" />
+                      <folding />
+                    </state>
+                  </provider>
+                </entry>
+              </file>
+            </leaf>
+          </split-first>
+          <split-second>
+            <leaf>
+              <file leaf-file-name="__main__.py" pinned="false" current-in-tab="true">
+                <entry file="file://$PROJECT_DIR$/__main__.py">
+                  <provider selected="true" editor-type-id="text-editor">
+                    <state vertical-scroll-proportion="0.6893491" vertical-offset="6472" max-vertical-offset="20145">
+                      <caret line="447" column="42" selection-start-line="447" selection-start-column="42" selection-end-line="447" selection-end-column="42" />
+                      <folding>
+                        <element signature="e#84#102#0" expanded="true" />
+                      </folding>
+                    </state>
+                  </provider>
+                </entry>
+              </file>
+            </leaf>
+          </split-second>
+        </splitter>
+>>>>>>> origin/master
       </split-second>
     </splitter>
   </component>
@@ -155,17 +209,16 @@
         <option value="$PROJECT_DIR$/mainWindow_ui.py" />
         <option value="$PROJECT_DIR$/image_spec_for_gui.py" />
         <option value="$PROJECT_DIR$/Andor.py" />
-        <option value="$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py" />
-        <option value="$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/Instruments.py" />
+        <option value="$USER_HOME$/InstrumentLibrary-yolo/InstsAndQt/customQt.py" />
+        <option value="$USER_HOME$/InstrumentLibrary-yolo/InstsAndQt/Instruments.py" />
         <option value="$PROJECT_DIR$/__main__.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-8" />
-    <option name="y" value="-8" />
-    <option name="width" value="1696" />
-    <option name="height" value="1026" />
+    <option name="y" value="23" />
+    <option name="width" value="1676" />
+    <option name="height" value="1027" />
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
     <entry key="Project Default">
@@ -216,13 +269,17 @@
   <component name="PropertiesComponent">
     <property name="recentsLimit" value="5" />
     <property name="FullScreen" value="false" />
-    <property name="options.lastSelected" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
+    <property name="options.lastSelected" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
     <property name="options.splitter.main.proportions" value="0.3" />
     <property name="options.splitter.details.proportions" value="0.2" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
   </component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
-      <console-settings />
+      <console-settings module-name="EMCCD-psychic" sdk-home="$USER_HOME$/anaconda/bin/python">
+        <option name="mySdkHome" value="$USER_HOME$/anaconda/bin/python" />
+        <option name="myModuleName" value="EMCCD-psychic" />
+      </console-settings>
     </option>
   </component>
   <component name="RunManager" selected="Python.__main__">
@@ -243,6 +300,51 @@
       <option name="SHOW_COMMAND_LINE" value="false" />
       <RunnerSettings RunnerId="PythonRunner" />
       <ConfigurationWrapper RunnerId="PythonRunner" />
+      <method />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="py.test">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="EMCCD-psychic" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="FOLDER_NAME" value="" />
+      <option name="TEST_TYPE" value="TEST_SCRIPT" />
+      <option name="PATTERN" value="" />
+      <option name="USE_PATTERN" value="false" />
+      <option name="testToRun" value="" />
+      <option name="keywords" value="" />
+      <option name="params" value="" />
+      <option name="USE_PARAM" value="false" />
+      <option name="USE_KEYWORD" value="false" />
+      <method />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Nosetests">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="EMCCD-psychic" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="FOLDER_NAME" value="" />
+      <option name="TEST_TYPE" value="TEST_SCRIPT" />
+      <option name="PATTERN" value="" />
+      <option name="USE_PATTERN" value="false" />
+      <option name="PARAMS" value="" />
+      <option name="USE_PARAM" value="false" />
       <method />
     </configuration>
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
@@ -284,7 +386,7 @@
       <option name="USE_PARAM" value="false" />
       <method />
     </configuration>
-    <configuration default="true" type="tests" factoryName="py.test">
+    <configuration default="true" type="tests" factoryName="Doctests">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs />
@@ -301,11 +403,6 @@
       <option name="TEST_TYPE" value="TEST_SCRIPT" />
       <option name="PATTERN" value="" />
       <option name="USE_PATTERN" value="false" />
-      <option name="testToRun" value="" />
-      <option name="keywords" value="" />
-      <option name="params" value="" />
-      <option name="USE_PARAM" value="false" />
-      <option name="USE_KEYWORD" value="false" />
       <method />
     </configuration>
     <configuration default="true" type="tests" factoryName="Attests">
@@ -327,55 +424,15 @@
       <option name="USE_PATTERN" value="false" />
       <method />
     </configuration>
-    <configuration default="true" type="tests" factoryName="Doctests">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="EMCCD-psychic" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="CLASS_NAME" value="" />
-      <option name="METHOD_NAME" value="" />
-      <option name="FOLDER_NAME" value="" />
-      <option name="TEST_TYPE" value="TEST_SCRIPT" />
-      <option name="PATTERN" value="" />
-      <option name="USE_PATTERN" value="false" />
-      <method />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="Nosetests">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="EMCCD-psychic" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="CLASS_NAME" value="" />
-      <option name="METHOD_NAME" value="" />
-      <option name="FOLDER_NAME" value="" />
-      <option name="TEST_TYPE" value="TEST_SCRIPT" />
-      <option name="PATTERN" value="" />
-      <option name="USE_PATTERN" value="false" />
-      <option name="PARAMS" value="" />
-      <option name="USE_PARAM" value="false" />
-      <method />
-    </configuration>
     <configuration default="false" name="__main__" type="PythonConfigurationType" factoryName="Python">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="" />
+      <option name="SDK_HOME" value="$USER_HOME$/anaconda/bin/python" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <module name="EMCCD-psychic" />
@@ -410,28 +467,37 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1696" height="1026" extended-state="6" />
-    <editor active="false" />
+    <frame x="0" y="23" width="1676" height="1027" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32998884" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.13441832" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.12145015" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+<<<<<<< HEAD
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.23496027" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.20133482" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.11995178" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
+=======
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.13441832" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+>>>>>>> origin/master
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.23372465" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.20490928" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="SLIDING" visible="false" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="SLIDING" visible="false" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
+      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
     </layout>
   </component>
   <component name="Vcs.Log.UiProperties">
@@ -469,7 +535,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="16456">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -509,7 +577,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="102" max-vertical-offset="15861">
           <caret line="6" column="0" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -557,7 +627,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="15861">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -605,7 +677,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="15861">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -621,7 +695,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="16082">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -685,7 +761,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="7293">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -725,7 +803,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="10268">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -757,7 +837,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="574" max-vertical-offset="8789">
           <caret line="95" column="37" selection-start-line="95" selection-start-column="37" selection-end-line="95" selection-end-column="37" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -765,7 +847,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="204" max-vertical-offset="9333">
           <caret line="37" column="42" selection-start-line="37" selection-start-column="42" selection-end-line="37" selection-end-column="42" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -781,7 +865,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="9333">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -789,7 +875,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="9333">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -824,31 +912,36 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$USER_HOME$/InstrumentLibrary-yolo/InstsAndQt/customQt.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0" vertical-offset="585" max-vertical-offset="2190">
+          <caret line="41" column="16" selection-start-line="41" selection-start-column="16" selection-end-line="41" selection-end-column="16" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/Andor.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="328" max-vertical-offset="21131">
-          <caret line="22" column="16" selection-start-line="22" selection-start-column="16" selection-end-line="22" selection-end-column="16" />
+<<<<<<< HEAD
+        <state vertical-scroll-proportion="0.0" vertical-offset="17115" max-vertical-offset="17765">
+          <caret line="1038" column="40" selection-start-line="1038" selection-start-column="40" selection-end-line="1038" selection-end-column="40" />
+=======
+        <state vertical-scroll-proportion="0.0" vertical-offset="705" max-vertical-offset="18645">
+          <caret line="49" column="0" selection-start-line="49" selection-start-column="0" selection-end-line="49" selection-end-column="0" />
+>>>>>>> origin/master
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/mainWindow_ui.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="17115" max-vertical-offset="17765">
-          <caret line="1038" column="40" selection-start-line="1038" selection-start-column="40" selection-end-line="1038" selection-end-column="40" />
+        <state vertical-scroll-proportion="0.0" vertical-offset="9829" max-vertical-offset="15675">
+          <caret line="665" column="13" selection-start-line="665" selection-start-column="13" selection-end-line="665" selection-end-column="13" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/customQt.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0" vertical-offset="430" max-vertical-offset="2210">
-          <caret line="41" column="32" selection-start-line="41" selection-start-column="32" selection-end-line="41" selection-end-column="32" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../InstrumentLibrary-yolo/InstsAndQt/Instruments.py">
+    <entry file="file://$USER_HOME$/InstrumentLibrary-yolo/InstsAndQt/Instruments.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0" vertical-offset="986" max-vertical-offset="11458">
           <caret line="60" column="16" selection-start-line="60" selection-start-column="16" selection-end-line="60" selection-end-column="16" />
@@ -858,9 +951,17 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/__main__.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state vertical-scroll-proportion="-0.05345912" vertical-offset="16439" max-vertical-offset="21454">
           <caret line="974" column="8" selection-start-line="974" selection-start-column="8" selection-end-line="974" selection-end-column="8" />
           <folding />
+=======
+        <state vertical-scroll-proportion="0.50728863" vertical-offset="6066" max-vertical-offset="20145">
+          <caret line="416" column="18" selection-start-line="416" selection-start-column="18" selection-end-line="416" selection-end-column="18" />
+          <folding>
+            <element signature="e#84#102#0" expanded="true" />
+          </folding>
+>>>>>>> origin/master
         </state>
       </provider>
     </entry>
