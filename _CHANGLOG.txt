@@ -31,3 +31,9 @@ V0.4.0.1a (25/2/2015)
 V0.4.1.0 (25/2/2015)
  * Oscilloscope graph can now pop out
  xBUG Signs of my social life have now disappeared.
+
+V0.4.2.0 (27/2/2015)
+ * New series tag for center wl
+ * tooltip updated for series and oscilloscope GPIB
+ * pulse counts visible on CCD tab
+ * fixed tab order on oscilloscope boxcars

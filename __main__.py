@@ -565,6 +565,7 @@ class CCDWindow(QtGui.QMainWindow):
                     print "PULSE COUNTED!"
                     self.settings["FELPulses"] += 1
                     self.updateElementSig.emit(self.ui.tOscPulses, self.settings["FELPulses"])
+                    self.updateElementSig.emit(self.ui.tCCDFELPulses, self.settings["FELPulses"])
                 else:
                     print "PULSE NOT COUNTED!"
 
@@ -1072,7 +1073,7 @@ class CCDWindow(QtGui.QMainWindow):
         st = str(self.ui.tCCDSeries.text())
         # NIRP, NIRW, FELF, FELP, SLITS
         st = st.format(NIRP=s["NIRP"], NIRW=s["NIR_lambda"], FELF=s["FEL_lambda"],
-                       FELP=s["FELP"], SLITS=s["slits"])
+                       FELP=s["FELP"], SLITS=s["slits"], SPECL = s["center_lambda"])
         s["series"] = st
         return s
 
