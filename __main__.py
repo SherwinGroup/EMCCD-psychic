@@ -91,14 +91,18 @@ class CCDWindow(QtGui.QMainWindow):
     photonWaitingLoop = None # Loop while photon counting waits for more
 
     def __init__(self):
+        print "about to super"
         super(CCDWindow, self).__init__()
+        print "about to init settings"
         self.initSettings()
 
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
+            print "about to init detector"
             self.CCD = AndorEMCCD()
         except TypeError:
+            print "failed to get CCD"
             self.close()
         self.CCD.initialize()
 
@@ -465,7 +469,6 @@ class CCDWindow(QtGui.QMainWindow):
             self.poppedPlotWindow.raise_()
 
     def focusInEvent(self, event):
-        print "in focus"
         if self.poppedPlotWindow is not None:
             self.poppedPlotWindow.raise_()
             self.raise_()
@@ -490,10 +493,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer = ActonSP(
             self.settings["GPIBlist"][self.settings["specGPIBidx"]]
         )
-        self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
-        self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
-        self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
-        self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+        try:
+            self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
+            self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
+            self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
+            self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+        except Exception as e:
+            print "__main__.openSpectrometer: Error initializing spectrometer.\n\t", e
 
     def openAgilent(self, idx = None):
 
@@ -996,6 +1002,12 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curDataEMCCD.make_spectrum()
             except Exception as e:
                 print e
+                
+            try:
+                self.curDataEMCCD.inspect_dark_regions()
+            except Exception as e:
+                print "ERror inspecting dark region", e
+                
             try:
                 self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
             except Exception as e:
@@ -1018,6 +1030,12 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
 
             self.curBGEMCCD.make_spectrum()
+             
+            try:
+                self.curBGEMCCD.inspect_dark_regions()
+            except Exception as e:
+                print "ERror inspecting dark region", e
+                
             self.updateDataSig.emit(False, True) # update with the cleaned data
 
         self.updateElementSig.emit(self.ui.lCCDProg, "Done.")

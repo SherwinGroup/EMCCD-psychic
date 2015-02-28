@@ -35,6 +35,7 @@ class AndorEMCCD(object):
 
         self.dll = None
         self.registerFunctions(wantFake = False)
+        print "About to try to initialize Andor EMCCD"
         ret = self.dllInitialize('')
         print 'Initialized: {}'.format(ret)
         if ret != 20002:
