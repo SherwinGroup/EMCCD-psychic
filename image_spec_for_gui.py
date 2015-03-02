@@ -52,7 +52,7 @@ class EMCCD_image(object):
             self.equipment_dict['y_min'] = 0
         self.clean_array = None
         self.spectrum = None
-        self.addenda = [0, file_name] # This is important for keeping track of addition and subtraction
+        self.addenda = [0, file_name + str(file_no)] # This is important for keeping track of addition and subtraction
         self.subtrahenda = []
 
     def __str__(self):
