@@ -47,3 +47,5 @@ Temporary Items
 
 # dump folder
 .\FakeData\*
+
+.idea/
