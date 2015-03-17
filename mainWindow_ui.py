@@ -597,6 +597,7 @@ class Ui_MainWindow(object):
         self.sbSpecWavelength.setSpecialValueText(_fromUtf8(""))
         self.sbSpecWavelength.setMaximum(1200.0)
         self.sbSpecWavelength.setObjectName(_fromUtf8("sbSpecWavelength"))
+        self.sbSpecWavelength.setDecimals(3)
         self.horizontalLayout_31.addWidget(self.sbSpecWavelength)
         self.gridLayout_16.addWidget(self.groupBox_33, 0, 0, 1, 1)
         self.groupBox = QtGui.QGroupBox(self.tabSpec)

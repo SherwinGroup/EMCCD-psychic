@@ -413,10 +413,6 @@ class CCDWindow(QtGui.QMainWindow):
         self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
         self.openSpectrometer()
 
-    # def AgilGPIBChanged(self):
-    #     self.settings[]
-    #     self.openAgilent()
-
     def openSpectrometer(self):
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
@@ -427,6 +423,20 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
         self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
         self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+        try:
+            self.Spectrometer = ActonSP(
+                self.settings["GPIBlist"][self.settings["specGPIBidx"]]
+            )
+        except Exception as e:
+            print "__main__.openSpectrometer: Error Opening spectrometer\n\t", e
+            self.Spectrometer = ActonSP("Fake")
+        try:
+            self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
+            self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
+            self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
+            self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+        except Exception as e:
+            print "__main__.openSpectrometer: Error initializing spectrometer.\n\t", e
 
     def openAgilent(self, idx = None):
 
@@ -550,7 +560,7 @@ class CCDWindow(QtGui.QMainWindow):
 
     def updateSpecWavelength(self):
         desired = float(self.ui.sbSpecWavelength.value())
-        new = self.Spectrometer.goAndAsk(desired)
+        new = self.Spectrometer.goAndAsk(desired, doCal = True)
         self.ui.tSpecCurWl.setText(str(new))
 
     def updateSpecGrating(self):
