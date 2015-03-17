@@ -43,6 +43,21 @@ class TempThread(QtCore.QThread):
         else:
             self.target(self.args)
 
+class pgPlot(QtGui.QMainWindow):
+    """ Dirt simple class for a window
+        that allows me to emit a signal wh en it's closed
+    """
+    closedSig = QtCore.pyqtSignal()
+    def __init__(self, parent = None):
+        super(pgPlot, self).__init__(parent)
+        self.pw = pg.PlotWidget()
+        self.setCentralWidget(self.pw)
+        self.show()
+
+    def closeEvent(self, event):
+        self.closedSig.emit()
+        event.accept()
+
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -76,14 +91,18 @@ class CCDWindow(QtGui.QMainWindow):
     photonWaitingLoop = None # Loop while photon counting waits for more
 
     def __init__(self):
+        print "about to super"
         super(CCDWindow, self).__init__()
+        print "about to init settings"
         self.initSettings()
 
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
+            print "about to init detector"
             self.CCD = AndorEMCCD()
         except TypeError:
+            print "failed to get CCD"
             self.close()
         self.CCD.initialize()
 
@@ -92,6 +111,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.Agilent = None
         self.openSpectrometer()
         self.openAgilent()
+        self.poppedPlotWindow = None
 
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
@@ -105,7 +125,6 @@ class CCDWindow(QtGui.QMainWindow):
 
         # Get the GPIB instrument list
         try:
-            import visa
             rm = visa.ResourceManager()
             ar = [i.encode('ascii') for i in rm.list_resources()]
             ar.append('Fake')
@@ -122,6 +141,13 @@ class CCDWindow(QtGui.QMainWindow):
         except ValueError:
             # otherwise, just set it to the fake index
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
+        try:
+            # Pretty sure we can safely say it's
+            # ASRL1
+            idx = s['GPIBlist'].index('GPIB0::5::INSTR')
+            s["agilGPIBidx"] = idx
+        except ValueError:
+            # otherwise, just set it to the fake index
             s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
 
         # This will be used to toggle pausing on the scope
@@ -274,6 +300,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cOGPIB.setCurrentIndex(self.settings["agilGPIBidx"])
         self.ui.bOPause.clicked[bool].connect(self.toggleScopePause)
         self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
+        self.ui.bOPop.clicked.connect(self.popoutOscilloscope)
 
         self.pOsc = self.ui.gOsc.plot(pen='k')
         plotitem = self.ui.gOsc.getPlotItem()
@@ -351,9 +378,10 @@ class CCDWindow(QtGui.QMainWindow):
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
 
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
 
-    def initLinearRegions(self):
+    def initLinearRegions(self, item = None):
         #initialize array for all 5 boxcar regions
         self.boxcarRegions = [None]*3
 
@@ -370,9 +398,12 @@ class CCDWindow(QtGui.QMainWindow):
         for i in self.boxcarRegions:
             i.sigRegionChangeFinished.connect(self.updateLinearRegionValues)
 
-        self.ui.gOsc.addItem(self.boxcarRegions[0])
-        self.ui.gOsc.addItem(self.boxcarRegions[1])
-        self.ui.gOsc.addItem(self.boxcarRegions[2])
+        if item is None:
+            item = self.ui.gOsc
+        item.addItem(self.boxcarRegions[0])
+        item.addItem(self.boxcarRegions[1])
+        item.addItem(self.boxcarRegions[2])
+
 
     def updateLinearRegionValues(self):
         sender = self.sender()
@@ -392,6 +423,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.linearRegionTextBoxes[i][0].setText('{:.9g}'.format(sender.getRegion()[0]))
         self.linearRegionTextBoxes[i][1].setText('{:.9g}'.format(sender.getRegion()[1]))
 
+        # Update the dicionary values so that the bounds are proper when
+        d = {0: "bcpyBG",
+             1: "bcpyFP",
+             2: "bcpyCD"
+        }
+        self.settings[d[i]] = list(sender.getRegion())
+
     def updateLinearRegionsFromText(self):
         sender = self.sender()
         #figure out where this was sent
@@ -407,6 +445,38 @@ class CCDWindow(QtGui.QMainWindow):
         curVals = list(self.boxcarRegions[i].getRegion())
         curVals[j] = float(sender.text())
         self.boxcarRegions[i].setRegion(tuple(curVals))
+        # Update the dicionary values so that the bounds are proper when
+        d = {0: "bcpyBG",
+             1: "bcpyFP",
+             2: "bcpyCD"
+        }
+        self.settings[d[i]] = list(curVals)
+
+    def popoutOscilloscope(self):
+        if self.poppedPlotWindow is None:
+            self.poppedPlotWindow = pgPlot()
+            self.oldpOsc = self.pOsc
+            for i in self.boxcarRegions:
+                self.ui.gOsc.removeItem(i)
+            self.pOsc = self.poppedPlotWindow.pw.plot(pen='k')
+            plotitem = self.poppedPlotWindow.pw.getPlotItem()
+            plotitem.setLabel('top',text='Reference Detector')
+            plotitem.setLabel('bottom',text='time scale',units='s')
+            plotitem.setLabel('left',text='Voltage', units='V')
+            self.poppedPlotWindow.closedSig.connect(self.cleanupCloseOsc)
+            self.initLinearRegions(self.poppedPlotWindow.pw)
+        else:
+            self.poppedPlotWindow.raise_()
+
+    def focusInEvent(self, event):
+        if self.poppedPlotWindow is not None:
+            self.poppedPlotWindow.raise_()
+            self.raise_()
+
+    def cleanupCloseOsc(self):
+        self.poppedPlotWindow = None
+        self.pOsc = self.oldpOsc
+        self.initLinearRegions()
 
     def SpecGPIBChanged(self):
         self.Spectrometer.close()
@@ -416,13 +486,6 @@ class CCDWindow(QtGui.QMainWindow):
     def openSpectrometer(self):
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
-        self.Spectrometer = ActonSP(
-            self.settings["GPIBlist"][self.settings["specGPIBidx"]]
-        )
-        self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
-        self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
-        self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
-        self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
         try:
             self.Spectrometer = ActonSP(
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]]
@@ -500,7 +563,6 @@ class CCDWindow(QtGui.QMainWindow):
             if not self.settings['isScopePaused']:
                 self.pyDataSig.emit(pyData)
                 self.updateOscDataSig.emit()
-        print "LEAVING SCOPE COLLECTION LOOP VALIDLY"
 
     def doPhotonCountingLoop(self):
         while self.settings["doPhotonCounting"]:
@@ -516,6 +578,7 @@ class CCDWindow(QtGui.QMainWindow):
                     print "PULSE COUNTED!"
                     self.settings["FELPulses"] += 1
                     self.updateElementSig.emit(self.ui.tOscPulses, self.settings["FELPulses"])
+                    self.updateElementSig.emit(self.ui.tCCDFELPulses, self.settings["FELPulses"])
                 else:
                     print "PULSE NOT COUNTED!"
 
@@ -864,13 +927,24 @@ class CCDWindow(QtGui.QMainWindow):
         # self.updateProgTimer = QtCore.QTimer()
         # self.updateProgTimer.timeout.connect(self.updateProgress)
         # self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
+
         self.elapsedTimer = QtCore.QElapsedTimer()
+        if self.settings["isScopePaused"]:
+            self.settings["exposing"] = True
+            self.elapsedTimer.start()
+            QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
+                                     self.updateProgress)
+        else:
+            self.updateOscDataSig.connect(self.startProgressBar)
+        self.getImageThread.start()
+        
+    def startProgressBar(self):
         self.settings["exposing"] = True
         self.elapsedTimer.start()
         QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
                                  self.updateProgress)
-
-        self.getImageThread.start()
+        self.updateOscDataSig.disconnect(self.startProgressBar)
+        
 
     def takeImage(self, imtype):
         """
@@ -928,6 +1002,12 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curDataEMCCD.make_spectrum()
             except Exception as e:
                 print e
+                
+            try:
+                self.curDataEMCCD.inspect_dark_regions()
+            except Exception as e:
+                print "ERror inspecting dark region", e
+                
             try:
                 self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
             except Exception as e:
@@ -950,6 +1030,12 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
 
             self.curBGEMCCD.make_spectrum()
+             
+            try:
+                self.curBGEMCCD.inspect_dark_regions()
+            except Exception as e:
+                print "ERror inspecting dark region", e
+                
             self.updateDataSig.emit(False, True) # update with the cleaned data
 
         self.updateElementSig.emit(self.ui.lCCDProg, "Done.")
@@ -1012,7 +1098,7 @@ class CCDWindow(QtGui.QMainWindow):
         st = str(self.ui.tCCDSeries.text())
         # NIRP, NIRW, FELF, FELP, SLITS
         st = st.format(NIRP=s["NIRP"], NIRW=s["NIR_lambda"], FELF=s["FEL_lambda"],
-                       FELP=s["FELP"], SLITS=s["slits"])
+                       FELP=s["FELP"], SLITS=s["slits"], SPECL = s["center_lambda"])
         s["series"] = st
         return s
 
@@ -1054,8 +1140,11 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.pCCD.setValue(self.settings["progress"])
             newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
                       - (self.elapsedTimer.elapsed())
-            QtCore.QTimer.singleShot(newTime,
-                                     self.updateProgress)
+            try:
+                QtCore.QTimer.singleShot(newTime,
+                                         self.updateProgress)
+            except:
+                pass
         else:
             self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
             self.settings["exposing"] = False
@@ -1156,6 +1245,8 @@ class CCDWindow(QtGui.QMainWindow):
 
         #Restart the scope to trigger as normal.
         self.Agilent.write(':RUN')
+        if self.poppedPlotWindow is not None:
+            self.poppedPlotWindow.close()
 
         ret = self.CCD.dllCoolerOFF()
         print "cooler off ret: {}".format(self.CCD.parseRetCode(ret))

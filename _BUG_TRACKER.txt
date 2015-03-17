@@ -1,0 +1,10 @@
+﻿Change the comment header to replace /n with /n#
+15-03-01:
+Saving spectra files seems to not save the number of the background file that had been subtracted.
+I’m really confused how the parameter dictionary is being saved, need to check it.
+
+15-03-02:
+Need to make a flag for files that should be stitched together.
+
+15-03-04:
+Check QTimer values to stop it from freezing all the time

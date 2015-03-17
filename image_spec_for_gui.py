@@ -52,7 +52,7 @@ class EMCCD_image(object):
             self.equipment_dict['y_min'] = 0
         self.clean_array = None
         self.spectrum = None
-        self.addenda = [0, file_name] # This is important for keeping track of addition and subtraction
+        self.addenda = [0, file_name + str(file_no)] # This is important for keeping track of addition and subtraction
         self.subtrahenda = []
 
     def __str__(self):
@@ -649,3 +649,40 @@ def gen_wavelengths(center_lambda, grating):
     
     output = (output + center)*10**9
     return output
+
+def calc_THz_intensity(total_energy, pulse_width, window_trans, sample_eff_field, 
+                       ratio=None, radius=0.5, ito_reflect=0.7):
+    """
+    This will calculate the THz intensity at the sample during the cavity dump.
+    Do not enter a ratio if you want to do an average intensity calculation.
+    
+    total_energy - the total energy in the FEL pulse, in mJ
+    pulse_width - the FWHM of the pulse as measured by the fast pyro, in ns
+                  if you want for cavity dump intensity, use FWHM of the front 
+                  porch
+    window_trans - the power transmission of the cryostat window
+    sample_eff_field - the effective _field_ at the front of the sample
+    ratio - the ratio of the cavity dump to the front porch
+    radius - the radius of the FEL spot, assumed to be 0.5 mm
+    ito_reflect - the power reflection of the ITO beam combiner, assumed to be 
+                  around 0.7
+    
+    return - the intensity in the FEL spot in W/cm^2
+    """
+    area = np.pi * (radius * 0.1)**2
+    if ratio is not None:
+        power = 1e-3 * total_energy / (37e-9 + (pulse_width * 1e-9) / ratio)
+    else:
+        power = 1e-3 * total_energy / (pulse_width * 1e-9)
+    return ito_reflect * window_trans * sample_eff_field**2 * power / area
+
+def calc_THz_field(intensity, n=3.59):
+    """
+    This will calculate the THz field strength in the sample 
+    
+    intensity - the intensity of the THz field
+    n - the index of the material at the THz frequency, assumed to be 3.59 for GaAs
+    
+    return - the peak electric field in V/cm
+    """
+    return (2 * intensity / (8.85e-12 * 2.99e8 * n))**0.5

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>902</width>
-    <height>845</height>
+    <width>827</width>
+    <height>735</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -900,7 +900,7 @@
                    <item row="0" column="0">
                     <widget class="QLineEdit" name="tCCDSeries">
                      <property name="toolTip">
-                      <string>NIRP, NIRW, FELF, FELP, SLITS</string>
+                      <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
                      </property>
                      <property name="statusTip">
                       <string/>
@@ -965,7 +965,7 @@
                 <item row="1" column="0">
                  <widget class="QGroupBox" name="groupBox_39">
                   <property name="title">
-                   <string>FEL Freq (GHz)</string>
+                   <string>FEL Freq (cm-1)</string>
                   </property>
                   <property name="flat">
                    <bool>true</bool>
@@ -1263,7 +1263,7 @@
                 <item row="0" column="1">
                  <widget class="QGroupBox" name="groupBox_36">
                   <property name="title">
-                   <string>NIR Wavelength (nm)</string>
+                   <string>NIR Wl (nm)</string>
                   </property>
                   <property name="flat">
                    <bool>true</bool>
@@ -1447,7 +1447,10 @@
            <widget class="PlotWidget" name="gCCDBin"/>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_34">
+           <layout class="QHBoxLayout" name="horizontalLayout_34" stretch="9,1,1,1">
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
             <item>
              <widget class="QProgressBar" name="pCCD">
               <property name="value">
@@ -1474,6 +1477,37 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupBox_54">
+              <property name="title">
+               <string>FEL Pulses</string>
+              </property>
+              <property name="flat">
+               <bool>true</bool>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout_50">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>10</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>9</number>
+               </property>
+               <item>
+                <widget class="QLineEdit" name="tCCDFELPulses">
+                 <property name="readOnly">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
             </item>
            </layout>
           </item>
@@ -2058,7 +2092,11 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QComboBox" name="cOGPIB"/>
+              <widget class="QComboBox" name="cOGPIB">
+               <property name="toolTip">
+                <string>GPIB0::5::INSTR</string>
+               </property>
+              </widget>
              </item>
             </layout>
            </widget>
@@ -2144,7 +2182,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>902</width>
+     <width>827</width>
      <height>21</height>
     </rect>
    </property>
@@ -2253,23 +2291,36 @@
   <tabstop>tEMCCDGain</tabstop>
   <tabstop>tCCDBGNum</tabstop>
   <tabstop>tCCDComments</tabstop>
-  <tabstop>tCdEn</tabstop>
+  <tabstop>gCCDImage</tabstop>
   <tabstop>bOPause</tabstop>
   <tabstop>cOGPIB</tabstop>
   <tabstop>cOChannel</tabstop>
   <tabstop>bOPop</tabstop>
   <tabstop>tBgSt</tabstop>
-  <tabstop>tBgEn</tabstop>
-  <tabstop>gCCDBack</tabstop>
-  <tabstop>gOsc</tabstop>
   <tabstop>tFpSt</tabstop>
-  <tabstop>gCCDImage</tabstop>
+  <tabstop>tCdSt</tabstop>
+  <tabstop>tBgEn</tabstop>
+  <tabstop>tFpEn</tabstop>
+  <tabstop>tCdEn</tabstop>
   <tabstop>sbSpecWavelength</tabstop>
   <tabstop>bSpecSetWl</tabstop>
-  <tabstop>tCdSt</tabstop>
+  <tabstop>gCCDBack</tabstop>
   <tabstop>gCCDBin</tabstop>
-  <tabstop>tFpEn</tabstop>
+  <tabstop>gOsc</tabstop>
   <tabstop>sbSpecGrating</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>cSettingsShutterEx</tabstop>
+  <tabstop>cSettingsShutter</tabstop>
+  <tabstop>tCCDSampleTemp</tabstop>
+  <tabstop>tCCDFELPulses</tabstop>
+  <tabstop>bSpecSetGr</tabstop>
+  <tabstop>tSpecCurWl</tabstop>
+  <tabstop>cSpecGPIB</tabstop>
+  <tabstop>tSpecCurGr</tabstop>
+  <tabstop>tabWidget_2</tabstop>
+  <tabstop>tOscPulses</tabstop>
+  <tabstop>tOscFPRatio</tabstop>
+  <tabstop>tOscCDRatio</tabstop>
  </tabstops>
  <resources/>
  <connections/>
