@@ -1,1 +1,3 @@
 Change the comment header to replace /n with /n#
+
+Turn off the "Take picture" buttons while cooling down.

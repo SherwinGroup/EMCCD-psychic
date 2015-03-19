@@ -7,12 +7,12 @@ Created on Sat Feb 14 15:06:30 2015
 
 import numpy as np
 from PyQt4 import QtCore, QtGui
-from mainWindow_ui import Ui_MainWindow
 from Andor import AndorEMCCD
 import pyqtgraph as pg
 import scipy.integrate as spi
 from image_spec_for_gui import EMCCD_image, calc_THz_intensity, calc_THz_field
 from InstsAndQt.Instruments import *
+from InstsAndQt.customQt import *
 import copy
 import os
 pg.setConfigOption('background', 'w')
@@ -20,47 +20,45 @@ pg.setConfigOption('foreground', 'k')
 try:
     import visa
 except:
-    print 'GPIB VISA library not installed'
+    log.critical('GPIB VISA library not installed')
     raise
-    
+
+import logging
+
+
+
+log = logging.getLogger("EMCCD")
+log.setLevel(logging.DEBUG)
+handler = logging.FileHandler("TheLog.log")
+handler.setLevel(logging.DEBUG)
+handler1 = logging.StreamHandler()
+handler1.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - [%(filename)s:%(lineno)s - %(funcName)s()] - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+handler1.setFormatter(formatter)
+log.addHandler(handler)
+log.addHandler(handler1)
+
+# http://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
+import ctypes
+if os.name is not "posix":
+    myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+# http://stackoverflow.com/questions/279237/import-a-module-from-a-relative-path?lq=1
+import os, sys, inspect
+cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
+if cmd_subfolder not in sys.path:
+     sys.path.insert(0, cmd_subfolder)
+from mainWindow_ui import Ui_MainWindow
+from ExpWidgs import *
+from OscWid import *
+
 try:
     a = QtCore.QString()
 except AttributeError:
     QtCore.QString = str
-        
 
-class TempThread(QtCore.QThread):
-    """ Creates a QThread which will monitor the temperature changes in the
-        CCD. Actually more general than that since it simply takes a function and some args...
-    """
-    def __init__(self, target, args = None):
-        super(TempThread, self).__init__()
-        self.target = target
-        self.args = args
-
-    def run(self):
-        try:
-            if self.args is None:
-                self.target()
-            else:
-                self.target(self.args)
-        except Exception as e:
-            print "EROR IN THREAD: ",e
-
-class pgPlot(QtGui.QMainWindow):
-    """ Dirt simple class for a window
-        that allows me to emit a signal wh en it's closed
-    """
-    closedSig = QtCore.pyqtSignal()
-    def __init__(self, parent = None):
-        super(pgPlot, self).__init__(parent)
-        self.pw = pg.PlotWidget()
-        self.setCentralWidget(self.pw)
-        self.show()
-
-    def closeEvent(self, event):
-        self.closedSig.emit()
-        event.accept()
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -68,60 +66,54 @@ class CCDWindow(QtGui.QMainWindow):
     killTimerSig = QtCore.pyqtSignal(object) # To kill a timer started in the main thread from a sub-thread
      # to update either image, whether it is clean or not
     updateDataSig = QtCore.pyqtSignal(object, object, object)
-    # Has the oscilloscope updated and data is now ready
-    # for processing?
-    updateOscDataSig = QtCore.pyqtSignal()
-    # Can now update the graph
-    pyDataSig = QtCore.pyqtSignal(object)
 
     # Thread definitions
     setTempThread = None
     getTempTimer = None # Timer for updating the current temperature while the detector is warming/cooling
 
+    sigUpdateStatusBar = QtCore.pyqtSignal(object)
+
+    # Should be moved to ExpWid's
     getImageThread = None
     updateProgTimer = None # timer for updating the progress bar
-
     getContinuousThread = None # Thread for acquiring continuously
+    updateOscDataSig = QtCore.pyqtSignal()
 
-    scopeCollectionThread = None # Thread which polls the scope
-    scopePausingLoop = None # A QEventLoop which causes the scope collection
-                            # thread to wait
-
-    photonCountingThread = None # A thread whose only sad purpose
-                                # in life is to wait for data to
-                                # be emitted and to process
-                                # and count it
-    photonWaitingLoop = None # Loop while photon counting waits for more
 
     def __init__(self):
-        print "about to super"
         super(CCDWindow, self).__init__()
-        print "about to init settings"
+        log.debug("About to initialize settins")
         self.initSettings()
-
+        self.settings["doCRR"] = False
+        log.critical("DEBUG: NOT DOING CRR")
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            print "about to init detector"
             self.CCD = AndorEMCCD()
-        except TypeError:
-            print "failed to get CCD"
+        except TypeError as e:
+            log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
+
         self.CCD.initialize()
 
         self.initUI()
+
+        # Check to make sure the software didn't crash and the temperature is currently cold
+        temp = self.CCD.getTemperature()
+        self.ui.tSettingsCurrTemp.setText(str(temp))
+        if temp<0:
+            self.doTempSet()
+
         self.Spectrometer = None
         self.Agilent = None
         self.openSpectrometer()
-        self.openAgilent()
+        # self.openAgilent()
         self.poppedPlotWindow = None
 
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
         self.updateDataSig.connect(self.updateImage)
-        self.pyDataSig.connect(self.updateOscilloscopeGraph)
-        self.photonCountingThread = TempThread(target = self.doPhotonCountingLoop)
-        self.photonCountingThread.start()
+
 
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
@@ -133,7 +125,7 @@ class CCDWindow(QtGui.QMainWindow):
             ar.append('Fake')
             s['GPIBlist'] = ar
         except:
-            print 'Error loading GPIB list'
+            log.warning("Error loading GPIB list")
             ar = ['a', 'b', 'c', 'Fake']
             s['GPIBlist'] = ar
         try:
@@ -161,8 +153,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["doPhotonCounting"] = True
         s["exposing"] = False # For whether or not an exposure is happening
 
-        # How many pulses are there?
-        s["FELPulses"] = 0
+
         # list of the field intensities for each pulse in a scan
         s["fieldStrength"] = []
         s["fieldInt"] = []
@@ -214,7 +205,29 @@ class CCDWindow(QtGui.QMainWindow):
         s["doCRR"] = True
         s["takeContinuous"] = False
 
+        # Misc settings concerning the experimental parameters.
+        # They are set by the children experimental widgets, but kept here so that
+        # they can communicate with each other.
+
+        s["nir_power"] = 0
+        s["nir_lambda"] = 0
+        s["series"] = ""
+        s["fel_power"] = 0
+        s["exposure"] = 0.5
+        s["gain"] = 1
+        s["y_min"] = 0
+        s["y_max"] = 400
+        s["slits"] = 0
+        s["fel_reprate"] = 0.75
+        s["fel_lambda"] = 0
+        s["sample_temp"] = 0
+        s["fel_pulses"] = 0
+        s["sample_spot_size"] = 0.05
+        s["window_trans"] = 1.0
+        s["eff_field"] = 1.0
+
         self.settings = s
+
 
     def initUI(self):
         self.ui = Ui_MainWindow()
@@ -234,19 +247,29 @@ class CCDWindow(QtGui.QMainWindow):
                 self.ui.cSettingsAcquisitionMode.model().setData(j, 0, QtCore.Qt.UserRole-1)
 
 
-        # Setting up the splitter regions to be the size I want.
-        self.ui.splitterImages.setStretchFactor(0, 1)
-        self.ui.splitterImages.setStretchFactor(1, 1)
 
-        self.ui.splitterTop.setStretchFactor(0, 1)
-        self.ui.splitterTop.setStretchFactor(1, 10)
+        self.sbText = QTimedText()
+        self.statusBar().addPermanentWidget(self.sbText, 1)
+        self.sigUpdateStatusBar.connect(self.updateStatusBar)
 
+        #####################
+        # Creating all of the widgets used for different experiment types
+        ###################
+        self.expUIs = dict()
+        self.expUIs["HSG"] = HSGWid(self)
+        self.expUIs["HSG"].setParent(None)
+        self.expUIs["Abs"] = AbsWid(self)
+        self.expUIs["Abs"].setParent(None)
+        self.expUIs["PL"] = PLWid(self)
+        self.expUIs["PL"].setParent(None)
+        # Connect the changes
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
 
-        for i in range(len(self.ui.splitterAll)):
-            print "{}: {}".format(i, self.ui.splitterAll.widget(i))
-        self.ui.splitterAll.setStretchFactor(0, 5)
-        self.ui.splitterAll.setStretchFactor(1, 50)
-        self.ui.splitterAll.setStretchFactor(2, 2)
+        self.oscWidget = None
+        self.curExp = None # Keep a reference if you ever want it
+        self.openHSG()
+        self.openExp("HSG")
+
 
         # Updating menus in the settings/CCD settings portion
         self.ui.cSettingsADChannel.addItems([str(i) for i in range(
@@ -265,7 +288,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tVEnd.setText(str(self.CCD.cameraSettings['imageSettings'][5]))
 
         ################
-        # Connect all of the setting changes
+        # Connect all of the setting changes for the CCD parameters
         ###############
         self.ui.cSettingsReadMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
         self.ui.cSettingsADChannel.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
@@ -318,35 +341,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bSpecSetWl.clicked.connect(self.updateSpecWavelength)
         self.ui.bSpecSetGr.clicked.connect(self.updateSpecGrating)
 
-        ###################
-        # Setting up oscilloscope values
-        ##################
-        self.ui.cOGPIB.addItems(self.settings['GPIBlist'])
-        self.ui.cOGPIB.setCurrentIndex(self.settings["agilGPIBidx"])
-        self.ui.bOPause.clicked[bool].connect(self.toggleScopePause)
-        self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
-        self.ui.bOscInit.clicked.connect(self.initOscRegions)
-        self.ui.bOPop.clicked.connect(self.popoutOscilloscope)
 
-        self.pOsc = self.ui.gOsc.plot(pen='k')
-        plotitem = self.ui.gOsc.getPlotItem()
-        plotitem.setLabel('top',text='Reference Detector')
-        plotitem.setLabel('bottom',text='time scale',units='s')
-        plotitem.setLabel('left',text='Voltage', units='V')
-
-        #Now we make an array of all the textboxes for the linear regions to make it
-        #easier to iterate through them. Set it up in memory identical to how it
-        #appears on the panel for sanity, in a row-major fashion
-        lrtb = [[self.ui.tBgSt, self.ui.tBgEn],
-                [self.ui.tFpSt, self.ui.tFpEn],
-                [self.ui.tCdSt, self.ui.tCdEn]]
-        # Connect the changes to update the Linear Regions
-        for i in lrtb:
-            for j in i:
-                j.textAccepted.connect(self.updateLinearRegionsFromText)
-
-        self.linearRegionTextBoxes = lrtb
-        self.initLinearRegions()
                                     
         ####################
         # Connect more things
@@ -356,8 +351,6 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bSettingsApply.clicked.connect(self.updateSettings)
         self.ui.bSettingsCancel.clicked.connect(self.cancelSettings)
         self.ui.bSetTemp.clicked.connect(self.doTempSet)
-        self.ui.bCCDImage.clicked.connect(lambda: self.startTakeImage("img"))
-        self.ui.bCCDBack.clicked.connect(lambda: self.startTakeImage("bg"))
 
         ####################
         # Save file connection
@@ -366,169 +359,124 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSettingsDirectory.setEnabled(False)
 
         ##################
-        # Connections for updating image counters when user-changed
-        ##################
-        self.ui.tCCDImageNum.textAccepted.connect(
-            lambda: self.updateImageNumbers(True))
-        self.ui.tCCDBGNum.textAccepted.connect(
-            lambda: self.updateImageNumbers(False))
-        self.ui.tCCDNIRwavelength.textAccepted.connect(self.parseNIRL)
-
-        ##################
         # Connections for file menu things
         ##################
         # All I want it to do is set a flag which gets checked later.
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
-        self.ui.mFileTakeContinuous.triggered[bool].connect(self.startTakeContinuous)
+        self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
         self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
-
-        # Follow the pyqtgraph example for how to set up
-        # an image plot and histogram, without the other obnoxious stuff
-        # included in a plain ImageView
-        self.p1 = self.ui.gCCDImage.addPlot()
-        self.pSigImage = pg.ImageItem()
-        self.p1.addItem(self.pSigImage)
-        self.pSigHist = pg.HistogramLUTItem()
-        self.pSigHist.setImageItem(self.pSigImage)
-        self.ui.gCCDImage.addItem(self.pSigHist)
-
-        # These are infinite lines for when taking a continuous
-        # image. Issues arise if you try to make them in
-        # another thread.
-        self.ilOne = pg.InfiniteLine(800, movable=True,
-                                     pen=pg.mkPen(width=3, color='g'))
-        self.ilTwo = pg.InfiniteLine(800, movable=True,
-                                     pen=pg.mkPen(width=3, color='g'))
-
-        self.p2 = self.ui.gCCDBack.addPlot()
-        self.pBackImage = pg.ImageItem()
-        self.p2.addItem(self.pBackImage)
-        self.pBackHist = pg.HistogramLUTItem()
-        self.pBackHist.setImageItem(self.pBackImage)
-        self.ui.gCCDBack.addItem(self.pBackHist)
-
-        self.pSpec = self.ui.gCCDBin.plot(pen='k')
-        plotitem = self.ui.gCCDBin.getPlotItem()
-        plotitem.setLabel('top',text='Spectrum')
-        plotitem.setLabel('bottom',text='Wavelength',units='nm')
-        plotitem.setLabel('left',text='Counts')
-        self.ilSpec = pg.InfiniteLine(movable=True)
-        self.ilSpec.sigPositionChanged.connect(self.updateSBfromLine)
-        self.ui.gCCDBin.addItem(self.ilSpec)
-        self.ui.tCCDSidebandNumber.textAccepted.connect(self.updateSBfromValue)
+        self.ui.mFileFastExit.triggered.connect(self.close)
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
 
-    def initLinearRegions(self, item = None):
-        #initialize array for all 5 boxcar regions
-        self.boxcarRegions = [None]*3
 
-        bgCol = pg.mkBrush(QtGui.QColor(255, 0, 0, 50))
-        fpCol = pg.mkBrush(QtGui.QColor(0, 0, 255, 50))
-        sgCol = pg.mkBrush(QtGui.QColor(0, 255, 0, 50))
-
-        #Background region for the pyro plot
-        self.boxcarRegions[0] = pg.LinearRegionItem(self.settings['bcpyBG'], brush = bgCol)
-        self.boxcarRegions[1] = pg.LinearRegionItem(self.settings['bcpyFP'], brush = fpCol)
-        self.boxcarRegions[2] = pg.LinearRegionItem(self.settings['bcpyCD'], brush = sgCol)
-
-        #Connect it all to something that will update values when these all change
-        for i in self.boxcarRegions:
-            i.sigRegionChangeFinished.connect(self.updateLinearRegionValues)
-
-        if item is None:
-            item = self.ui.gOsc
-        item.addItem(self.boxcarRegions[0])
-        item.addItem(self.boxcarRegions[1])
-        item.addItem(self.boxcarRegions[2])
-
-
-    def updateLinearRegionValues(self):
-        sender = self.sender()
-        sendidx = -1
-        for (i, v) in enumerate(self.boxcarRegions):
-            #I was debugging something. I tried to use id(), which is effectively the memory
-            #location to try and fix it. Found out it was anohter issue, but
-            #id() seems a little safer(?) than just equating them in the sense that
-            #it's explicitly asking if they're the same object, isntead of potentially
-            #calling some weird __eq__() pyqt/graph may have set up
-            if id(sender) == id(v):
-                sendidx = i
-        i = sendidx
-        #Just being paranoid, no reason to think it wouldn't find the proper thing
-        if sendidx<0:
+    @staticmethod
+    def __CHANGING_EXPERIMENT_TYPE(): pass
+    def updateExperiment(self, b):
+        sent = self.sender()
+        if not b: # You unchecked it, which isn't advised
+            sent.toggled.disconnect()
+            sent.setChecked(True)
+            sent.toggled[bool].connect(self.updateExperiment)
             return
-        self.linearRegionTextBoxes[i][0].setText('{:.9g}'.format(sender.getRegion()[0]))
-        self.linearRegionTextBoxes[i][1].setText('{:.9g}'.format(sender.getRegion()[1]))
-
-        # Update the dicionary values so that the bounds are proper when
-        d = {0: "bcpyBG",
-             1: "bcpyFP",
-             2: "bcpyCD"
-        }
-        self.settings[d[i]] = list(sender.getRegion())
-
-    def updateLinearRegionsFromText(self):
-        sender = self.sender()
-        #figure out where this was sent
-        sendi, sendj = -1, -1
-        for (i, v)in enumerate(self.linearRegionTextBoxes):
-            for (j, w) in enumerate(v):
-                if id(w) == id(sender):
-                    sendi = i
-                    sendj = j
-
-        i = sendi
-        j = sendj
-        curVals = list(self.boxcarRegions[i].getRegion())
-        curVals[j] = float(sender.text())
-        self.boxcarRegions[i].setRegion(tuple(curVals))
-        # Update the dicionary values so that the bounds are proper when
-        d = {0: "bcpyBG",
-             1: "bcpyFP",
-             2: "bcpyCD"
-        }
-        self.settings[d[i]] = list(curVals)
-
-    def updateSBfromLine(self):
-        try:
-            wn = 10000000./self.ui.tCCDNIRwavelength.value()
-            wanted = 10000000./self.ilSpec.value()
-            sbn = (wanted-wn)/self.ui.tCCDFELFreq.value()
-            # Need to disconnect/reconnect here, otherwise they call each other infinitely
-            self.ui.tCCDSidebandNumber.textAccepted.disconnect(self.updateSBfromValue)
-            self.ui.tCCDSidebandNumber.setText("{:.3f}".format(sbn))
-            self.ui.tCCDSidebandNumber.textAccepted.connect(self.updateSBfromValue)
-        except Exception as e:
-            if type(e) is ZeroDivisionError:
-                return
-            print "Error updating sideband from line,",e
+        # ensure en exposure isn't taking place
+        if self.curExp.thDoExposure.isRunning():
+            sent.toggled.disconnect()
+            sent.setChecked(False)
+            sent.toggled[bool].connect(self.updateExperiment)
+            self.sigUpdateStatusBar.emit("Please wait for image to collect")
+            return
 
 
-    def updateSBfromValue(self):
-        try:
-            wn = 10000000./self.ui.tCCDNIRwavelength.value()
-            wanted = wn + self.ui.tCCDSidebandNumber.value()*self.ui.tCCDFELFreq.value()
-            wanted = 10000000./wanted
-            # Need to disconnect/reconnect here, otherwise they call each other infinitely
-            self.ilSpec.sigPositionChanged.disconnect(self.updateSBfromLine)
-            self.ilSpec.setValue(wanted)
-            self.ilSpec.sigPositionChanged.connect(self.updateSBfromLine)
-        except Exception as e:
-            print "Error updating sideband from text,",e
 
-    def parseNIRL(self):
-        """
-        We want wavelength, but sometimes we're working with wavenumber
-        It'd be nice to do the calculation in the software
-        :return:
-        """
-        val = self.ui.tCCDNIRwavelength.value()
-        if val>1500:
-            self.ui.tCCDNIRwavelength.setText("{:.3f}".format(10000000./val))
+        #disconnect the actions, change to the proper toggle, and reconenct them
+        expActions = self.ui.menuExperiment_Type.actions()
+        [i.toggled.disconnect() for i in self.ui.menuExperiment_Type.actions()]
+        # Keep track so we can close it.
+        oldExp = str([i for i in expActions if i is not sent and i.isChecked()][0].text())
+        [i.setChecked(False) for i in expActions if i is not sent]
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
+
+        curTabIdx = self.ui.tabWidget.currentIndex()
+        newExp = str(sent.text())
+        if oldExp == "HSG":
+            self.closeHSG()
+        if oldExp in ["HSG", "PL", "Abs"]:
+            self.closeExp(oldExp)
+        else:
+            log.error("Unknown old experiment, {}".format(oldExp))
+
+        if newExp == "HSG":
+            self.openHSG()
+        if newExp in ["HSG", "PL", "Abs"]:
+            self.openExp(newExp)
+        else:
+            log.error("Unknown experiment chosen, {}".format(newExp))
+
+
+        self.ui.tabWidget.setCurrentIndex(curTabIdx)
+
+    def openExp(self, exp = "HSG"):
+        self.expUIs[exp].setParent(self)
+        self.ui.tabWidget.insertTab(1, self.expUIs[exp], exp)
+        self.curExp = self.expUIs[exp]
+
+        # Need to set the texts so that they're constant between them all.
+        self.curExp.ui.tCCDImageNum.setText(str(self.settings["igNumber"]))
+        self.curExp.ui.tCCDBGNum.setText(str(self.settings["bgNumber"]))
+        self.curExp.ui.tCCDSeries.setText(str(self.settings["series"]))
+        self.curExp.ui.tEMCCDExp.setText(str(self.CCD.cameraSettings["exposureTime"]))
+        self.curExp.ui.tEMCCDGain.setText(str(self.CCD.cameraSettings["gain"]))
+        self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
+        self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
+        self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
+        self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
+
+        if self.curExp.hasNIR:
+            self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
+            self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
+        if self.curExp.hasFEL:
+            self.curExp.ui.tCCDFELP.setText(str(self.settings["fel_power"]))
+            self.curExp.ui.tCCDFELFreq.setText(str(self.settings["fel_lambda"]))
+            self.curExp.ui.tCCDFELRR.setText(str(self.settings["fel_reprate"]))
+            self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
+            self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
+            self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
+
+
+
+    def closeExp(self, exp = "HSG"):
+        self.ui.tabWidget.removeTab(
+            self.ui.tabWidget.indexOf(self.expUIs[exp])
+        )
+        self.expUIs[exp].setParent(None)
+        self.curExp = None
+
+    def openHSG(self):
+        self.oscWidget = OscWid(self)
+        self.ui.tabWidget.addTab(self.oscWidget, "Oscilloscope")
+
+    def closeHSG(self):
+        self.ui.tabWidget.removeTab(
+            self.ui.tabWidget.indexOf(self.oscWidget)
+        )
+        self.oscWidget.close()
+        self.oscWidget = None
+
+    def getCurExp(self):
+        # I need this function for an easy fix
+        # I want to connect a signal/slot at initialization
+        # but that corresponds to the curExp at that time,
+        # not at all times
+        print "I got called!"
+        return self.curExp
+
+    @staticmethod
+    def __UI_CHANGES(): pass
+
 
     def toggleExtraSettings(self, val=False):
         self.ui.cSettingsReadMode.setEnabled(val)
@@ -539,246 +487,20 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHStart.setEnabled(val)
         self.ui.tHEnd.setEnabled(val)
 
-    def popoutOscilloscope(self):
-        if self.poppedPlotWindow is None:
-            self.poppedPlotWindow = pgPlot()
-            self.oldpOsc = self.pOsc
-            for i in self.boxcarRegions:
-                self.ui.gOsc.removeItem(i)
-            self.pOsc = self.poppedPlotWindow.pw.plot(pen='k')
-            plotitem = self.poppedPlotWindow.pw.getPlotItem()
-            plotitem.setLabel('top',text='Reference Detector')
-            plotitem.setLabel('bottom',text='time scale',units='s')
-            plotitem.setLabel('left',text='Voltage', units='V')
-            self.poppedPlotWindow.closedSig.connect(self.cleanupCloseOsc)
-            self.initLinearRegions(self.poppedPlotWindow.pw)
-        else:
-            self.poppedPlotWindow.raise_()
 
     def focusInEvent(self, event):
-        if self.poppedPlotWindow is not None:
-            self.poppedPlotWindow.raise_()
-            self.raise_()
+        if self.oscWidget is not None:
+            if self.oscWidget.poppedPlotWindow is not None:
+                self.oscWidget.poppedPlotWindow.raise_()
+                self.raise_()
 
-    def cleanupCloseOsc(self):
-        self.poppedPlotWindow = None
-        self.pOsc = self.oldpOsc
-        self.initLinearRegions()
-
-    def SpecGPIBChanged(self):
-        self.Spectrometer.close()
-        self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
-        self.openSpectrometer()
-
-    def openSpectrometer(self):
-        # THIS should really be in a try:except: loop for if
-        # the spec timeouts or cant be connected to
-        try:
-            self.Spectrometer = ActonSP(
-                self.settings["GPIBlist"][self.settings["specGPIBidx"]]
-            )
-        except Exception as e:
-            print "__main__.openSpectrometer: Error Opening spectrometer\n\t", e
-            self.Spectrometer = ActonSP("Fake")
-        try:
-            self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
-            self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
-            self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
-            self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
-        except Exception as e:
-            print "__main__.openSpectrometer: Error initializing spectrometer.\n\t", e
-
-    def openAgilent(self, idx = None):
-
-        self.settings["shouldScopeLoop"] = False
-        isPaused = self.settings["isScopePaused"] # For intelligently restarting scope afterwards
-        if isPaused:
-            self.toggleScopePause(False)
-        try:
-            self.scopeCollectionThread.wait()
-        except:
-            pass
-        try:
-            self.Agilent.close()
-        except Exception as e:
-            print "__main__.openAgilent:\nError closing Agilent,",e
-        try:
-            self.Agilent = Agilent6000(
-                self.settings["GPIBlist"][int(self.ui.cOGPIB.currentIndex())]
-            )
-            print 'Agilent opened'
-        except Exception as e:
-            print "__main__.openAgilent:\nError opening Agilent,",e
-            self.Agilent = Agilent6000("Fake")
-            # If you change the index programatically,
-            # it signals again. But that calls this thread again
-            # which really fucks up with the threading stuff
-            # Cheap way is to just disconnect it and then reconnect it
-            self.ui.cOGPIB.currentIndexChanged.disconnect()
-            self.ui.cOGPIB.setCurrentIndex(
-                self.settings["GPIBlist"].index("Fake")
-            )
-            self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
-
-        self.Agilent.setTrigger()
-        self.settings['shouldScopeLoop'] = True
-        if isPaused:
-            self.toggleScopePause(True)
-
-        self.scopeCollectionThread = TempThread(target = self.collectScopeLoop)
-        self.scopeCollectionThread.start()
-
-    def toggleScopePause(self, val):
-        print "Toggle scope. val={}".format(val)
-        self.settings["isScopePaused"] = val
-        if not val: # We want to stop any pausing thread if neceesary
-            try:
-                self.scopePausingLoop.exit()
-            except:
-                pass
-
-    def collectScopeLoop(self):
-        while self.settings['shouldScopeLoop']:
-            if self.settings['isScopePaused']:
-                #Have the scope updating remotely so it can be changed if needed
-                self.Agilent.write(':RUN')
-                #If we want to pause, make a fake event loop and terminate it from outside forces
-                self.scopePausingLoop = QtCore.QEventLoop()
-                self.scopePausingLoop.exec_()
-                continue
-            pyData = self.Agilent.getSingleChannel(int(self.ui.cOChannel.currentIndex())+1)
-            if not self.settings['isScopePaused']:
-                self.pyDataSig.emit(pyData)
-                self.updateOscDataSig.emit()
-
-    def doPhotonCountingLoop(self):
-        while self.settings["doPhotonCounting"]:
-            self.photonWaitingLoop = QtCore.QEventLoop()
-            self.updateOscDataSig.connect(self.photonWaitingLoop.exit)
-            self.photonWaitingLoop.exec_()
-            if self.settings["exposing"]:
-                pyBG, pyFP, pyCD = self.integrateData()
-                if (
-                    (pyFP > pyBG * self.ui.tOscFPRatio.value()) and
-                    (pyCD > pyBG * self.ui.tOscCDRatio.value())
-                ):
-                    print "PULSE COUNTED!"
-                    self.settings["FELPulses"] += 1
-                    self.updateElementSig.emit(self.ui.tOscPulses, self.settings["FELPulses"])
-                    self.updateElementSig.emit(self.ui.tCCDFELPulses, self.settings["FELPulses"])
-                    self.doFieldCalcuation(pyBG, pyFP, pyCD)
-                else:
-                    print "PULSE NOT COUNTED!"
-
-
-    def integrateData(self):
-        #Neater and maybe solve issues if the data happens to update
-        #while trying to do analysis?
-        pyD = self.settings['pyData']
-
-        pyBGbounds = self.boxcarRegions[0].getRegion()
-        pyBGidx = self.findIndices(pyBGbounds, pyD[:,0])
-
-        pyFPbounds = self.boxcarRegions[1].getRegion()
-        pyFPidx = self.findIndices(pyFPbounds, pyD[:,0])
-
-        pyCDbounds = self.boxcarRegions[2].getRegion()
-        pyCDidx = self.findIndices(pyCDbounds, pyD[:,0])
-
-        pyBG = spi.simps(pyD[pyBGidx[0]:pyBGidx[1],1], pyD[pyBGidx[0]:pyBGidx[1], 0])
-        pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
-        pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
-
-        return pyBG, pyFP, pyCD
-
-    def findIndices(self, values, dataset):
-        '''Given an ordered dataset and a pair of values, returns the indices which
-           correspond to these bounds  '''
-        indx = list((dataset>values[0]) & (dataset<values[1]))
-        #convert to string for easy finding
-        st = ''.join([str(int(i)) for i in indx])
-        start = st.find('1')
-        if start == -1:
-            start = 0
-        end = start + st[start:].find('0')
-        if end<=0:
-            end = 1
-        return start, end
-
-    def doFieldCalcuation(self, BG = 1.0, FP = 2.0, CD = 2.0):
-        """
-        :param BG: integrated background value
-        :param FP: integrated front porch value
-        :param CD: integrated cavity dump region
-        :return:
-        """
-        try:
-            energy = self.ui.tCCDFELP.value()
-            windowTrans = self.ui.tCCDWindowTransmission.value()
-            effField = self.ui.tCCDEffectiveField.value()
-            radius = self.ui.tCCDSpotSize.value()
-            ratio = FP/(FP + CD)
-            intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
-                                       ratio = ratio)
-            field = calc_THz_field(intensity)
-
-            intensity = round(intensity/1000., 3)
-            field = round(field/1000., 3)
-
-            self.ui.tCCDIntensity.setText("{:.3f}".format(intensity))
-            self.settings["fieldInt"].append(intensity)
-            self.ui.tCCDEField.setText("{:.3f}".format(field))
-            self.settings["fieldStrength"].append(field)
-
-        except Exception as e:
-            print "__main__.doFieldCalcuation:\n\tError calculating field,", e
-
-    def initOscRegions(self):
-        try:
-            length = len(self.settings['pyData'])
-            point = self.settings['pyData'][length/2,0]
-        except Exception as e:
-            print "__main__.initOscRegions:",e
-            return
-
-        # Update the dicionary values so that the bounds are proper when
-        d = {0: "bcpyBG",
-             1: "bcpyFP",
-             2: "bcpyCD"
-        }
-        for i in range(len(self.boxcarRegions)):
-            self.boxcarRegions[i].setRegion(tuple((point, point)))
-            self.settings[d[i]] = list((point, point))
-
-
-    def updateOscilloscopeGraph(self, data):
-        self.settings['pyData'] = data
-        self.pOsc.setData(data[:,0], data[:,1])
-
-
-    def updateSpecWavelength(self):
-        desired = float(self.ui.sbSpecWavelength.value())
-        new = self.Spectrometer.goAndAsk(desired, doCal = True)
-        self.ui.tSpecCurWl.setText(str(new))
-
-    def updateSpecGrating(self):
-        desired = int(self.ui.sbSpecGrating.value())
-        self.Spectrometer.setGrating(desired)
-        new = self.Spectrometer.getGrating()
-        self.ui.tSpecCurGr.setText(str(new))
-
-    def updateImageNumbers(self, isIm = True):
-        """
-        :param sender: flag for who sent
-        :return:
-        allow the user to update the image number counters
-        """
-        if isIm:
-            self.settings["igNumber"] = int(self.ui.tCCDImageNum.text())
-        else:
-            self.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())
 
     def parseImageChange(self, st):
+        """
+        Called when the image settings are changed.
+        :param st: value changed to
+        :return:
+        """
         sent = self.sender()
 
         idx = self.settings['imageUI'].index(sent)
@@ -826,7 +548,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.settings["isImage"] = True
         # Error above mentioned about identical settings has to be handled for the shutter,
         # as both share the same names
-        # 
+        #
         # Here it is for the first shutter
         elif idx == 6:
             if st == self.CCD.cameraSettings["curShutterInt"]:
@@ -838,11 +560,11 @@ class CCDWindow(QtGui.QMainWindow):
                 self.settings["changedSettingsFlags"][idx] = 0
             else:
                 self.settings["changedSettingsFlags"][idx] = 1
-            
-                
-            
-        
-        
+
+
+
+
+
 
         # Check to see if anything was changed in these settings or in the
         # text boxes for the Image settings.
@@ -859,9 +581,9 @@ class CCDWindow(QtGui.QMainWindow):
         # this means the HSS has also been changed
         if changed[0] == 1:
             ret = self.CCD.setAD(int(self.ui.cSettingsADChannel.currentText()))
-            print 'Change AD Channel: {}'.format(self.CCD.parseRetCode(ret))
+            log.info('Change AD Channel: {}'.format(self.CCD.parseRetCode(ret)))
             if ret != 20002:
-                print 'Bad return'
+                log.error("Error updating AD Channel. Return code, {}".format(ret))
                 return
 
             # Changing the AD changes the available HSS. Find out what they are,
@@ -870,7 +592,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.cSettingsHSS.clear()
             self.ui.cSettingsHSS.addItems([str(i) for i in self.CCD.cameraSettings['HSS']])
             ret = self.CCD.setHSS(0)
-            print 'Change HSS, AD: {}'.format(self.CCD.parseRetCode(ret))
+            log.info('Change HSS, AD: {}'.format(self.CCD.parseRetCode(ret)))
             self.ui.cSettingsHSS.setCurrentIndex(0)
 
             # Unflag for change of AD
@@ -882,32 +604,32 @@ class CCDWindow(QtGui.QMainWindow):
         # The VSS has changed
         if changed[1] == 1:
             ret = self.CCD.setVSS(int(self.ui.cSettingsVSS.currentIndex()))
-            print 'Change VSS: {}'.format(self.CCD.parseRetCode(ret))
+            log.info('Change VSS: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][1] = 0
 
 
         # Read mode has changed
         if changed[2] == 1:
             ret = self.CCD.setRead(self.ui.cSettingsReadMode.currentIndex())
-            print "Changed Read mode: {}".format(self.CCD.parseRetCode(ret))
+            log.info("Changed Read mode: {}".format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][2] = 0
 
         # HSS Changed
         if changed[3] == 1:
             ret = self.CCD.setHSS(self.ui.cSettingsHSS.currentIndex())
-            print "Changed HSS: {}".format(self.CCD.parseRetCode(ret))
+            log.info("Changed HSS: {}".format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][3] = 0
 
         # Trigger mode changed
         if changed[4] == 1:
             ret = self.CCD.setTrigger(self.ui.cSettingsTrigger.currentIndex())
-            print 'Changed Trigger: {}'.format(self.CCD.parseRetCode(ret))
+            log.info('Changed Trigger: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][4] = 0
 
         # changed Acquisition mode
         if changed[5] == 1:
             ret = self.CCD.setAcqMode(self.ui.cSettingsAcquisitionMode.currentIndex())
-            print 'Changed Acq: {}'.format(self.CCD.parseRetCode(ret))
+            log.info('Changed Acq: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][5] = 0
 
         # Did either of the shutter values changed
@@ -916,7 +638,7 @@ class CCDWindow(QtGui.QMainWindow):
                 self.ui.cSettingsShutter.currentIndex(),
                 self.ui.cSettingsShutterEx.currentIndex()
             )
-            print 'Changed shutter: {}'.format(self.CCD.parseRetCode(ret))
+            log.info('Changed shutter: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][6:8] = [0, 0]
 
 
@@ -925,7 +647,7 @@ class CCDWindow(QtGui.QMainWindow):
             # Get the array to change to
             vals = [int(i.text()) for i in self.settings["imageUI"]]
             ret = self.CCD.setImage(vals)
-            print "Changed image: {}".format(self.CCD.parseRetCode(ret))
+            log.info("Changed image: {}".format(self.CCD.parseRetCode(ret)))
             self.settings["changedImageFlags"] = [0, 0, 0, 0, 0, 0]
 
         self.ui.bSettingsApply.setEnabled(False)
@@ -964,7 +686,7 @@ class CCDWindow(QtGui.QMainWindow):
         filen = str(QtGui.QFileDialog.getExistingDirectory(self, hint, prevDir))
         if filen == '':
             return
-        print "filename: {}".format(filen)
+        log.debug("filename: {}".format(filen))
         #Update the appropriate file
         self.settings["saveDir"] = filen
         self.ui.tSettingsDirectory.setText(filen)
@@ -978,13 +700,13 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 os.mkdir(newIm)
             except:
-                print "Failed creating new image directory, {}".format(newIm)
+                log.warning("Failed creating new image directory, {}".format(newIm))
 
         if not os.path.exists(newSpec):
             try:
                 os.mkdir(newSpec)
             except:
-                print "Failed creating new spectra directory, {}".format(newSpec)
+                log.warning("Failed creating new spectra directory, {}".format(newSpec))
 
         # Changed the path, want to make a new spectrum folder for the current
         # name. That is, unless it's the default name, which likely means
@@ -999,8 +721,52 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 os.mkdir(specFold)
             except Exception as e:
-                st = "__main__.makeSpectraFolder\n\tFailed to make folder for spectrum, {}\n\tReason given as {}"
-                print st.format(specFold)
+                log.warning("Could not make folder for spectrum {}. Error: {}".format(specFold, e))
+
+    @staticmethod
+    def __SPECTROMETER(): pass
+    def SpecGPIBChanged(self):
+        self.Spectrometer.close()
+        self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
+        self.openSpectrometer()
+
+    def openSpectrometer(self):
+        # THIS should really be in a try:except: loop for if
+        # the spec timeouts or cant be connected to
+        try:
+            self.Spectrometer = ActonSP(
+                self.settings["GPIBlist"][self.settings["specGPIBidx"]]
+            )
+        except Exception as e:
+            log.warning("Could not initialize Spectrometer. GPIB: {}. Error{}".format(
+                self.settings["GPIBlist"][self.settings["specGPIBidx"]], e))
+            self.Spectrometer = ActonSP("Fake")
+        try:
+            self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
+            self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
+            self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
+            self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+        except Exception as e:
+            log.warning("Could not get spectrometer values, {}".format(e))
+
+
+
+
+
+    def updateSpecWavelength(self):
+        desired = float(self.ui.sbSpecWavelength.value())
+        new = self.Spectrometer.goAndAsk(desired, doCal = True)
+        self.ui.tSpecCurWl.setText(str(new))
+
+    def updateSpecGrating(self):
+        desired = int(self.ui.sbSpecGrating.value())
+        self.Spectrometer.setGrating(desired)
+        new = self.Spectrometer.getGrating()
+        self.ui.tSpecCurGr.setText(str(new))
+
+
+    @staticmethod
+    def __CCD_CONTROLS(): pass
 
     def doTempSet(self, temp = None):
         # temp is so that it can be called during cleanup.
@@ -1017,9 +783,10 @@ class CCDWindow(QtGui.QMainWindow):
         temp = int(self.ui.tSettingsGotoTemp.text())
 
         # Disable the buttons we don't want messed with
-        self.ui.bCCDBack.setEnabled(False)
-        self.ui.bCCDImage.setEnabled(False)
-        self.ui.bSetTemp.setEnabled(False)
+        # self.ui.bCCDBack.setEnabled(False)
+        # self.ui.bCCDImage.setEnabled(False)
+        # self.ui.bSetTemp.setEnabled(False)
+        # self.curExp.toggleUIElements(False)
 
         # Set up a thread which will handle the monitoring of the temperature
         self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = (temp, self.killFast))
@@ -1033,9 +800,9 @@ class CCDWindow(QtGui.QMainWindow):
 
     def cleanupSetTemp(self):
         self.ui.mFileBreakTemp.setEnabled(False)
-        self.ui.bCCDImage.setEnabled(True)
-        self.ui.bCCDBack.setEnabled(True)
-        self.ui.bSetTemp.setEnabled(True)
+        # self.ui.bCCDImage.setEnabled(True)
+        # self.ui.bCCDBack.setEnabled(True)
+        # self.ui.bSetTemp.setEnabled(True)
         self.getTempTimer.stop()
 
         self.updateTemp()
@@ -1132,7 +899,7 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 self.curDataEMCCD.save_images(self.settings["saveDir"])
             except Exception as e:
-                print "Error saving data image", e
+                log.warning("Error saving data image, {}".format(e))
 
             if self.settings["doCRR"]:
                 try:
@@ -1155,12 +922,12 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 self.curDataEMCCD.inspect_dark_regions()
             except Exception as e:
-                print "ERror inspecting dark region", e
+                print "Error inspecting dark region", e
                 
             try:
                 self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
             except Exception as e:
-                print "__main__.takeImage\nError saving spectrum,",e
+                log.warning("Error saving spectrum,",e)
             self.updateDataSig.emit(True, True, False) # update with the cleaned data
 
 
@@ -1176,14 +943,14 @@ class CCDWindow(QtGui.QMainWindow):
                         self.prevDataEMCCD.equipment_dict["series"] ==
                         self.curDataEMCCD.equipment_dict["series"] and
                     self.ui.mSeriesSum.isChecked()):
-                print "\t\t\tAdded to previous series"
+                log.debug("Added to previous series")
                 # Un-normalize by the number currently in series
                 self.prevDataEMCCD.clean_array*=self.settings["seriesNo"]
-
                 try:
                     self.prevDataEMCCD += self.curDataEMCCD
                 except Exception as e:
-                    print "Error adding data in series:\n\t",e
+                    log.warning("Error adding data in series: {}".format(e))
+                # print "\n\tPOST: {}, {}".format(id(self.prevDataEMCCD))
                 self.ui.mSeriesUndo.setEnabled(True)
 
                 self.prevDataEMCCD.make_spectrum()
@@ -1192,7 +959,7 @@ class CCDWindow(QtGui.QMainWindow):
                 try:
                     self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
                 except Exception as e:
-                    print "__main__.takeImage\nError saving SERIES spectrum,",e
+                    log.warning("Error saving SERIES spectrum, {}".format(e))
 
                 self.settings["seriesNo"] +=1
                 self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
@@ -1204,6 +971,7 @@ class CCDWindow(QtGui.QMainWindow):
                 self.updateDataSig.emit(True, True, True)
 
             elif str(self.ui.tCCDSeries.text()) != "" and self.ui.mSeriesSum.isChecked():
+                log.info("Had to make a new series")
                 self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
                 self.prevDataEMCCD.file_no += "seriesed"
                 self.settings["seriesNo"] = 1
@@ -1211,7 +979,6 @@ class CCDWindow(QtGui.QMainWindow):
 
 
             else:
-                print "\t\t\tNO SERIES FOR YOU"
                 #######################
                 # THINK ABOUT HTIS WHEN YOU'RE NOT TIRED
                 #######################
@@ -1229,7 +996,7 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 self.curBGEMCCD.save_images(self.settings["saveDir"])
             except Exception as e:
-                print "__main__.takeImage\nError saving background iamge", e
+                log.warning("Error saving background iamge, {}".format(e))
 
             if self.settings["doCRR"]:
                 self.curBGEMCCD.cosmic_ray_removal()
@@ -1237,11 +1004,8 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
 
             self.curBGEMCCD.make_spectrum()
-             
-            try:
-                self.curBGEMCCD.inspect_dark_regions()
-            except Exception as e:
-                print "Error inspecting dark region", e
+
+            self.curBGEMCCD.inspect_dark_regions()
                 
             self.updateDataSig.emit(False, True, False) # update with the cleaned data
 
@@ -1266,15 +1030,6 @@ class CCDWindow(QtGui.QMainWindow):
             self.getContinuousThread.start()
 
     def takeContinuous(self):
-        # try:
-        # #     self.ilOne = pg.InfiniteLine(800, movable=True,
-        # #                                  pen=pg.mkPen(width=3, color='g'))
-        # #     self.ilTwo = pg.InfiniteLine(800, movable=True,
-        # #                                  pen=pg.mkPen(width=3, color='g'))
-        #     self.p1.addItem(self.ilOne)
-        #     self.p1.addItem(self.ilTwo)
-        # except Exception as e:
-        #     print 'lines:',e
         while self.ui.mFileTakeContinuous.isChecked():
             self.CCD.dllStartAcquisition()
             self.CCD.dllWaitForAcquisition()
@@ -1283,9 +1038,6 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.p1.removeItem(self.ilOne)
         self.p1.removeItem(self.ilTwo)
-
-        # self.ilOne = None
-        # self.ilTwo = None
 
         self.ui.gbSettings.setEnabled(True)
         self.ui.bCCDBack.setEnabled(True)
@@ -1298,7 +1050,7 @@ class CCDWindow(QtGui.QMainWindow):
         :return:
         """
         s = dict()
-        s["CCD_temperature"] = str(self.ui.tSettingsCurrTemp.text())
+        s["ccd_temperature"] = str(self.ui.tSettingsCurrTemp.text())
         s["exposure"] = float(self.CCD.cameraSettings["exposureTime"])
         s["gain"] = int(self.CCD.cameraSettings["gain"])
         s["y_min"] = int(self.ui.tCCDYMin.text())
@@ -1308,13 +1060,13 @@ class CCDWindow(QtGui.QMainWindow):
         s["slits"] = str(self.ui.tCCDSlits.text())
         s["dark_region"] = None
         s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
-        s["NIRP"] = str(self.ui.tCCDNIRP.text())
-        s["NIR_lambda"] = str(self.ui.tCCDNIRwavelength.text())
-        s["FELP"] = str(self.ui.tCCDFELP.text())
-        s["FELRR"] = str(self.ui.tCCDFELRR.text())
-        s["FEL_lambda"] = str(self.ui.tCCDFELFreq.text())
-        s["Sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
-        s["FEL_pulses"] = int(self.ui.tOscPulses.text())
+        s["nir_power"] = str(self.ui.tCCDNIRP.text())
+        s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
+        s["fel_power"] = str(self.ui.tCCDFELP.text())
+        s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
+        s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
+        s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
+        s["fel_pulses"] = int(self.ui.tOscPulses.text())
         s["fieldStrength"] = self.settings["fieldStrength"]
         s["fieldInt"] = self.settings["fieldInt"]
         s["number_of_series"] = self.settings["seriesNo"]
@@ -1347,7 +1099,7 @@ class CCDWindow(QtGui.QMainWindow):
         :return:
         """
         if isSeries:
-            print "updated image from series data"
+            log.debug("updated image from series data")
             self.pSpec.setData(self.prevDataEMCCD.spectrum[:,0],
                                    self.prevDataEMCCD.spectrum[:,1])
             self.pSigImage.setImage(self.prevDataEMCCD.clean_array)
@@ -1364,7 +1116,7 @@ class CCDWindow(QtGui.QMainWindow):
                     self.pSpec.setData(self.curDataEMCCD.spectrum[:,0],
                                    self.curDataEMCCD.spectrum[:,1])
                 except Exception as e:
-                    print 'Failed setting plot', e
+                    log.debug('Failed setting plot', e)
             else:
                 self.pSigImage.setImage(self.curData)
                 self.pSigHist.setLevels(self.curData.min(), self.curData.max())
@@ -1378,7 +1130,7 @@ class CCDWindow(QtGui.QMainWindow):
                 self.pBackHist.setLevels(self.curBG.min(), self.curBG.max())
 
     def undoLastSeries(self):
-        print "\t\t\tSubstracting last data"
+        log.debug("Substracting last data")
         # pg.plot(self.prevDataEMCCD.spectrum[:,0],
         #                            self.prevDataEMCCD.spectrum[:,1], title="pre")
         # Un-normalize by the number of FEL pulses
@@ -1392,7 +1144,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
         except Exception as e:
-            print "__main__.takeImage\nError saving SERIES spectrum,",e
+            log.warning("Error saving SERIES spectrum after undo, {}".format(e))
 
         # renormalize by the number of pulses
         try:
@@ -1435,51 +1187,86 @@ class CCDWindow(QtGui.QMainWindow):
         to a signal; main thread doesn't like to get update from outside itself
         """
         element.setText(str(val))
+
+    def updateStatusBar(self, obj):
+        """
+
+        :param obj: Either a string to print in the status bar or a list of [str, time (ms)]
+        :return:
+        """
+        if type(obj) is str:
+            self.sbText.setMessage(obj)
+        elif type(obj) is list:
+            self.sbText.setMessage(obj[0], [1])
         
     def closeEvent(self, event):
         print 'closing,', event.type()
+        fastExit = False
+        if self.sender() == self.ui.mFileFastExit:
+            # prompt = QtGui.QMessageBox()
+            # prompt.setText("Warning")
+            ret = QtGui.QMessageBox.warning(
+                self,
+                "Warning",
+                "This will leave the CCD and cooler on\n."
+                "Only use if you intend to immediately restart "
+                "control software",
+                QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
+                QtGui.QMessageBox.Cancel
+            )
+            if ret == QtGui.QMessageBox.Cancel:
+                event.ignore()
+                return
+            fastExit = True
         try:
-            print "Stopping temp timer"
+            log.info("Stopping temp timer")
             self.getTempTimer.stop()
         except:
-            print "No timer to stop"
+            log.info("No timer to stop")
             pass
         try:
-            print "Waiting for temperature set thread"
+            log.info("Waiting for temperature set thread")
             self.setTempThread.wait()
         except:
-            print "No temperature thread to wait for"
+            log.info("No temperature thread to wait for")
             pass
 
+        if self.ui.mFileTakeContinuous.isChecked():
+            self.ui.mFileTakeContinuous.setChecked(False)
+            try:
+                self.curExp.thDoExposure.wait()
+            except Exception as e:
+                log.debug("Error waiting for continuous taking {}".format(e))
+
         try:
-            print "Waiting for image collection to finish"
-            self.getImageThread.wait()
+            log.info("Waiting for image collection to finish")
+            self.curExp.thDoExposure.wait()
         except:
-            print "No image being collected."
+            log.info("No image being collected.")
 
         # if the detector is cooled, need to warm it back up
         try:
             if self.setTempThread.isRunning():
-                print "Please wait for detector to warm"
+                log.info("Please wait for detector to warm")
                 return
         except:
             pass
-        if self.CCD.temperature<0:
-            print 'Need to warm up the detector'
+        temp = self.CCD.getTemperature()
+        self.updateTemp()
+
+        if temp<0 and not fastExit:
+            log.info('Need to warm up the detector')
 
             self.dump = ChillerBox(self, "Please wait for detector to warm up")
             self.dump.show()
 
-            # Set up a timer to destroy the window after some time.
-            # Really, letting python garbage collecting take care of it
-#            QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
             self.ui.tSettingsGotoTemp.setText('20')
             self.killFast = True
             self.doTempSet(0)
             try:
                 self.setTempThread.finished.connect(self.dump.close)
             except Exception as e:
-                print "Couldn't connect thread to closing,", e
+                log.warning("Couldn't connect thread to closing popup, {}".format(e))
             event.ignore()
             return
 
@@ -1488,45 +1275,15 @@ class CCDWindow(QtGui.QMainWindow):
         # All clear, start closing things down
         #########
 
-        self.settings['shouldScopeLoop'] = False
-        self.settings["doPhotonCounting"] = False
-        #Stop pausing
-        try:
-            self.scopePausingLoop.exit()
-        except:
-            pass
-        # Stop waiting for data
-        try:
-            self.photonWaitingLoop.exit()
-        except:
-            pass
-        # Stop thread waiting for data
-        try:
-            self.waitingForDataLoop.exit()
-        except:
-            pass
-
-        #Stop the runnign thread for collecting from scope
-        try:
-            self.scopeCollectionThread.wait()
-        except:
-            pass
-        # Stop the thread which processing osc data
-        try:
-            self.photonCountingThread.wait()
-        except:
-            pass
-
-
-        #Restart the scope to trigger as normal.
-        self.Agilent.write(':RUN')
-        if self.poppedPlotWindow is not None:
-            self.poppedPlotWindow.close()
-
-        ret = self.CCD.dllCoolerOFF()
-        print "cooler off ret: {}".format(self.CCD.parseRetCode(ret))
-        ret = self.CCD.dllShutDown()
-        print "shutdown ret: {}".format(self.CCD.parseRetCode(ret))
+        if self.ui.tabWidget.indexOf(self.oscWidget) is not -1:
+            self.oscWidget.close()
+        if not fastExit:
+            ret = self.CCD.dllCoolerOFF()
+            log.debug("cooler off ret: {}".format(self.CCD.parseRetCode(ret)))
+            ret = self.CCD.dllShutDown()
+            log.debug("shutdown ret: {}".format(self.CCD.parseRetCode(ret)))
+        else:
+            log.warning("Didn't shut down the CCD!")
         self.Spectrometer.close()
 
         self.CCD.cameraSettings = dict()  # Something is throwing an error when this isn't here

@@ -7,6 +7,8 @@ Created on Sat Feb 14 19:00:33 2015
 
 import numpy as np
 import time
+import logging
+log = logging.getLogger("Andor")
 
 
 
@@ -21,7 +23,7 @@ class myCallable(object):
         self.func = func
         
     def __call__(self, *args):
-        print ' '*10+self.st, args
+        log.debug("{}, {}".format(' '*10+self.st, args))
         self.func(args)
         ret = 20002
         if self.st == "GetTemperature":

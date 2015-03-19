@@ -38,7 +38,7 @@ V0.4.2.0 (27/2/2015)
  * pulse counts visible on CCD tab
  * fixed tab order on oscilloscope boxcars
 
-V1.4.3.0 (N/A)
+V1.4.3.0 (16/3/2015)
  * This should really be version 1. 
  * Hopefully fixed the image numbering issue
  * Added a cursor for sideband number
@@ -56,3 +56,7 @@ V1.4.3.3
    - Saves raw addition, no normalized
    - save header now includes number of series'
  * fAndor now plots fake sidebands.
+ * Added calculation for intensity
+
+V2.0.0.0 (N/A)
+ * 

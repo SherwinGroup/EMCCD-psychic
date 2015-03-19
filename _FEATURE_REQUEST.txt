@@ -7,12 +7,21 @@ MEDIUM:
 -----------------------------------
 Add an column of amplitude standard deviation (or standard error of the mean) for series measurements--necessary for quoting error bars
 Add series things in software
+Get a dark noise reading from the background slide.  That is, sum up the pixels as we would for an actual spectrum, then get the standard deviation (or whatever it is we'd want), then add this to the dictionary at the head of the spectrum file.  This way we have a "pure" number to use when calculating error bars.
 
 EASY:
 -----------------------------------
 Calculate standard deviation of the dark noise and add it to JSON dict
 Make electric field calculator
 Sort JSON values not with upper/lowercase. Shit's frustrating, yo
+
+V2
+---------------------
+Check real temperature on close (In case loop broken)
+Function to not shut down camera on close
+Check temperature on start. Reset temperature if <0
+Close shutter on close
+
 
 
 

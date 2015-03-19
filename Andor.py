@@ -9,6 +9,14 @@ Created on Mon Feb 02 10:17:34 2015
 from ctypes import *
 import time
 import numpy as np
+import logging
+log = logging.getLogger("Andor")
+log.setLevel(logging.WARNING)
+handler1 = logging.StreamHandler()
+handler1.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler1.setFormatter(formatter)
+log.addHandler(handler1)
 
 
 class AndorCapabilities(Structure):
@@ -35,13 +43,13 @@ class AndorEMCCD(object):
 
         self.dll = None
         self.registerFunctions(wantFake = False)
-        print "About to try to initialize Andor EMCCD"
+        log.debug("About to initialize EMCCD")
         ret = self.dllInitialize('')
-        print 'Initialized: {}'.format(ret)
         if ret != 20002:
-            print "Error initializing camera\n\tCode :{}".format(
+
+            log.error("Error initializing camera\n\tCode :{}".format(
                 self.parseRetCode(ret)
-            )
+            ))
             self.dll = None
             self.registerFunctions(wantFake = True)
         self.isCooled = False
@@ -56,10 +64,8 @@ class AndorEMCCD(object):
     def gotoTemperature(self, *args):
         """Sets the specified temperature and goes through a loop to
             wait for it to achieve the desired temperature"""
-        print "args: {}".format(args)
         temp = args[0][0]
         killFast = args[0][1]
-        print "temp: {}, killfast: {}".format(temp, killFast)
         if not self.isCooled:
             retFlag = self.parseRetCode(self.dllCoolerON())
 
@@ -76,9 +82,9 @@ class AndorEMCCD(object):
             self.isCooled = True
         retFlag = self.parseRetCode(self.dllSetTemperature(temp))
         if retFlag == "DRV_SUCCESS":
-            print "Set temperature to {}C".format(temp)
+            log.info("Set temperature to {}C".format(temp))
         else:
-            print "Error setting temperature, {}".format(retFlag)
+            log.warning("Error setting temperature, {}".format(retFlag))
 
         tempTemp = c_int(0)
         self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
@@ -95,16 +101,23 @@ class AndorEMCCD(object):
                 self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
                 self.temperature = tempTemp.value
 
+    def getTemperature(self):
+        temp = c_int(0)
+        self.dllGetTemperature(temp)
+        self.temperature = temp.value
+        return self.temperature
+
     def initialize(self, ad = 0, outputAmp = 0):
         
         # get detector size
         x = c_int(0)
         y = c_int(0)
         self.dllGetDetector(x, y)
-        print 'Detector got. x={}, y={}'.format(x.value, y.value)
+        log.info('Detector got. x={}, y={}'.format(x.value, y.value))
         self.cameraSettings['xPixels'] = x.value
         self.cameraSettings['yPixels'] = y.value
-        print 'setImage return: {}'.format(self.parseRetCode(self.setImage([1, 1, 1, x.value, 1, y.value])))
+
+        self.setImage([1, 1, 1, x.value, 1, y.value])
 
         
         # get the number of ad channels
@@ -202,6 +215,8 @@ class AndorEMCCD(object):
                                 vals[4], vals[5])
         if ret == 20002:
             self.cameraSettings['imageSettings'] = vals  #Set the default size for the image to be collected
+        else:
+            log.warning("setimage: {}".format(ret))
         return ret
 
     def getHSS(self):
@@ -270,6 +285,8 @@ class AndorEMCCD(object):
         for i in range(x*y):
             retnums.append(retdata[i])
 
+        # Rehsape the data. There's also some concern of how exactly the array is returned in relation to
+        # a full image.
         retnums = np.reshape(retnums, (y, x)).T
         retnums = np.flipud(retnums)
 
@@ -323,7 +340,7 @@ class AndorEMCCD(object):
                     os.chdir(curdir)
                 except:
                     os.chdir(curdir)
-                    print 'Error loading the DLL. Setting you up with a fake one'
+                    log.error('Error loading the DLL. Using fake')
                     from fakeAndor import fAndorEMCCD
                     dll = fAndorEMCCD()
         
