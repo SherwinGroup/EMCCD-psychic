@@ -5,17 +5,10 @@ Either disable semilogy or find a way to set it
 
 MEDIUM:
 -----------------------------------
-Add a cursor to the spectrum plot which tells you the sideband number at the location
 Add series things in software
 
 EASY:
 -----------------------------------
-Label first sideband in spectrum
-Add linear regions for image plot when doing continuous scan
-  Change widget weightings to make the image larger
-If NIRW > 1200, convert from WN to wavelength
-Implement dark region substraction
-Add a series flag for the spectrometer center wavelength
 Make electric field calculator
 Sort JSON values not with upper/lowercase. Shit's frustrating, yo
 
@@ -28,3 +21,6 @@ Implement run til abort --- NOT FEASIBLE
 Add UI tooltip for osc GPIB (V0.4.2.0)
 raise osc window when main window raised (V0.4.2.0)
 Add another box for the pulse counts in the progressbar (V0.4.2.0)
+Add a cursor to the spectrum plot which tells you the sideband number at the location (V0.4.3.0)
+If NIRW > 1200, convert from WN to wavelength (V0.4.3.0)
+Linear regions in continuous (V0.4.3.0)

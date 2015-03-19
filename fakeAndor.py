@@ -75,8 +75,10 @@ class fAndorEMCCD(object):
 
     def __getData(self, *args):
         arr = args[0][0]
+        np.random.seed()
+        new = [int(round(i)) for i in 100 * np.random.normal(0, 1, args[0][1])]
         for i in range(args[0][1]):
-            arr[i] = np.random.random_integers(100)+1000
+            arr[i] = new[i]
             
     def __getDet(self, *args):
         x = args[0][0]

@@ -89,7 +89,15 @@ class EMCCD_image(object):
                 ret.addenda[0] = ret.addenda[0] + other.addenda[0]
                 ret.addenda.extend(other.addenda[1:])
                 ret.subtrahenda.extend(other.subtrahenda)
+                ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
+                ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
+                ret.equipment_dict["FEL_pulses"] += other.equipment_dict["FEL_pulses"]
             else:
+                print "self:{}, ret:{}, other:{}".format(
+                    self.equipment_dict['center_lambda'],
+                    ret.equipment_dict['center_lambda'],
+                    other.equipment_dict['center_lambda']
+                )
                 raise Exception('Source: EMCCD_image.__add__\nThese are not from the same grating settings')
         return ret
 
@@ -116,6 +124,23 @@ class EMCCD_image(object):
                 ret.addenda[0] = ret.addenda[0] - other.addenda[0]
                 ret.subtrahenda.extend(other.addenda[1:])
                 ret.addenda.extend(other.subtrahenda)
+
+                # Want to remove the pulse information that we
+                # previously added in
+
+                for i in other.equipment_dict["fieldStrength"]:
+                    try:
+                        ret.equipment_dict["fieldStrength"].remove(i)
+                    except:
+                        print "EMCCD.__sub__\\fieldStrength:\n\tValue not found,",i
+
+                for i in other.equipment_dict["fieldInt"]:
+                    try:
+                        ret.equipment_dict["fieldInt"].remove(i)
+                    except:
+                        print "EMCCD.__sub__:\n\tValue not found,",i
+
+                ret.equipment_dict["FEL_pulses"] -= other.equipment_dict["FEL_pulses"]
             else:
                 raise Exception('Source: EMCCD_image.__sub__\nThese are not from the same grating settings')
         return ret
@@ -196,6 +221,7 @@ class EMCCD_image(object):
         height = self.equipment_dict['y_max'] - self.equipment_dict['y_min']
         self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
         self.addenda[0] += self.dark_mean*height
+        self.clean_array -= self.dark_mean
     
     def save_spectrum(self, folder_str='Spectrum files'):
         '''
@@ -208,7 +234,7 @@ class EMCCD_image(object):
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
         origin_import = '\nWavelength,Signal\nnm,arb. u.'
         filename = self.file_name + self.file_no + "_spectrum.txt"
-        my_header = '#' + equipment_str + '\n' + '#' + self.description + origin_import
+        my_header = '#' + equipment_str + '\n' + '#' + self.description.replace('\n','\n#') + origin_import
         np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
 
@@ -236,7 +262,7 @@ class EMCCD_image(object):
             print self.equipment_dict
             return
         
-        my_header = equipment_str + '\n' +  self.description
+        my_header = equipment_str + '\n' +  self.description.replace('\n','\n#')
         filename = self.file_name + self.file_no + '.txt'
 
         try:
@@ -650,39 +676,42 @@ def gen_wavelengths(center_lambda, grating):
     output = (output + center)*10**9
     return output
 
-def calc_THz_intensity(total_energy, pulse_width, window_trans, sample_eff_field, 
-                       ratio=None, radius=0.5, ito_reflect=0.7):
+
+def calc_THz_intensity(total_energy, window_trans=1, sample_eff_field=1, pulse_width=37,
+                       ratio=None, radius=0.05, ito_reflect=0.7):
     """
     This will calculate the THz intensity at the sample during the cavity dump.
     Do not enter a ratio if you want to do an average intensity calculation.
-    
+
     total_energy - the total energy in the FEL pulse, in mJ
     pulse_width - the FWHM of the pulse as measured by the fast pyro, in ns
-                  if you want for cavity dump intensity, use FWHM of the front 
-                  porch
+                  if you want for cavity dump intensity, use FWHM of the front
+                  porch. Assumed to be 37 ns (pulse width for cavity dump
+                  based on photon travel time for two round trips in undulator)
     window_trans - the power transmission of the cryostat window
     sample_eff_field - the effective _field_ at the front of the sample
     ratio - the ratio of the cavity dump to the front porch
-    radius - the radius of the FEL spot, assumed to be 0.5 mm
-    ito_reflect - the power reflection of the ITO beam combiner, assumed to be 
+    radius - the radius of the FEL spot, assumed to be 0.05 cm
+    ito_reflect - the power reflection of the ITO beam combiner, assumed to be
                   around 0.7
-    
+
     return - the intensity in the FEL spot in W/cm^2
     """
-    area = np.pi * (radius * 0.1)**2
+    area = np.pi * (radius)**2
     if ratio is not None:
-        power = 1e-3 * total_energy / (37e-9 + (pulse_width * 1e-9) / ratio)
+        # power = 1e-3 * total_energy / (37e-9 + (pulse_width * 1e-9) / ratio)
+        power = 1e-3 * total_energy * ratio/ (pulse_width * 1e-9)
     else:
         power = 1e-3 * total_energy / (pulse_width * 1e-9)
     return ito_reflect * window_trans * sample_eff_field**2 * power / area
 
 def calc_THz_field(intensity, n=3.59):
     """
-    This will calculate the THz field strength in the sample 
-    
+    This will calculate the THz field strength in the sample
+
     intensity - the intensity of the THz field
     n - the index of the material at the THz frequency, assumed to be 3.59 for GaAs
-    
+
     return - the peak electric field in V/cm
     """
     return (2 * intensity / (8.85e-12 * 2.99e8 * n))**0.5

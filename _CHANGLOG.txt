@@ -37,3 +37,15 @@ V0.4.2.0 (27/2/2015)
  * tooltip updated for series and oscilloscope GPIB
  * pulse counts visible on CCD tab
  * fixed tab order on oscilloscope boxcars
+
+V1.4.3.0 (N/A)
+ * This should really be version 1. 
+ * Hopefully fixed the image numbering issue
+ * Added a cursor for sideband number
+ * Added a button to initialize the oscilloscope regions
+ * Automatically disable the settings which aren't implemented, and a button to change them
+ * Infinite lines when doing a continuous image
+ * CCD Images are on QSplitters so things are quite a bit nicer. 
+ * Images of the same series should be added together live
+    - EMCCD class will add together no. FEL pulses
+ * Added calculation for intensity (incoming)

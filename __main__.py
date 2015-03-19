@@ -11,8 +11,9 @@ from mainWindow_ui import Ui_MainWindow
 from Andor import AndorEMCCD
 import pyqtgraph as pg
 import scipy.integrate as spi
-from image_spec_for_gui import EMCCD_image
+from image_spec_for_gui import EMCCD_image, calc_THz_intensity, calc_THz_field
 from InstsAndQt.Instruments import *
+import copy
 import os
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -61,13 +62,12 @@ class pgPlot(QtGui.QMainWindow):
         self.closedSig.emit()
         event.accept()
 
-
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
     updateElementSig = QtCore.pyqtSignal(object, object) # This can be used for updating any element
     killTimerSig = QtCore.pyqtSignal(object) # To kill a timer started in the main thread from a sub-thread
      # to update either image, whether it is clean or not
-    updateDataSig = QtCore.pyqtSignal(object, object)
+    updateDataSig = QtCore.pyqtSignal(object, object, object)
     # Has the oscilloscope updated and data is now ready
     # for processing?
     updateOscDataSig = QtCore.pyqtSignal()
@@ -146,7 +146,7 @@ class CCDWindow(QtGui.QMainWindow):
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
         try:
             # Pretty sure we can safely say it's
-            # ASRL1
+            # GPIB5
             idx = s['GPIBlist'].index('GPIB0::5::INSTR')
             s["agilGPIBidx"] = idx
         except ValueError:
@@ -163,6 +163,9 @@ class CCDWindow(QtGui.QMainWindow):
 
         # How many pulses are there?
         s["FELPulses"] = 0
+        # list of the field intensities for each pulse in a scan
+        s["fieldStrength"] = []
+        s["fieldInt"] = []
         s['pyData'] = None
         # lists for holding the boundaries of the linear regions
         s['bcpyBG'] = [0, 0]
@@ -198,6 +201,10 @@ class CCDWindow(QtGui.QMainWindow):
         self.curDataEMCCD = None
         self.curBGEMCCD = None
 
+        # Past things for series stuff
+        self.prevDataEMCCD = None
+        self.prevBGEMCCD = None
+
         # The current value contaiend in the progress bar
         s["progress"] = 0
         self.killFast = False
@@ -225,6 +232,20 @@ class CCDWindow(QtGui.QMainWindow):
             except TypeError:
                 self.ui.cSettingsAcquisitionMode.model().setData(j, 0, QtCore.Qt.UserRole-1)
 
+
+        # Setting up the splitter regions to be the size I want.
+        self.ui.splitterImages.setStretchFactor(0, 1)
+        self.ui.splitterImages.setStretchFactor(1, 1)
+
+        self.ui.splitterTop.setStretchFactor(0, 1)
+        self.ui.splitterTop.setStretchFactor(1, 10)
+
+
+        for i in range(len(self.ui.splitterAll)):
+            print "{}: {}".format(i, self.ui.splitterAll.widget(i))
+        self.ui.splitterAll.setStretchFactor(0, 5)
+        self.ui.splitterAll.setStretchFactor(1, 50)
+        self.ui.splitterAll.setStretchFactor(2, 2)
 
         # Updating menus in the settings/CCD settings portion
         self.ui.cSettingsADChannel.addItems([str(i) for i in range(
@@ -303,6 +324,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.cOGPIB.setCurrentIndex(self.settings["agilGPIBidx"])
         self.ui.bOPause.clicked[bool].connect(self.toggleScopePause)
         self.ui.cOGPIB.currentIndexChanged.connect(self.openAgilent)
+        self.ui.bOscInit.clicked.connect(self.initOscRegions)
         self.ui.bOPop.clicked.connect(self.popoutOscilloscope)
 
         self.pOsc = self.ui.gOsc.plot(pen='k')
@@ -349,6 +371,7 @@ class CCDWindow(QtGui.QMainWindow):
             lambda: self.updateImageNumbers(True))
         self.ui.tCCDBGNum.textAccepted.connect(
             lambda: self.updateImageNumbers(False))
+        self.ui.tCCDNIRwavelength.textAccepted.connect(self.parseNIRL)
 
         ##################
         # Connections for file menu things
@@ -357,6 +380,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(self.startTakeContinuous)
+        self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
+        self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
 
         # Follow the pyqtgraph example for how to set up
         # an image plot and histogram, without the other obnoxious stuff
@@ -367,6 +392,14 @@ class CCDWindow(QtGui.QMainWindow):
         self.pSigHist = pg.HistogramLUTItem()
         self.pSigHist.setImageItem(self.pSigImage)
         self.ui.gCCDImage.addItem(self.pSigHist)
+
+        # These are infinite lines for when taking a continuous
+        # image. Issues arise if you try to make them in
+        # another thread.
+        self.ilOne = pg.InfiniteLine(800, movable=True,
+                                     pen=pg.mkPen(width=3, color='g'))
+        self.ilTwo = pg.InfiniteLine(800, movable=True,
+                                     pen=pg.mkPen(width=3, color='g'))
 
         self.p2 = self.ui.gCCDBack.addPlot()
         self.pBackImage = pg.ImageItem()
@@ -380,6 +413,10 @@ class CCDWindow(QtGui.QMainWindow):
         plotitem.setLabel('top',text='Spectrum')
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
+        self.ilSpec = pg.InfiniteLine(movable=True)
+        self.ilSpec.sigPositionChanged.connect(self.updateSBfromLine)
+        self.ui.gCCDBin.addItem(self.ilSpec)
+        self.ui.tCCDSidebandNumber.textAccepted.connect(self.updateSBfromValue)
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
@@ -454,6 +491,52 @@ class CCDWindow(QtGui.QMainWindow):
              2: "bcpyCD"
         }
         self.settings[d[i]] = list(curVals)
+
+    def updateSBfromLine(self):
+        try:
+            wn = 10000000./self.ui.tCCDNIRwavelength.value()
+            wanted = 10000000./self.ilSpec.value()
+            sbn = (wanted-wn)/self.ui.tCCDFELFreq.value()
+            # Need to disconnect/reconnect here, otherwise they call each other infinitely
+            self.ui.tCCDSidebandNumber.textAccepted.disconnect(self.updateSBfromValue)
+            self.ui.tCCDSidebandNumber.setText("{:.3f}".format(sbn))
+            self.ui.tCCDSidebandNumber.textAccepted.connect(self.updateSBfromValue)
+        except Exception as e:
+            if type(e) is ZeroDivisionError:
+                return
+            print "Error updating sideband from line,",e
+
+
+    def updateSBfromValue(self):
+        try:
+            wn = 10000000./self.ui.tCCDNIRwavelength.value()
+            wanted = wn + self.ui.tCCDSidebandNumber.value()*self.ui.tCCDFELFreq.value()
+            wanted = 10000000./wanted
+            # Need to disconnect/reconnect here, otherwise they call each other infinitely
+            self.ilSpec.sigPositionChanged.disconnect(self.updateSBfromLine)
+            self.ilSpec.setValue(wanted)
+            self.ilSpec.sigPositionChanged.connect(self.updateSBfromLine)
+        except Exception as e:
+            print "Error updating sideband from text,",e
+
+    def parseNIRL(self):
+        """
+        We want wavelength, but sometimes we're working with wavenumber
+        It'd be nice to do the calculation in the software
+        :return:
+        """
+        val = self.ui.tCCDNIRwavelength.value()
+        if val>1500:
+            self.ui.tCCDNIRwavelength.setText("{:.3f}".format(10000000./val))
+
+    def toggleExtraSettings(self, val=False):
+        self.ui.cSettingsReadMode.setEnabled(val)
+        self.ui.cSettingsAcquisitionMode.setEnabled(val)
+        self.ui.cSettingsShutter.setEnabled(val)
+        self.ui.tVBin.setEnabled(val)
+        self.ui.tHBin.setEnabled(val)
+        self.ui.tHStart.setEnabled(val)
+        self.ui.tHEnd.setEnabled(val)
 
     def popoutOscilloscope(self):
         if self.poppedPlotWindow is None:
@@ -582,6 +665,7 @@ class CCDWindow(QtGui.QMainWindow):
                     self.settings["FELPulses"] += 1
                     self.updateElementSig.emit(self.ui.tOscPulses, self.settings["FELPulses"])
                     self.updateElementSig.emit(self.ui.tCCDFELPulses, self.settings["FELPulses"])
+                    self.doFieldCalcuation(pyBG, pyFP, pyCD)
                 else:
                     print "PULSE NOT COUNTED!"
 
@@ -620,9 +704,56 @@ class CCDWindow(QtGui.QMainWindow):
             end = 1
         return start, end
 
+    def doFieldCalcuation(self, BG = 1.0, FP = 2.0, CD = 2.0):
+        """
+        :param BG: integrated background value
+        :param FP: integrated front porch value
+        :param CD: integrated cavity dump region
+        :return:
+        """
+        try:
+            energy = self.ui.tCCDFELP.value()
+            windowTrans = self.ui.tCCDWindowTransmission.value()
+            effField = self.ui.tCCDEffectiveField.value()
+            radius = self.ui.tCCDSpotSize.value()
+            ratio = FP/(FP + CD)
+            intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
+                                       ratio = ratio)
+            field = calc_THz_field(intensity)
+
+            intensity = round(intensity/1000., 3)
+            field = round(field/1000., 3)
+
+            self.ui.tCCDIntensity.setText("{:.3f}".format(intensity))
+            self.settings["fieldInt"].append(intensity)
+            self.ui.tCCDEField.setText("{:.3f}".format(field))
+            self.settings["fieldStrength"].append(field)
+
+        except Exception as e:
+            print "__main__.doFieldCalcuation:\n\tError calculating field,", e
+
+    def initOscRegions(self):
+        try:
+            length = len(self.settings['pyData'])
+            point = self.settings['pyData'][length/2,0]
+        except Exception as e:
+            print "__main__.initOscRegions:",e
+            return
+
+        # Update the dicionary values so that the bounds are proper when
+        d = {0: "bcpyBG",
+             1: "bcpyFP",
+             2: "bcpyCD"
+        }
+        for i in range(len(self.boxcarRegions)):
+            self.boxcarRegions[i].setRegion(tuple((point, point)))
+            self.settings[d[i]] = list((point, point))
+
+
     def updateOscilloscopeGraph(self, data):
         self.settings['pyData'] = data
         self.pOsc.setData(data[:,0], data[:,1])
+
 
     def updateSpecWavelength(self):
         desired = float(self.ui.sbSpecWavelength.value())
@@ -916,8 +1047,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bCCDImage.setEnabled(False)
         self.ui.bCCDBack.setEnabled(False)
         self.ui.gbSettings.setEnabled(False)
+        # Reset all the things kept track of during an exposure
         self.settings["progress"] = 0
         self.settings["FELPulses"] = 0
+        self.settings["fieldStrength"] = []
+        self.settings["fieldInt"] = []
         self.ui.tOscPulses.setText("0")
         self.getImageThread = TempThread(target = self.takeImage, args=imtype)
 
@@ -946,6 +1080,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.elapsedTimer.start()
         QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
                                  self.updateProgress)
+        # Don't want the signal to keep calling this functin
         self.updateOscDataSig.disconnect(self.startProgressBar)
         
 
@@ -963,26 +1098,36 @@ class CCDWindow(QtGui.QMainWindow):
         # self.killTimerSig.emit(self.updateProgTimer)
         data = self.CCD.getImage()
 
+        # Store the data appropriately and update the graphe
         if imtype=="img":
             self.curData = data
-            self.updateDataSig.emit(True, False)
-            self.settings["igNumber"] += 1
-            self.updateElementSig.emit(self.ui.tCCDImageNum, self.settings["igNumber"])
+            self.updateDataSig.emit(True, False, False)
         else:
             self.curBG = data
-            self.updateDataSig.emit(False, False)
-            self.settings["bgNumber"] += 1
-            self.updateElementSig.emit(self.ui.tCCDBGNum, self.settings["bgNumber"])
+            self.updateDataSig.emit(False, False, False)
 
         self.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
-
+        ####################################
+        #
+        # Concerning the image numbers:
+        #
+        # Things were getting confusing having an internal variable and the textbox
+        # so switched to only using textbox. But this has issue that, since texboxes
+        # can't be updated from non-main threads (or it's unpredictable), signals are needed
+        # But this has issues that a fast computer will instantiate the object before
+        # the text is updated, so they're out of sync. This way, we know that the textbox
+        # will be incremented by one, but we forcibly tell it that it's going to be incremented
+        # instead of hoping that things will time properly
+        #
+        ####################################
         if imtype=="img":
             self.curDataEMCCD = EMCCD_image(self.curData,
                                             str(self.ui.tImageName.text()),
-                                            str(self.ui.tCCDImageNum.text()),
+                                            str(self.ui.tCCDImageNum.value()+1),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
+            self.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
             try:
                 self.curDataEMCCD.save_images(self.settings["saveDir"])
             except Exception as e:
@@ -1015,13 +1160,78 @@ class CCDWindow(QtGui.QMainWindow):
                 self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
             except Exception as e:
                 print "__main__.takeImage\nError saving spectrum,",e
-            self.updateDataSig.emit(True, True) # update with the cleaned data
+            self.updateDataSig.emit(True, True, False) # update with the cleaned data
+
+
+            #######################
+            # Handling of series tag to add things up live
+            #
+            # Want it to save only the latest series, but also
+            # the previous ones should be saved (hence why this is
+            # after the saving is being done)
+            #######################
+            if (self.prevDataEMCCD is not None and
+                        str(self.ui.tCCDSeries.text()) != "" and
+                        self.prevDataEMCCD.equipment_dict["series"] ==
+                        self.curDataEMCCD.equipment_dict["series"] and
+                    self.ui.mSeriesSum.isChecked()):
+                print "\t\t\tAdded to previous series"
+                # Un-normalize by the number of FEL pulses
+                self.prevDataEMCCD.clean_array *= self.prevDataEMCCD.equipment_dict["FEL_pulses"]
+                # print "\n\n\tPRE: {}, {}".format(id(self.prevDataEMCCD))
+
+                try:
+                    self.prevDataEMCCD += self.curDataEMCCD
+                except Exception as e:
+                    print "Error adding data in series:\n\t",e
+                # print "\n\tPOST: {}, {}".format(id(self.prevDataEMCCD))
+                self.ui.mSeriesUndo.setEnabled(True)
+
+                # renormalize by the number of pulses
+                try:
+                    self.prevDataEMCCD.clean_array/=float(self.prevDataEMCCD.equipment_dict["FEL_pulses"])
+                except ZeroDivisionError:
+                    pass
+
+                self.prevDataEMCCD.make_spectrum()
+
+                try:
+                    self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
+                except Exception as e:
+                    print "__main__.takeImage\nError saving SERIES spectrum,",e
+
+                # Update the plots with this new data
+                self.updateDataSig.emit(True, True, True)
+
+            elif str(self.ui.tCCDSeries.text()) != "" and self.ui.mSeriesSum.isChecked():
+                print "\t\t\tHad to make a new series"
+                self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+                self.prevDataEMCCD.file_no += "seriesed"
+
+                # Some adding/normalization things work out poorly if no FEL pulses, so
+                # need to set it to one
+                #
+                # CAUTION:
+                # MAKE SURE THAT THERE IS NO ISSUE WITH SOMEHOW CONSANTLY
+                # ADDING PULSES
+                if self.prevDataEMCCD.equipment_dict["FEL_pulses"] == 0:
+                    self.prevDataEMCCD.equipment_dict["FEL_pulses"] = 1
+
+
+            else:
+                print "\t\t\tNO SERIES FOR YOU"
+                #######################
+                # THINK ABOUT HTIS WHEN YOU'RE NOT TIRED
+                #######################
+                self.prevDataEMCCD = None
+
         else:
             self.curBGEMCCD = EMCCD_image(self.curBG,
                                             str(self.ui.tBackgroundName.text()),
-                                            str(self.ui.tCCDBGNum.text()),
+                                            str(self.ui.tCCDBGNum.value()+1),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
+            self.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
             try:
                 self.curBGEMCCD.save_images(self.settings["saveDir"])
             except Exception as e:
@@ -1037,9 +1247,9 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 self.curBGEMCCD.inspect_dark_regions()
             except Exception as e:
-                print "ERror inspecting dark region", e
+                print "Error inspecting dark region", e
                 
-            self.updateDataSig.emit(False, True) # update with the cleaned data
+            self.updateDataSig.emit(False, True, False) # update with the cleaned data
 
         self.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.ui.bCCDImage.setEnabled(True)
@@ -1056,15 +1266,32 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.gbSettings.setEnabled(False)
             self.ui.bCCDBack.setEnabled(False)
             self.ui.bCCDImage.setEnabled(False)
+            self.p1.addItem(self.ilOne)
+            self.p1.addItem(self.ilTwo)
             self.getContinuousThread = TempThread(target = self.takeContinuous)
             self.getContinuousThread.start()
 
     def takeContinuous(self):
+        # try:
+        # #     self.ilOne = pg.InfiniteLine(800, movable=True,
+        # #                                  pen=pg.mkPen(width=3, color='g'))
+        # #     self.ilTwo = pg.InfiniteLine(800, movable=True,
+        # #                                  pen=pg.mkPen(width=3, color='g'))
+        #     self.p1.addItem(self.ilOne)
+        #     self.p1.addItem(self.ilTwo)
+        # except Exception as e:
+        #     print 'lines:',e
         while self.ui.mFileTakeContinuous.isChecked():
             self.CCD.dllStartAcquisition()
             self.CCD.dllWaitForAcquisition()
             self.curData = self.CCD.getImage()
-            self.updateDataSig.emit(True, False)
+            self.updateDataSig.emit(True, False, False)
+
+        self.p1.removeItem(self.ilOne)
+        self.p1.removeItem(self.ilTwo)
+
+        # self.ilOne = None
+        # self.ilTwo = None
 
         self.ui.gbSettings.setEnabled(True)
         self.ui.bCCDBack.setEnabled(True)
@@ -1086,7 +1313,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["center_lambda"] = float(self.ui.sbSpecWavelength.value())
         s["slits"] = str(self.ui.tCCDSlits.text())
         s["dark_region"] = None
-        s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.text())
+        s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
         s["NIRP"] = str(self.ui.tCCDNIRP.text())
         s["NIR_lambda"] = str(self.ui.tCCDNIRwavelength.text())
         s["FELP"] = str(self.ui.tCCDFELP.text())
@@ -1094,6 +1321,8 @@ class CCDWindow(QtGui.QMainWindow):
         s["FEL_lambda"] = str(self.ui.tCCDFELFreq.text())
         s["Sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
         s["FEL_pulses"] = int(self.ui.tOscPulses.text())
+        s["fieldStrength"] = self.settings["fieldStrength"]
+        s["fieldInt"] = self.settings["fieldInt"]
 
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value
@@ -1114,7 +1343,23 @@ class CCDWindow(QtGui.QMainWindow):
         """
         timer.stop()
 
-    def updateImage(self, isSig = True, isClean = False):
+    def updateImage(self, isSig = True, isClean = False, isSeries = False):
+        """
+        :param isSig: To update the top or bottom
+        :param isClean: Where to get the updated data from (local thing or the
+                        EMCCD class
+        :param isSeries: A flag for whether we take from prevDataEMCCD or not
+        :return:
+        """
+        if isSeries:
+            print "updated image from series data"
+            self.pSpec.setData(self.prevDataEMCCD.spectrum[:,0],
+                                   self.prevDataEMCCD.spectrum[:,1])
+            self.pSigImage.setImage(self.prevDataEMCCD.clean_array)
+            self.pSigHist.setLevels(self.prevDataEMCCD.clean_array.min(),
+                                    self.prevDataEMCCD.clean_array.max())
+            return
+
         if isSig:
             if isClean:
                 self.pSigImage.setImage(self.curDataEMCCD.clean_array)
@@ -1137,12 +1382,43 @@ class CCDWindow(QtGui.QMainWindow):
                 self.pBackImage.setImage(self.curBG)
                 self.pBackHist.setLevels(self.curBG.min(), self.curBG.max())
 
+    def undoLastSeries(self):
+        print "\t\t\tSubstracting last data"
+        # pg.plot(self.prevDataEMCCD.spectrum[:,0],
+        #                            self.prevDataEMCCD.spectrum[:,1], title="pre")
+        # Un-normalize by the number of FEL pulses
+        self.prevDataEMCCD.clean_array *= self.prevDataEMCCD.equipment_dict["FEL_pulses"]
+
+        self.prevDataEMCCD -= self.curDataEMCCD
+
+        # renormalize by the number of pulses
+        try:
+            self.prevDataEMCCD.clean_array/=float(self.prevDataEMCCD.equipment_dict["FEL_pulses"])
+        except ZeroDivisionError:
+            pass
+
+        try:
+            self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
+        except Exception as e:
+            print "__main__.takeImage\nError saving SERIES spectrum,",e
+
+        self.prevDataEMCCD.make_spectrum()
+        # pg.plot(self.prevDataEMCCD.spectrum[:,0],
+        #                            self.prevDataEMCCD.spectrum[:,1], title="post")
+
+
+        # Update the plots with this new data
+        self.updateDataSig.emit(True, True, True)
+        self.ui.mSeriesUndo.setEnabled(False)
+
     def updateProgress(self):
         if self.settings["progress"] < 100:
             self.settings["progress"] += 1
             self.ui.pCCD.setValue(self.settings["progress"])
             newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
                       - (self.elapsedTimer.elapsed())
+            if newTime < 0:
+                newTime = 0
             try:
                 QtCore.QTimer.singleShot(newTime,
                                          self.updateProgress)
