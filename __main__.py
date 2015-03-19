@@ -38,10 +38,13 @@ class TempThread(QtCore.QThread):
         self.args = args
 
     def run(self):
-        if self.args is None:
-            self.target()
-        else:
-            self.target(self.args)
+        try:
+            if self.args is None:
+                self.target()
+            else:
+                self.target(self.args)
+        except Exception as e:
+            print "EROR IN THREAD: ",e
 
 class pgPlot(QtGui.QMainWindow):
     """ Dirt simple class for a window
