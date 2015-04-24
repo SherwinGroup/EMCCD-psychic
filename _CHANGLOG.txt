@@ -49,3 +49,10 @@ V1.4.3.0 (N/A)
  * Images of the same series should be added together live
     - EMCCD class will add together no. FEL pulses
  * Added calculation for intensity (incoming)
+
+V1.4.3.3
+ * Changed live series
+   - Normalizes by number in series, not FEL pulses
+   - Saves raw addition, no normalized
+   - save header now includes number of series'
+ * fAndor now plots fake sidebands.

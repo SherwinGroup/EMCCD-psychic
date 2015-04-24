@@ -183,6 +183,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["settingsUI"] = None # Keep track of the settings comboboxes for iteration
         s["imageUI"] = None # keep ttrack of the settings param textedits for iteration
         s["isImage"] = True # Is it an image read mode?
+        s["seriesNo"] = 0 # How many series have been summed together?
 
         s["saveDir"] = '' # Directory for saving
 
@@ -1176,46 +1177,37 @@ class CCDWindow(QtGui.QMainWindow):
                         self.curDataEMCCD.equipment_dict["series"] and
                     self.ui.mSeriesSum.isChecked()):
                 print "\t\t\tAdded to previous series"
-                # Un-normalize by the number of FEL pulses
-                self.prevDataEMCCD.clean_array *= self.prevDataEMCCD.equipment_dict["FEL_pulses"]
-                # print "\n\n\tPRE: {}, {}".format(id(self.prevDataEMCCD))
+                # Un-normalize by the number currently in series
+                self.prevDataEMCCD.clean_array*=self.settings["seriesNo"]
 
                 try:
                     self.prevDataEMCCD += self.curDataEMCCD
                 except Exception as e:
                     print "Error adding data in series:\n\t",e
-                # print "\n\tPOST: {}, {}".format(id(self.prevDataEMCCD))
                 self.ui.mSeriesUndo.setEnabled(True)
-
-                # renormalize by the number of pulses
-                try:
-                    self.prevDataEMCCD.clean_array/=float(self.prevDataEMCCD.equipment_dict["FEL_pulses"])
-                except ZeroDivisionError:
-                    pass
 
                 self.prevDataEMCCD.make_spectrum()
 
+                # Save the summed, unnormalized spectrum
                 try:
                     self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
                 except Exception as e:
                     print "__main__.takeImage\nError saving SERIES spectrum,",e
 
+                self.settings["seriesNo"] +=1
+                self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
+                # but PLOT the normalized average
+                self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
+                self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
+
                 # Update the plots with this new data
                 self.updateDataSig.emit(True, True, True)
 
             elif str(self.ui.tCCDSeries.text()) != "" and self.ui.mSeriesSum.isChecked():
-                print "\t\t\tHad to make a new series"
                 self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
                 self.prevDataEMCCD.file_no += "seriesed"
-
-                # Some adding/normalization things work out poorly if no FEL pulses, so
-                # need to set it to one
-                #
-                # CAUTION:
-                # MAKE SURE THAT THERE IS NO ISSUE WITH SOMEHOW CONSANTLY
-                # ADDING PULSES
-                if self.prevDataEMCCD.equipment_dict["FEL_pulses"] == 0:
-                    self.prevDataEMCCD.equipment_dict["FEL_pulses"] = 1
+                self.settings["seriesNo"] = 1
+                self.ui.groupBox_42.setTitle("Series (1)")
 
 
             else:
@@ -1224,6 +1216,8 @@ class CCDWindow(QtGui.QMainWindow):
                 # THINK ABOUT HTIS WHEN YOU'RE NOT TIRED
                 #######################
                 self.prevDataEMCCD = None
+                self.settings["seriesNo"] = 0
+                self.ui.groupBox_42.setTitle("Series")
 
         else:
             self.curBGEMCCD = EMCCD_image(self.curBG,
@@ -1323,6 +1317,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["FEL_pulses"] = int(self.ui.tOscPulses.text())
         s["fieldStrength"] = self.settings["fieldStrength"]
         s["fieldInt"] = self.settings["fieldInt"]
+        s["number_of_series"] = self.settings["seriesNo"]
 
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value
@@ -1387,27 +1382,28 @@ class CCDWindow(QtGui.QMainWindow):
         # pg.plot(self.prevDataEMCCD.spectrum[:,0],
         #                            self.prevDataEMCCD.spectrum[:,1], title="pre")
         # Un-normalize by the number of FEL pulses
-        self.prevDataEMCCD.clean_array *= self.prevDataEMCCD.equipment_dict["FEL_pulses"]
+        self.prevDataEMCCD.clean_array *= self.settings["seriesNo"]
 
         self.prevDataEMCCD -= self.curDataEMCCD
+        self.settings["seriesNo"]-=1
+        self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
 
-        # renormalize by the number of pulses
-        try:
-            self.prevDataEMCCD.clean_array/=float(self.prevDataEMCCD.equipment_dict["FEL_pulses"])
-        except ZeroDivisionError:
-            pass
-
+        self.prevDataEMCCD.make_spectrum()
         try:
             self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
         except Exception as e:
             print "__main__.takeImage\nError saving SERIES spectrum,",e
 
-        self.prevDataEMCCD.make_spectrum()
-        # pg.plot(self.prevDataEMCCD.spectrum[:,0],
-        #                            self.prevDataEMCCD.spectrum[:,1], title="post")
+        # renormalize by the number of pulses
+        try:
+            self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
+        except ZeroDivisionError:
+            pass
+        try:
+            self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
+        except:
+            pass
 
-
-        # Update the plots with this new data
         self.updateDataSig.emit(True, True, True)
         self.ui.mSeriesUndo.setEnabled(False)
 

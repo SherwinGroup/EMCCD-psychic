@@ -77,8 +77,17 @@ class fAndorEMCCD(object):
         arr = args[0][0]
         np.random.seed()
         new = [int(round(i)) for i in 100 * np.random.normal(0, 1, args[0][1])]
+        big = [int(round(i))+5000 for i in 100 * np.random.normal(0, 1, args[0][1])]
         for i in range(args[0][1]):
-            arr[i] = new[i]
+            if i>1600*150 and i<1600*250:
+                if (i-750)%1600==0 or (i-751)%1600==0:
+                    arr[i] = big[i]/10
+                elif (i-500)%1600==0 or (i-501)%1600==0:
+                    arr[i] = big[i]
+                else:
+                    arr[i] = new[i]
+            else:
+                arr[i] = new[i]
             
     def __getDet(self, *args):
         x = args[0][0]
