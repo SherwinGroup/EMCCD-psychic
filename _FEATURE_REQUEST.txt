@@ -5,12 +5,15 @@ Either disable semilogy or find a way to set it
 
 MEDIUM:
 -----------------------------------
+Add an column of amplitude standard deviation (or standard error of the mean) for series measurements--necessary for quoting error bars
 Add series things in software
 
 EASY:
 -----------------------------------
+Calculate standard deviation of the dark noise and add it to JSON dict
 Make electric field calculator
 Sort JSON values not with upper/lowercase. Shit's frustrating, yo
+
 
 
 
