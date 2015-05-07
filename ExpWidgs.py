@@ -523,7 +523,7 @@ class BaseExpWidget(QtGui.QWidget):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curBackEMCCD = self.DataClass(self.rawData,
-                                            str(self.papa.ui.tImageName.text()),
+                                            str(self.papa.ui.tBackgroundName.text()),
                                             str(self.ui.tCCDBGNum.value()+1),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
@@ -717,7 +717,7 @@ class AbsWid(BaseExpWidget):
         self.ui.gCCDBin.plotItem.scene().addItem(self.pRawvb)
         self.ui.gCCDBin.plotItem.getAxis("right").linkToView(self.pRawvb )
         self.pRawvb.setXLink(self.ui.gCCDBin.plotItem)
-        self.ui.gCCDBin.plotItem.getAxis("right").setLabel("axis2")
+        self.ui.gCCDBin.plotItem.getAxis("right").setLabel("Raw Counts")
 
         self.updateGraphViews()
         self.ui.gCCDBin.plotItem.vb.sigResized.connect(self.updateGraphViews)
@@ -725,11 +725,6 @@ class AbsWid(BaseExpWidget):
         self.pRawTrans = pg.PlotCurveItem(pen="b")
         self.pRawvb.addItem(self.pRawBlank)
         self.pRawvb.addItem(self.pRawTrans)
-
-
-
-
-
 
     def takeReference(self):
         self.takeImage(isBackground = self.processReference)
@@ -741,6 +736,7 @@ class AbsWid(BaseExpWidget):
             log.warning("Please take a reference with the same settings")
             return
         else:
+            self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
             try:
                 self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")

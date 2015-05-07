@@ -779,14 +779,15 @@ class CCDWindow(QtGui.QMainWindow):
             # Really, letting python garbage collecting take care of it
             QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
             QtCore.QTimer.singleShot(3000, lambda: self.dump.close())
-#        if temp is None:
-        temp = int(self.ui.tSettingsGotoTemp.text())
+        if temp is None or type(temp) is bool: # bool test is because buttons send a value if clicked, want to ignore
+            temp = int(self.ui.tSettingsGotoTemp.text())
+        log.debug("Going to temperature: {}".format(temp))
 
         # Disable the buttons we don't want messed with
         # self.ui.bCCDBack.setEnabled(False)
         # self.ui.bCCDImage.setEnabled(False)
         # self.ui.bSetTemp.setEnabled(False)
-        # self.curExp.toggleUIElements(False)
+        self.curExp.toggleUIElements(False)
 
         # Set up a thread which will handle the monitoring of the temperature
         self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = (temp, self.killFast))
@@ -803,6 +804,7 @@ class CCDWindow(QtGui.QMainWindow):
         # self.ui.bCCDImage.setEnabled(True)
         # self.ui.bCCDBack.setEnabled(True)
         # self.ui.bSetTemp.setEnabled(True)
+        self.curExp.toggleUIElements(True)
         self.getTempTimer.stop()
 
         self.updateTemp()
@@ -1203,32 +1205,32 @@ class CCDWindow(QtGui.QMainWindow):
         print 'closing,', event.type()
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:
-            # prompt = QtGui.QMessageBox()
-            # prompt.setText("Warning")
-            ret = QtGui.QMessageBox.warning(
-                self,
-                "Warning",
-                "This will leave the CCD and cooler on\n."
-                "Only use if you intend to immediately restart "
-                "control software",
-                QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
-                QtGui.QMessageBox.Cancel
-            )
-            if ret == QtGui.QMessageBox.Cancel:
-                event.ignore()
-                return
-            fastExit = True
-        try:
-            log.info("Stopping temp timer")
-            self.getTempTimer.stop()
-        except:
-            log.info("No timer to stop")
+            # Note, this does not work. Remove this stuff in a future version.
             pass
+            # ret = QtGui.QMessageBox.warning(
+            #     self,
+            #     "Warning",
+            #     "This will leave the CCD and cooler on.\n"
+            #     "Only use if you intend to immediately restart "
+            #     "control software",
+            #     QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
+            #     QtGui.QMessageBox.Cancel
+            # )
+            # if ret == QtGui.QMessageBox.Cancel:
+            #     event.ignore()
+            #     return
+            # fastExit = True
         try:
             log.info("Waiting for temperature set thread")
             self.setTempThread.wait()
         except:
             log.info("No temperature thread to wait for")
+            pass
+        try:
+            log.info("Stopping temp timer")
+            self.getTempTimer.stop()
+        except:
+            log.info("No timer to stop")
             pass
 
         if self.ui.mFileTakeContinuous.isChecked():
@@ -1288,10 +1290,12 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.CCD.cameraSettings = dict()  # Something is throwing an error when this isn't here
                                         # I think a memory leak somewhere?
-        self.CCD.dll = None
-        self.CCD = None
+        # self.CCD.dll = None
+        # self.CCD = None
+        del self.CCD.dll
+        del self.CCD
 
-
+        event.accept()
         self.close()
 
 class ChillerBox(QtGui.QDialog):
