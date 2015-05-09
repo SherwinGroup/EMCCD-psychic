@@ -225,6 +225,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.runSettings["fieldInt"] = []
             self.ui.tCCDFELPulses.setText("0")
             self.papa.oscWidget.ui.tOscPulses.setText("0")
+            self.papa.oscWidget.settings["FELPulses"] = 0
         self.thDoExposure.start()
 
 
