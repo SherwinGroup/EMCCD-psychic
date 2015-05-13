@@ -5,12 +5,12 @@ Either disable semilogy or find a way to set it
 
 MEDIUM:
 -----------------------------------
-Add an column of amplitude standard deviation (or standard error of the mean) for series measurements--necessary for quoting error bars
 Add series things in software
 Get a dark noise reading from the background slide.  That is, sum up the pixels as we would for an actual spectrum, then get the standard deviation (or whatever it is we'd want), then add this to the dictionary at the head of the spectrum file.  This way we have a "pure" number to use when calculating error bars.
 
 EASY:
 -----------------------------------
+Add a sample entry box.  This is really frustrating in its current implementation (i.e. bad notes).
 Calculate standard deviation of the dark noise and add it to JSON dict
 Make electric field calculator
 Sort JSON values not with upper/lowercase. Shit's frustrating, yo
@@ -26,6 +26,7 @@ Close shutter on close
 
 
 
+
 IMPLEMENTED:
 -----------------------------------
 Pulse counting (V0.4.1.0)
@@ -36,3 +37,7 @@ Add another box for the pulse counts in the progressbar (V0.4.2.0)
 Add a cursor to the spectrum plot which tells you the sideband number at the location (V0.4.3.0)
 If NIRW > 1200, convert from WN to wavelength (V0.4.3.0)
 Linear regions in continuous (V0.4.3.0)
+
+DEALT WITH ELSEWHERE/REJECTED
+-----------------------------------
+Add an column of amplitude standard deviation (or standard error of the mean) for series measurements--necessary for quoting error bars: Handled in hsganalysis
