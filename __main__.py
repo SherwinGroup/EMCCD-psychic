@@ -79,6 +79,8 @@ class CCDWindow(QtGui.QMainWindow):
     getContinuousThread = None # Thread for acquiring continuously
     updateOscDataSig = QtCore.pyqtSignal()
 
+    thDoSpectrometerSweep = TempThread()
+
 
     def __init__(self):
         super(CCDWindow, self).__init__()
@@ -100,9 +102,9 @@ class CCDWindow(QtGui.QMainWindow):
 
         # Check to make sure the software didn't crash and the temperature is currently cold
         temp = self.CCD.getTemperature()
-        self.ui.tSettingsCurrTemp.setText(str(temp))
-        if temp<0:
-            self.doTempSet()
+        self.ui.tSettingsGotoTemp.setText(str(temp))
+        if temp<20:
+            self.doTempSet(temp)
 
         self.Spectrometer = None
         self.Agilent = None
@@ -368,6 +370,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
         self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
         self.ui.mFileFastExit.triggered.connect(self.close)
+
+        self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
+        self.sweep.setCheckable(True)
+        self.sweep.triggered.connect(self.startSweepLoop)
+
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
@@ -749,10 +756,6 @@ class CCDWindow(QtGui.QMainWindow):
         except Exception as e:
             log.warning("Could not get spectrometer values, {}".format(e))
 
-
-
-
-
     def updateSpecWavelength(self):
         desired = float(self.ui.sbSpecWavelength.value())
         new = self.Spectrometer.goAndAsk(desired, doCal = True)
@@ -763,6 +766,54 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer.setGrating(desired)
         new = self.Spectrometer.getGrating()
         self.ui.tSpecCurGr.setText(str(new))
+
+    def startSweepLoop(self, val):
+        if val:
+            start, step, end, ok = ScanParameterDialog.getSteps(self)
+            if not ok:
+                self.sweep.setChecked(False)
+                return
+            else:
+                log.debug("Dialog accepted, {}, {}, {}".format(start, step, end))
+
+                self.sweepRange = np.arange(start, end, step)
+                self.thDoSpectrometerSweep.target = self.sweepLoop
+                self.thDoSpectrometerSweep.start()
+        else: pass # just getting turned off (heh)
+
+    def sweepLoop(self):
+        for wavelength in self.sweepRange:
+            if not self.sweep.isChecked(): break
+            log.debug("At wavelength {}".format(wavelength))
+            self.updateElementSig.emit(lambda: self.ui.sbSpecWavelength.setValue(wavelength), None)
+            self.updateSpecWavelength()
+            self.sigUpdateStatusBar.emit(str(wavelength))
+            self.ui.cSettingsShutterEx.setCurrentIndex(2) # perm closed
+            self.settings["changedSettingsFlags"][-1] = 1
+            self.updateSettings()
+            log.debug("set shutter closed")
+
+            self.curExp.ui.bCCDBack.clicked.emit(False) # emulate button press for laziness
+            log.debug("Called Take bacground")
+            time.sleep(0.5)
+            self.curExp.thDoExposure.wait()
+
+            self.ui.cSettingsShutterEx.setCurrentIndex(0) # auto
+            self.settings["changedSettingsFlags"][-1] = 1
+            self.updateSettings()
+            log.debug("set shutter Auto")
+            if not self.sweep.isChecked(): break
+
+            self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+            log.debug("Called Take image")
+            time.sleep(0.5)
+            self.curExp.thDoExposure.wait()
+        log.debug("Done with scan")
+
+
+
+
+
 
 
     @staticmethod
@@ -1188,6 +1239,14 @@ class CCDWindow(QtGui.QMainWindow):
         If I want to update a QLineEdit from within a thread, need to conncet it
         to a signal; main thread doesn't like to get update from outside itself
         """
+
+        # Sometimes you don't want to just setText, you want more.
+        # In that case, let them jsut pass a lambda and this will call
+        # it from the main thread, avoiding threading issues
+        if hasattr(element, "__call__"):
+            element()
+            return
+
         element.setText(str(val))
 
     def updateStatusBar(self, obj):
@@ -1297,6 +1356,64 @@ class CCDWindow(QtGui.QMainWindow):
 
         event.accept()
         self.close()
+
+class ScanParameterDialog(QtGui.QDialog):
+    def __init__(self, parent=None):
+        super(ScanParameterDialog, self).__init__(parent=parent)
+
+        mainLayout = QtGui.QVBoxLayout(self)
+
+        layout = QtGui.QHBoxLayout(self)
+
+        start = QtGui.QGroupBox("Start")
+        start.setFlat(True)
+        startlayout = QtGui.QHBoxLayout(self)
+        step = QtGui.QGroupBox("Step")
+        step.setFlat(True)
+        steplayout = QtGui.QHBoxLayout(self)
+        stop = QtGui.QGroupBox("Stop")
+        stop.setFlat(True)
+        stoplayout = QtGui.QHBoxLayout(self)
+
+        self.tStart = QFNumberEdit(self)
+        self.tStart.setText("760")
+        self.tStep = QFNumberEdit(self)
+        self.tStep.setText("-1")
+        self.tStop = QFNumberEdit(self)
+        self.tStop.setText("740")
+
+        startlayout.addWidget(self.tStart)
+        steplayout.addWidget(self.tStep)
+        stoplayout.addWidget(self.tStop)
+
+        start.setLayout(startlayout)
+        step.setLayout(steplayout)
+        stop.setLayout(stoplayout)
+
+        layout.addWidget(start)
+        layout.addWidget(step)
+        layout.addWidget(stop)
+
+        buttons = QtGui.QDialogButtonBox(
+            QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
+            QtCore.Qt.Horizontal, self)
+
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        mainLayout.addLayout(layout)
+        mainLayout.addWidget(buttons)
+
+        self.setLayout(mainLayout)
+
+
+    @staticmethod
+    def getSteps(parent = None):
+        dialog = ScanParameterDialog(parent)
+        result = dialog.exec_()
+
+        return dialog.tStart.value(), dialog.tStep.value(), dialog.tStop.value(), result==QtGui.QDialog.Accepted
+
 
 class ChillerBox(QtGui.QDialog):
     def __init__(self, parent=None, message = ""):

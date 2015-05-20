@@ -205,8 +205,8 @@ class EMCCD_image(object):
         dark_region = self.clean_array[:,0] # This is a total kludge
         self.dark_mean = np.mean(dark_region)
         self.std_dev = np.std(dark_region)
-        print "Base line is ", self.dark_mean
-        print "Standard deviation is ", self.std_dev
+        # print "Base line is ", self.dark_mean
+        # print "Standard deviation is ", self.std_dev
         height = self.equipment_dict['y_max'] - self.equipment_dict['y_min']
         self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
         self.addenda[0] += self.dark_mean*height
@@ -231,9 +231,9 @@ class EMCCD_image(object):
         np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
 
-        print "Save image.\nDirectory: {}".format(
-            os.path.join(folder_str, 'Spectra', self.file_name, filename)
-        )
+        # print "Save image.\nDirectory: {}".format(
+        #     os.path.join(folder_str, 'Spectra', self.file_name, filename)
+        # )
 
     def getFileName(self, prefix=None):
         """
@@ -247,10 +247,8 @@ class EMCCD_image(object):
             name = type(self).__name__.lower()
             if "hsg" in name:
                 filename = "hsg_"
-                print "hsg"
             elif "pl" in name:
                 filename = "pl_"
-                print "pl"
             elif "abs" in name:
                 filename = "absRaw_"
             else:
