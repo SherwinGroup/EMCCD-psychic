@@ -87,8 +87,6 @@ class CCDWindow(QtGui.QMainWindow):
         super(CCDWindow, self).__init__()
         log.debug("About to initialize settins")
         self.initSettings()
-        self.settings["doCRR"] = False
-        log.critical("DEBUG: NOT DOING CRR")
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
@@ -368,7 +366,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
-        self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
+        # self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
+        self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
         self.ui.mFileFastExit.triggered.connect(self.close)
 
         self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
@@ -382,11 +381,6 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
-
-
-    def openDebugConsole(self):
-        self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self})
-        self.consoleWindow.show()
 
     @staticmethod
     def __CHANGING_EXPERIMENT_TYPE(): pass
@@ -501,6 +495,10 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHStart.setEnabled(val)
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
+
+    def openDebugConsole(self):
+        self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
+        self.consoleWindow.show()
 
 
     def focusInEvent(self, event):

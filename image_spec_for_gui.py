@@ -19,6 +19,7 @@ import logging
 log = logging.getLogger("EMCCD")
 
 class EMCCD_image(object):
+    origin_import = '\nWavelength,Signal\nnm,arb. u.'
     
     def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
         """
@@ -221,7 +222,7 @@ class EMCCD_image(object):
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-        origin_import = '\nWavelength,Signal\nnm,arb. u.'
+        origin_import = self.origin_import
 
         filename = self.getFileName(prefix)
 
@@ -466,6 +467,7 @@ class PL_image(EMCCD_image):
 
     
 class Abs_image(EMCCD_image):
+    origin_import = '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
     def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None
@@ -485,6 +487,8 @@ class Abs_image(EMCCD_image):
         return True
 
     def __div__(self, other):
+        # self is the reference spectrum
+        # other is the tranmission data
 
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))
