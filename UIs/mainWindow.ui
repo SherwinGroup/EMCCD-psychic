@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>825</width>
-    <height>874</height>
+    <width>827</width>
+    <height>735</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1126,7 +1126,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>825</width>
+     <width>827</width>
      <height>21</height>
     </rect>
    </property>
@@ -1155,6 +1155,7 @@
     <addaction name="fExpTypeHSG"/>
     <addaction name="fExpTypePL"/>
     <addaction name="fExpTypeAbs"/>
+    <addaction name="fExpTypeTwo_Color_Abs"/>
    </widget>
    <addaction name="menuOther_Settings"/>
    <addaction name="menuLive_Series"/>
@@ -1255,6 +1256,14 @@
   <action name="mFileFastExit">
    <property name="text">
     <string>Exit without shutdown</string>
+   </property>
+  </action>
+  <action name="fExpTypeTwo_Color_Abs">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Two Color Abs</string>
    </property>
   </action>
  </widget>

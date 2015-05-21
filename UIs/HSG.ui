@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>924</width>
-    <height>751</height>
+    <width>838</width>
+    <height>690</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -37,15 +37,15 @@
         <attribute name="title">
          <string>Main Settings</string>
         </attribute>
-        <layout class="QHBoxLayout" name="horizontalLayout_49">
+        <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <layout class="QVBoxLayout" name="verticalLayout_9" stretch="0,1">
+          <layout class="QVBoxLayout" name="verticalLayout_9" stretch="0,0,1">
            <item>
             <layout class="QGridLayout" name="gridLayout" columnstretch="1,1,1">
              <item row="0" column="2">
               <widget class="QGroupBox" name="groupBox_42">
                <property name="title">
-                <string>Series</string>
+                <string>Sample</string>
                </property>
                <property name="flat">
                 <bool>true</bool>
@@ -70,9 +70,9 @@
                  <number>0</number>
                 </property>
                 <item row="0" column="0">
-                 <widget class="QLineEdit" name="tCCDSeries">
+                 <widget class="QLineEdit" name="tSampleName">
                   <property name="toolTip">
-                   <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
+                   <string/>
                   </property>
                   <property name="statusTip">
                    <string/>
@@ -429,6 +429,71 @@
             </layout>
            </item>
            <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QGroupBox" name="groupBox_Series">
+               <property name="title">
+                <string>Series</string>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_5">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>10</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QLineEdit" name="tCCDSeries">
+                  <property name="toolTip">
+                   <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
+              <widget class="QGroupBox" name="groupBox">
+               <property name="title">
+                <string>Spectrum step</string>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
+               </property>
+               <layout class="QHBoxLayout" name="horizontalLayout_6">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>10</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <widget class="QLineEdit" name="tSpectrumStep"/>
+                </item>
+               </layout>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
             <widget class="QGroupBox" name="groupBox_46">
              <property name="title">
               <string>Comments</string>
@@ -484,7 +549,7 @@
            <item row="0" column="2">
             <widget class="QGroupBox" name="groupBox_41">
              <property name="title">
-              <string>Rep Rate (s)</string>
+              <string>Rep Rate (Hz)</string>
              </property>
              <property name="flat">
               <bool>true</bool>
@@ -891,7 +956,7 @@
            <number>0</number>
           </property>
           <property name="bottomMargin">
-           <number>9</number>
+           <number>0</number>
           </property>
           <item>
            <widget class="QLineEdit" name="tCCDFELPulses">
@@ -934,7 +999,7 @@
  <tabstops>
   <tabstop>tCCDNIRP</tabstop>
   <tabstop>tCCDNIRwavelength</tabstop>
-  <tabstop>tCCDSeries</tabstop>
+  <tabstop>tSampleName</tabstop>
   <tabstop>tCCDFELP</tabstop>
   <tabstop>tCCDEField</tabstop>
   <tabstop>tCCDIntensity</tabstop>

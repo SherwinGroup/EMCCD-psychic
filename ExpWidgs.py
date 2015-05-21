@@ -4,13 +4,14 @@ import numpy as np
 import scipy.integrate as spi
 import re
 import time
-import os, sys, inspect
-cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-if cmd_subfolder not in sys.path:
-     sys.path.insert(0, cmd_subfolder)
-from Abs_ui import Ui_Abs
-from HSG_ui import Ui_HSG
-from PL_ui import Ui_PL
+# import os, sys, inspect
+# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
+# if cmd_subfolder not in sys.path:
+#      sys.path.insert(0, cmd_subfolder)
+from UIs.Abs_ui import Ui_Abs
+from UIs.HSG_ui import Ui_HSG
+from UIs.PL_ui import Ui_PL
+from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
@@ -37,6 +38,14 @@ class BaseExpWidget(QtGui.QWidget):
     # with any data
     # First arg = function to update, second arg = data
     sigUpdateGraphs = QtCore.pyqtSignal(object, object)
+
+    # Cannot create gui items from outside the main thread
+    # (i.e. dialog boxes)
+    # Use this signal to emit a function to call and the arguments
+    # The second signal is used to kill an eventloop wait
+    # The expectation is that the emitted value is the return value
+    sigMakeGui = QtCore.pyqtSignal(object, object)
+    sigKillEventLoop = QtCore.pyqtSignal(object)
     def __init__(self, parent = None, UI=None):
         super(BaseExpWidget, self).__init__(parent)
         self.baseInitUI(UI)
@@ -75,6 +84,7 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigUpdateGraphs[object, object].connect(
             lambda img, data: img(data)
         )
+        self.sigMakeGui.connect(self.createGuiElement)
 
     def baseInitUI(self, UI=None):
         # Initialize the UI. pass it the UI class from which it should be made
@@ -122,7 +132,7 @@ class BaseExpWidget(QtGui.QWidget):
                     str(self.ui.tCCDSeries.text())))
         self.ui.tCCDSampleTemp.editingFinished.connect(
                 lambda: self.papa.settings.__setitem__('sample_temp',
-                         int(self.ui.tCCDSampleTemp.text())))
+                         float(self.ui.tCCDSampleTemp.text())))
         self.ui.tCCDYMin.editingFinished.connect(
                 lambda : self.papa.settings.__setitem__('y_min',
                         int(self.ui.tCCDYMin.text())))
@@ -132,6 +142,10 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.tCCDSlits.editingFinished.connect(
                 lambda: self.papa.settings.__setitem__('slits',
                         int(self.ui.tCCDSlits.text())))
+        self.ui.tSampleName.editingFinished.connect(
+            lambda: self.papa.settings.__setitem__("sample_name",
+                        str(self.ui.tSampleName.text()))
+        )
 
         if self.hasNIR:
             self.ui.tCCDNIRwavelength.textAccepted.connect(self.parseNIRL)
@@ -146,7 +160,8 @@ class BaseExpWidget(QtGui.QWidget):
             self.ui.tCCDFELFreq.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('fel_lambda', v))
             self.ui.tCCDFELRR.editingFinished.connect(
-                lambda v: self.papa.settings.__setitem__('fel_reprate', v))
+                lambda: self.papa.settings.__setitem__('fel_reprate',
+                                     str(self.ui.tCCDFELRR.text())))
             self.ui.tCCDSpotSize.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('sample_spot_size', v))
             self.ui.tCCDWindowTransmission.textAccepted.connect(
@@ -219,8 +234,6 @@ class BaseExpWidget(QtGui.QWidget):
         self.toggleUIElements(False)
 
         if self.hasFEL:
-            print "has fel", type(self).__name__
-            print self.hasFEL, self.hasNIR
             self.runSettings["fieldStrength"] = []
             self.runSettings["fieldInt"] = []
             self.ui.tCCDFELPulses.setText("0")
@@ -335,19 +348,23 @@ class BaseExpWidget(QtGui.QWidget):
     #
     ################################
     def calcFieldValuesLoop(self):
+        self.elWaitForOsc = QtCore.QEventLoop()
+        self.papa.oscWidget.sigDoneCounting.connect(self.elWaitForOsc.exit)
+        self.elWaitForOsc.exec_()
+        self.papa.oscWidget.sigDoneCounting.disconnect(self.elWaitForOsc.exit)
         while self.runSettings["exposing"]:
             try:
+                self.doFieldCalcuation(
+                    self.papa.oscWidget.settings["pyBG"],
+                    self.papa.oscWidget.settings["pyFP"],
+                    self.papa.oscWidget.settings["pyCD"]
+                )
                 # MUST INSTANTIATE IN THREAD
                 # Otherwise catastrophic Qt errors arise
                 self.elWaitForOsc = QtCore.QEventLoop()
                 self.papa.oscWidget.sigDoneCounting.connect(self.elWaitForOsc.exit)
                 self.elWaitForOsc.exec_()
                 self.papa.oscWidget.sigDoneCounting.disconnect(self.elWaitForOsc.exit)
-                self.doFieldCalcuation(
-                    self.papa.oscWidget.settings["pyBG"],
-                    self.papa.oscWidget.settings["pyFP"],
-                    self.papa.oscWidget.settings["pyCD"]
-                )
             except Exception as e:
                 print "ERROR ",e
 
@@ -411,19 +428,10 @@ class BaseExpWidget(QtGui.QWidget):
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
 
-        try:
-            self.curDataEMCCD.save_images(self.papa.settings["saveDir"])
-            self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDImageNum.value()+1))
-        except Exception as e:
-            self.papa.sigUpdateStatusBar.emit("Error saving image")
-            log.warning("Error saving Data image, {}".format(e))
-
         if self.papa.settings["doCRR"]:
             self.curDataEMCCD.cosmic_ray_removal()
         else:
             self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
-
-        self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
 
         try:
             self.curDataEMCCD = self.curDataEMCCD - self.curBackEMCCD
@@ -440,6 +448,24 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.curDataEMCCD.make_spectrum()
         self.curDataEMCCD.inspect_dark_regions()
+
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
+
+        # Do we want to keep this image?
+        if not self.confirmImage():
+            self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
+            self.toggleUIElements(True)
+            return
+
+        try:
+            self.curDataEMCCD.save_images(self.papa.settings["saveDir"])
+            self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDImageNum.value()+1))
+        except Exception as e:
+            self.papa.sigUpdateStatusBar.emit("Error saving image")
+            log.warning("Error saving Data image, {}".format(e))
+
+        self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
         try:
             self.curDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Spectrum: {}".format(self.ui.tCCDImageNum.value()+1))
@@ -449,72 +475,15 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.sigUpdateStatusBar.emit("Error saving Spectrum")
             log.warning("Error saving Data Spectrum, {}".format(e))
 
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
-        self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
         if self.papa.ui.mSeriesSum.isChecked() and str(self.ui.tCCDSeries.text())!="":
             self.papa.updateElementSig.emit(self.ui.lCCDProg, "Adding Series...")
             self.analyzeSeries()
         else:
             self.prevDataEMCCD = None
             self.runSettings["seriesNo"] = 0
-            self.ui.groupBox_42.setTitle("Series")
+            self.ui.groupBox_Series.setTitle("Series")
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.toggleUIElements(True)
-
-
-    def analyzeSeries(self):
-        #######################
-        # Handling of series tag to add things up live
-        #
-        # Want it to save only the latest series, but also
-        # the previous ones should be saved (hence why this is
-        # after the saving is being done)
-        #######################
-        if (self.prevDataEMCCD is not None and
-                    self.prevDataEMCCD.equipment_dict["series"] ==
-                    self.curDataEMCCD.equipment_dict["series"]):
-            log.debug("Added two series together")
-            # Un-normalize by the number currently in series
-            self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
-
-            try:
-                self.prevDataEMCCD += self.curDataEMCCD
-            except Exception as e:
-                log.debug("Error adding series data, {}".format(e))
-            self.papa.ui.mSeriesUndo.setEnabled(True)
-
-            self.prevDataEMCCD.make_spectrum()
-
-            # Save the summed, unnormalized spectrum
-            try:
-                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
-                self.papa.sigUpdateStatusBar.emit("Saved Series")
-            except Exception as e:
-                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
-                log.debug("Error saving series data, {}".format(e))
-
-            self.runSettings["seriesNo"] +=1
-            self.ui.groupBox_42.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
-            # but PLOT the normalized average
-            self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
-            self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
-
-            # Update the plots with this new data
-            self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
-            self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
-
-        elif str(self.ui.tCCDSeries.text()) != "":
-            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
-            self.prevDataEMCCD.file_no += "seriesed"
-            self.runSettings["seriesNo"] = 1
-            self.ui.groupBox_42.setTitle("Series (1)")
-
-
-        else:
-            self.prevDataEMCCD = None
-            self.runSettings["seriesNo"] = 0
-            self.ui.groupBox_42.setTitle("Series")
-            log.debug("Made a new series where I didn't think I'd be")
 
 
 
@@ -550,6 +519,117 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.curBackEMCCD.clean_array)
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
 
+    def confirmImage(self):
+        """
+        Prompts the user to ensure the most recent image is acceptable.
+        :return: Boolean of whether or not to accept.
+        """
+        loop = QtCore.QEventLoop()
+        self.sigKillEventLoop.connect(lambda v: loop.exit(v))
+        self.sigMakeGui.emit(
+            QtGui.QMessageBox.information, (
+            None,"Confirm",
+            """Save most recent scan?""",
+            QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard,
+            QtGui.QMessageBox.Save
+        )
+        )
+        ret = loop.exec_()
+        return ret == QtGui.QMessageBox.Save
+        # return True
+
+
+    def analyzeSeries(self):
+        #######################
+        # Handling of series tag to add things up live
+        #
+        # Want it to save only the latest series, but also
+        # the previous ones should be saved (hence why this is
+        # after the saving is being done)
+        #######################
+        groupBox = self.ui.groupBox_Series
+
+        if (self.prevDataEMCCD is not None and # Is there something to add to?
+                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
+                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+            log.debug("Added two series together")
+            # Un-normalize by the number currently in series
+            self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
+
+            try:
+                self.prevDataEMCCD += self.curDataEMCCD
+            except Exception as e:
+                log.debug("Error adding series data, {}".format(e))
+            else:
+                self.papa.ui.mSeriesUndo.setEnabled(True)
+
+            self.prevDataEMCCD.make_spectrum()
+
+            # Save the summed, unnormalized spectrum
+            try:
+                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+                self.papa.sigUpdateStatusBar.emit("Saved Series")
+            except Exception as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+                log.debug("Error saving series data, {}".format(e))
+
+            self.runSettings["seriesNo"] +=1
+            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+            # but PLOT the normalized average
+            self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
+            self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
+
+            # Update the plots with this new data
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+            self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+        elif str(self.ui.tCCDSeries.text()) != "":
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.prevDataEMCCD.file_no += "seriesed"
+            self.runSettings["seriesNo"] = 1
+            groupBox.setTitle("Series (1)")
+
+
+        else:
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            groupBox.setTitle("Series")
+            log.debug("Made a new series where I didn't think I'd be")
+
+    def undoSeries(self):
+        log.debug("Added two series together")
+        # Un-normalize by the number currently in series
+        self.prevDataEMCCD.clean_array *= self.runSettings["seriesNo"]
+
+        try:
+            self.prevDataEMCCD -= self.curDataEMCCD
+        except Exception as e:
+            log.debug("Error undoing series data, {}".format(e))
+        else:
+            self.papa.ui.mSeriesUndo.setEnabled(False)
+
+        self.prevDataEMCCD.make_spectrum()
+
+        # Save the summed, unnormalized spectrum
+        try:
+            self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+            self.papa.sigUpdateStatusBar.emit("Saved Series")
+        except Exception as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+            log.debug("Error saving series data, {}".format(e))
+
+        self.runSettings["seriesNo"] -=1
+        self.ui.groupBox_Series.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+        # but PLOT the normalized average
+        self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
+        self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
+
+        # Update the plots with this new data
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
 
     def genEquipmentDict(self):
         """
@@ -568,13 +648,8 @@ class BaseExpWidget(QtGui.QWidget):
         s["dark_region"] = None
         s["bg_file_name"] = str(self.papa.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
         s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
-
-        # If the user has the series box as {<variable>} where variable is
-        # any of the keys below, we want to replace it with the relavent value
-        # Potentially unnecessary at this point...
-        st = str(self.ui.tCCDSeries.text())
-        st = st.format(SLITS=s["slits"], SPECL = s["center_lambda"],
-                       GAIN=s["gain"], EXP=s["exposure"])
+        s["sample_name"] = str(self.ui.tSampleName.text())
+        s["spec_step"] = str(self.ui.tSpectrumStep.text())
         if self.hasFEL:
             s["fel_power"] = str(self.ui.tCCDFELP.text())
             s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
@@ -584,19 +659,32 @@ class BaseExpWidget(QtGui.QWidget):
             s["fieldStrength"] = self.runSettings["fieldStrength"]
             s["fieldInt"] = self.runSettings["fieldInt"]
 
-            st = st.format(FELF=s["fel_lambda"], FELP=s["fel_power"])
-
         if self.hasNIR:
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
 
-            st = st.format(NIRP=s["nir_power"], NIRW=s["nir_lambda"])
+        # If the user has the series box as {<variable>} where variable is
+        # any of the keys below, we want to replace it with the relavent value
+        # Potentially unnecessary at this point...
+        #
+        # Also, need to have all possible keywords here as
+        #     "{FELP}".format(GAIN=1)
+        # does not return "{FELP}", as one would hope,
+        # it just throws an error.
+        #
+        # Instead of adding a bunch of empty strings to the dict to
+        # fill the role, use dict.get() so that a key error isn't thrown
+        # when trying to access FEL/NIR only keys
+        st = str(self.ui.tCCDSeries.text())
+        st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
+                       GAIN=s.get("gain"), EXP=s.get("exposure"),
+                       FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
+                       NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
+
 
 
         s["series"] = st
         return s
-
-
 
 
     @staticmethod
@@ -647,6 +735,28 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())
         else:
             self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())
+
+    def createGuiElement(self, fnc, args):
+        """
+        You can't make a GUI element from a worker thread, only from the
+        main gui thread. This means that if you want to make a GUI element
+        (e.g. a dialog box) while in another thread, you need to tell
+        the main thread to do it, which is done through self.sigMakeGui.emit()
+        and sent here. Done in a very general way that a function is passed
+        to be called with given arguments. The return value is emitted in
+        sigKillEventLoop as the worker thread may want to wait for the
+        response before continuing.
+
+        :param fnc: a function to be called
+        :param args: a tuple of functions to pass
+            (signals can't do arbitrary numbers via *args, I don't think)
+        :return: emits return value through sigKillEventLoop.
+            ( terminating a QEventLoop.exec_() with a value will
+              cause the loop to return that value
+                (Note: May cause issue with non-integer returns?)
+        """
+        ret = fnc(*args)
+        self.sigKillEventLoop.emit(ret)
 
 
 class HSGWid(BaseExpWidget):
@@ -701,8 +811,13 @@ class AbsWid(BaseExpWidget):
     hasFEL = False
 
     DataClass = Abs_image
-    def __init__(self, parent = None):
-        super(AbsWid, self).__init__(parent, Ui_Abs)
+    def __init__(self, parent = None, UI = None):
+        # Want a UI parameter because this class
+        # gets extended for two color (FEL/LED)
+        # abs experiments, and I need to pass
+        if UI is None:
+            UI = Ui_Abs
+        super(AbsWid, self).__init__(parent, UI)
         self.initUI()
         self.curRefEMCCD = None
         self.curAbsEMCCD = None # holds the actual absorption
@@ -739,6 +854,8 @@ class AbsWid(BaseExpWidget):
         else:
             self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
+            self.curAbsEMCCD.origin_import = \
+                '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
             try:
                 self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
             except Exception as e:
@@ -759,6 +876,8 @@ class AbsWid(BaseExpWidget):
                                             str(self.ui.tCCDRefNum.value()+1),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
+        self.curRefEMCCD.origin_import = \
+            '\nWavelength, Raw Blank\nnm,arb. u.'
 
         try:
             self.curRefEMCCD.save_images(self.papa.settings["saveDir"], prefix="absBlank_")
@@ -854,6 +973,19 @@ class AbsWid(BaseExpWidget):
         # super(AbsWid, self).updateSpectrum(data)
         # pi = self.ui.gCCDBin.getPlotItem()
         # pi.setTitle(title)
+
+    def genEquipmentDict(self):
+        s = super(AbsWid, self).genEquipmentDict()
+        s["led_current"] = float(self.ui.tCCDLEDCurrent.text())
+        s["led_temp"] = float(self.ui.tCCDLEDTemp.text())
+        return s
+
+class TwoColorAbsWid(AbsWid):
+    hasFEL = True
+
+    def __init__(self, parent = None):
+        super(TwoColorAbsWid, self).__init__(parent, Ui_TwoColorAbs)
+
 
 
 class PLWid(BaseExpWidget):

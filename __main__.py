@@ -5,12 +5,13 @@ Created on Sat Feb 14 15:06:30 2015
 @author: Home
 """
 
+from __future__ import absolute_import
+
 import numpy as np
 from PyQt4 import QtCore, QtGui
 from Andor import AndorEMCCD
 import pyqtgraph as pg
-import scipy.integrate as spi
-from image_spec_for_gui import EMCCD_image, calc_THz_intensity, calc_THz_field
+import pyqtgraph.console as pgc
 from InstsAndQt.Instruments import *
 from InstsAndQt.customQt import *
 import copy
@@ -46,11 +47,11 @@ if os.name is not "posix":
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 # http://stackoverflow.com/questions/279237/import-a-module-from-a-relative-path?lq=1
-import os, sys, inspect
-cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-if cmd_subfolder not in sys.path:
-     sys.path.insert(0, cmd_subfolder)
-from mainWindow_ui import Ui_MainWindow
+# import os, sys, inspect
+# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
+# if cmd_subfolder not in sys.path:
+#      sys.path.insert(0, cmd_subfolder)
+from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
 
@@ -86,12 +87,10 @@ class CCDWindow(QtGui.QMainWindow):
         super(CCDWindow, self).__init__()
         log.debug("About to initialize settins")
         self.initSettings()
-        self.settings["doCRR"] = False
-        log.critical("DEBUG: NOT DOING CRR")
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD()
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -103,7 +102,7 @@ class CCDWindow(QtGui.QMainWindow):
         # Check to make sure the software didn't crash and the temperature is currently cold
         temp = self.CCD.getTemperature()
         self.ui.tSettingsGotoTemp.setText(str(temp))
-        if temp<20:
+        if temp < 0:
             self.doTempSet(temp)
 
         self.Spectrometer = None
@@ -114,7 +113,6 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
-        self.updateDataSig.connect(self.updateImage)
 
 
     def initSettings(self):
@@ -214,6 +212,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["nir_power"] = 0
         s["nir_lambda"] = 0
         s["series"] = ""
+        s["sample_name"] = ""
         s["fel_power"] = 0
         s["exposure"] = 0.5
         s["gain"] = 1
@@ -264,12 +263,14 @@ class CCDWindow(QtGui.QMainWindow):
         self.expUIs["Abs"].setParent(None)
         self.expUIs["PL"] = PLWid(self)
         self.expUIs["PL"].setParent(None)
+        self.expUIs["Two Color Abs"] = TwoColorAbsWid(self)
+        self.expUIs["Two Color Abs"].setParent(None)
         # Connect the changes
         [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
 
         self.oscWidget = None
         self.curExp = None # Keep a reference if you ever want it
-        self.openHSG()
+        # self.openHSG()
         self.openExp("HSG")
 
 
@@ -368,17 +369,21 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
-        self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
+        # self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
+        self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
         self.ui.mFileFastExit.triggered.connect(self.close)
 
         self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
         self.sweep.setCheckable(True)
         self.sweep.triggered.connect(self.startSweepLoop)
+        self.sweep.setEnabled(False)
+
+        self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
+        self.console.triggered.connect(self.openDebugConsole)
 
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
-
 
     @staticmethod
     def __CHANGING_EXPERIMENT_TYPE(): pass
@@ -409,17 +414,22 @@ class CCDWindow(QtGui.QMainWindow):
 
         curTabIdx = self.ui.tabWidget.currentIndex()
         newExp = str(sent.text())
-        if oldExp == "HSG":
-            self.closeHSG()
-        if oldExp in ["HSG", "PL", "Abs"]:
+        # if oldExp == "HSG":
+        #     self.closeHSG()
+        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
+            # hasFEL = self.getCurExp().hasFEL
             self.closeExp(oldExp)
+            # if hasFEL:
+            #     self.closeHSG()
         else:
             log.error("Unknown old experiment, {}".format(oldExp))
 
-        if newExp == "HSG":
-            self.openHSG()
-        if newExp in ["HSG", "PL", "Abs"]:
+        # if newExp == "HSG":
+        #     self.openHSG()
+        if newExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
             self.openExp(newExp)
+            # if self.getCurExp().hasFEL:
+            #     self.openHSG()
         else:
             log.error("Unknown experiment chosen, {}".format(newExp))
 
@@ -441,6 +451,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
         self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
         self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
+        self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
 
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
@@ -452,6 +463,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
             self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
+            self.openHSG() # Opens up the oscilloscope
 
 
 
@@ -460,6 +472,8 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.tabWidget.indexOf(self.expUIs[exp])
         )
         self.expUIs[exp].setParent(None)
+        if self.curExp.hasFEL:
+            self.closeHSG()
         self.curExp = None
 
     def openHSG(self):
@@ -478,7 +492,6 @@ class CCDWindow(QtGui.QMainWindow):
         # I want to connect a signal/slot at initialization
         # but that corresponds to the curExp at that time,
         # not at all times
-        print "I got called!"
         return self.curExp
 
     @staticmethod
@@ -493,6 +506,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHBin.setEnabled(val)
         self.ui.tHStart.setEnabled(val)
         self.ui.tHEnd.setEnabled(val)
+        self.sweep.setEnabled(val)
+
+    def openDebugConsole(self):
+        self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
+        self.consoleWindow.show()
 
 
     def focusInEvent(self, event):
@@ -782,10 +800,20 @@ class CCDWindow(QtGui.QMainWindow):
         else: pass # just getting turned off (heh)
 
     def sweepLoop(self):
+        # Don't want it to keep asking if we want to save the image,
+        # so redefine the checking function to always return true
+        # Keep a reference to the old function so we can reset it
+        # afterwards
+        oldConfirmation = self.curExp.confirmImage
+        self.curExp.confirmImage = lambda : True
         for wavelength in self.sweepRange:
             if not self.sweep.isChecked(): break
             log.debug("At wavelength {}".format(wavelength))
             self.updateElementSig.emit(lambda: self.ui.sbSpecWavelength.setValue(wavelength), None)
+            time.sleep(0.5) # need to make sure the spectrometer and all things
+                            # get updated before startinge verything else
+                            # do it before calling update, so taht those
+                            # timing issues with signals are avoided
             self.updateSpecWavelength()
             self.sigUpdateStatusBar.emit(str(wavelength))
             self.ui.cSettingsShutterEx.setCurrentIndex(2) # perm closed
@@ -806,8 +834,24 @@ class CCDWindow(QtGui.QMainWindow):
 
             self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
             log.debug("Called Take image")
+
             time.sleep(0.5)
             self.curExp.thDoExposure.wait()
+
+            # When analyzing, it would be nice to have origin
+            # import the data with the y-data labeled by
+            # the center lambda for ease with the legends/labeling
+            # Also add the file number foreasier identification
+            self.curExp.curDataEMCCD.origin_import = '\nWavelength,{}-{}\nnm,nm'.format(
+                self.curExp.curDataEMCCD.equipment_dict["center_lambda"],
+                self.curExp.curDataEMCCD.file_no
+            )
+            try:
+                self.curExp.curDataEMCCD.save_spectrum(self.settings["saveDir"])
+            except Exception as e:
+                log.debug("Error saving durings spectrum sweep {}".format(e))
+        self.curExp.confirmImage = oldConfirmation
+        self.updateElementSig.emit(lambda : self.sweep.setChecked(False), None)
         log.debug("Done with scan")
 
 
@@ -818,6 +862,9 @@ class CCDWindow(QtGui.QMainWindow):
 
     @staticmethod
     def __CCD_CONTROLS(): pass
+
+    def undoLastSeries(self):
+        log.warning("UNDO LAST SERIES NOT IMPLEMENTED")
 
     def doTempSet(self, temp = None):
         # temp is so that it can be called during cleanup.
@@ -838,7 +885,7 @@ class CCDWindow(QtGui.QMainWindow):
         # self.ui.bCCDBack.setEnabled(False)
         # self.ui.bCCDImage.setEnabled(False)
         # self.ui.bSetTemp.setEnabled(False)
-        self.curExp.toggleUIElements(False)
+        [i.toggleUIElements(False) for i in self.expUIs.values()]
 
         # Set up a thread which will handle the monitoring of the temperature
         self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = (temp, self.killFast))
@@ -855,7 +902,7 @@ class CCDWindow(QtGui.QMainWindow):
         # self.ui.bCCDImage.setEnabled(True)
         # self.ui.bCCDBack.setEnabled(True)
         # self.ui.bSetTemp.setEnabled(True)
-        self.curExp.toggleUIElements(True)
+        [i.toggleUIElements(True) for i in self.expUIs.values()]
         self.getTempTimer.stop()
 
         self.updateTemp()
@@ -864,275 +911,275 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSettingsCurrTemp.setText(str(self.CCD.temperature))
         self.ui.tSettingsTempResponse.setText(self.CCD.tempRetCode)
 
-    def startTakeImage(self, imtype = "img"):
-        self.ui.bCCDImage.setEnabled(False)
-        self.ui.bCCDBack.setEnabled(False)
-        self.ui.gbSettings.setEnabled(False)
-        # Reset all the things kept track of during an exposure
-        self.settings["progress"] = 0
-        self.settings["FELPulses"] = 0
-        self.settings["fieldStrength"] = []
-        self.settings["fieldInt"] = []
-        self.ui.tOscPulses.setText("0")
-        self.getImageThread = TempThread(target = self.takeImage, args=imtype)
-
-        # Update exposure/gain if necesssary
-        if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
-            self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
-        if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
-            self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
-
-        # self.updateProgTimer = QtCore.QTimer()
-        # self.updateProgTimer.timeout.connect(self.updateProgress)
-        # self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
-
-        self.elapsedTimer = QtCore.QElapsedTimer()
-        if self.settings["isScopePaused"]:
-            self.settings["exposing"] = True
-            self.elapsedTimer.start()
-            QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
-                                     self.updateProgress)
-        else:
-            self.updateOscDataSig.connect(self.startProgressBar)
-        self.getImageThread.start()
-        
-    def startProgressBar(self):
-        self.settings["exposing"] = True
-        self.elapsedTimer.start()
-        QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
-                                 self.updateProgress)
-        # Don't want the signal to keep calling this functin
-        self.updateOscDataSig.disconnect(self.startProgressBar)
-        
-
-    def takeImage(self, imtype):
-        """
-        Want to have the exposing flags set here just so there's no funny business
-        Sometimes the other thread may msibehave and we don't want photons to keep on
-        counting
-        """
-        self.settings["exposing"] = True
-        self.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
-        self.CCD.dllStartAcquisition()
-        self.CCD.dllWaitForAcquisition()
-        self.settings["exposing"] = False
-        # self.killTimerSig.emit(self.updateProgTimer)
-        data = self.CCD.getImage()
-
-        # Store the data appropriately and update the graphe
-        if imtype=="img":
-            self.curData = data
-            self.updateDataSig.emit(True, False, False)
-        else:
-            self.curBG = data
-            self.updateDataSig.emit(False, False, False)
-
-        self.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
-
-        ####################################
-        #
-        # Concerning the image numbers:
-        #
-        # Things were getting confusing having an internal variable and the textbox
-        # so switched to only using textbox. But this has issue that, since texboxes
-        # can't be updated from non-main threads (or it's unpredictable), signals are needed
-        # But this has issues that a fast computer will instantiate the object before
-        # the text is updated, so they're out of sync. This way, we know that the textbox
-        # will be incremented by one, but we forcibly tell it that it's going to be incremented
-        # instead of hoping that things will time properly
-        #
-        ####################################
-        if imtype=="img":
-            self.curDataEMCCD = EMCCD_image(self.curData,
-                                            str(self.ui.tImageName.text()),
-                                            str(self.ui.tCCDImageNum.value()+1),
-                                            str(self.ui.tCCDComments.toPlainText()),
-                                            self.genEquipmentDict())
-            self.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
-            try:
-                self.curDataEMCCD.save_images(self.settings["saveDir"])
-            except Exception as e:
-                log.warning("Error saving data image, {}".format(e))
-
-            if self.settings["doCRR"]:
-                try:
-                    self.curDataEMCCD.cosmic_ray_removal()
-                except Exception as e:
-                    print "cosmic,",e
-            else:
-                self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
-
-            try:
-                self.curDataEMCCD = self.curDataEMCCD - self.curBGEMCCD
-            except Exception as e:
-                print 'subraction:', e
-
-            try:
-                self.curDataEMCCD.make_spectrum()
-            except Exception as e:
-                print e
-                
-            try:
-                self.curDataEMCCD.inspect_dark_regions()
-            except Exception as e:
-                print "Error inspecting dark region", e
-                
-            try:
-                self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
-            except Exception as e:
-                log.warning("Error saving spectrum,",e)
-            self.updateDataSig.emit(True, True, False) # update with the cleaned data
-
-
-            #######################
-            # Handling of series tag to add things up live
-            #
-            # Want it to save only the latest series, but also
-            # the previous ones should be saved (hence why this is
-            # after the saving is being done)
-            #######################
-            if (self.prevDataEMCCD is not None and
-                        str(self.ui.tCCDSeries.text()) != "" and
-                        self.prevDataEMCCD.equipment_dict["series"] ==
-                        self.curDataEMCCD.equipment_dict["series"] and
-                    self.ui.mSeriesSum.isChecked()):
-                log.debug("Added to previous series")
-                # Un-normalize by the number currently in series
-                self.prevDataEMCCD.clean_array*=self.settings["seriesNo"]
-                try:
-                    self.prevDataEMCCD += self.curDataEMCCD
-                except Exception as e:
-                    log.warning("Error adding data in series: {}".format(e))
-                # print "\n\tPOST: {}, {}".format(id(self.prevDataEMCCD))
-                self.ui.mSeriesUndo.setEnabled(True)
-
-                self.prevDataEMCCD.make_spectrum()
-
-                # Save the summed, unnormalized spectrum
-                try:
-                    self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
-                except Exception as e:
-                    log.warning("Error saving SERIES spectrum, {}".format(e))
-
-                self.settings["seriesNo"] +=1
-                self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
-                # but PLOT the normalized average
-                self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
-                self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
-
-                # Update the plots with this new data
-                self.updateDataSig.emit(True, True, True)
-
-            elif str(self.ui.tCCDSeries.text()) != "" and self.ui.mSeriesSum.isChecked():
-                log.info("Had to make a new series")
-                self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
-                self.prevDataEMCCD.file_no += "seriesed"
-                self.settings["seriesNo"] = 1
-                self.ui.groupBox_42.setTitle("Series (1)")
-
-
-            else:
-                #######################
-                # THINK ABOUT HTIS WHEN YOU'RE NOT TIRED
-                #######################
-                self.prevDataEMCCD = None
-                self.settings["seriesNo"] = 0
-                self.ui.groupBox_42.setTitle("Series")
-
-        else:
-            self.curBGEMCCD = EMCCD_image(self.curBG,
-                                            str(self.ui.tBackgroundName.text()),
-                                            str(self.ui.tCCDBGNum.value()+1),
-                                            str(self.ui.tCCDComments.toPlainText()),
-                                            self.genEquipmentDict())
-            self.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
-            try:
-                self.curBGEMCCD.save_images(self.settings["saveDir"])
-            except Exception as e:
-                log.warning("Error saving background iamge, {}".format(e))
-
-            if self.settings["doCRR"]:
-                self.curBGEMCCD.cosmic_ray_removal()
-            else:
-                self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
-
-            self.curBGEMCCD.make_spectrum()
-
-            self.curBGEMCCD.inspect_dark_regions()
-                
-            self.updateDataSig.emit(False, True, False) # update with the cleaned data
-
-        self.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-        self.ui.bCCDImage.setEnabled(True)
-        self.ui.bCCDBack.setEnabled(True)
-        self.ui.gbSettings.setEnabled(True)
-
-    def startTakeContinuous(self, val):
-        if val is True:
-        # Update exposure/gain if necesssary
-            if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
-                self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
-            if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
-                self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
-            self.ui.gbSettings.setEnabled(False)
-            self.ui.bCCDBack.setEnabled(False)
-            self.ui.bCCDImage.setEnabled(False)
-            self.p1.addItem(self.ilOne)
-            self.p1.addItem(self.ilTwo)
-            self.getContinuousThread = TempThread(target = self.takeContinuous)
-            self.getContinuousThread.start()
-
-    def takeContinuous(self):
-        while self.ui.mFileTakeContinuous.isChecked():
-            self.CCD.dllStartAcquisition()
-            self.CCD.dllWaitForAcquisition()
-            self.curData = self.CCD.getImage()
-            self.updateDataSig.emit(True, False, False)
-
-        self.p1.removeItem(self.ilOne)
-        self.p1.removeItem(self.ilTwo)
-
-        self.ui.gbSettings.setEnabled(True)
-        self.ui.bCCDBack.setEnabled(True)
-        self.ui.bCCDImage.setEnabled(True)
-
-
-    def genEquipmentDict(self):
-        """
-        The EMCCD class wants a specific dictionary of values. This function will return it
-        :return:
-        """
-        s = dict()
-        s["ccd_temperature"] = str(self.ui.tSettingsCurrTemp.text())
-        s["exposure"] = float(self.CCD.cameraSettings["exposureTime"])
-        s["gain"] = int(self.CCD.cameraSettings["gain"])
-        s["y_min"] = int(self.ui.tCCDYMin.text())
-        s["y_max"] = int(self.ui.tCCDYMax.text())
-        s["grating"] = int(self.ui.sbSpecGrating.value())
-        s["center_lambda"] = float(self.ui.sbSpecWavelength.value())
-        s["slits"] = str(self.ui.tCCDSlits.text())
-        s["dark_region"] = None
-        s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
-        s["nir_power"] = str(self.ui.tCCDNIRP.text())
-        s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
-        s["fel_power"] = str(self.ui.tCCDFELP.text())
-        s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
-        s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
-        s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
-        s["fel_pulses"] = int(self.ui.tOscPulses.text())
-        s["fieldStrength"] = self.settings["fieldStrength"]
-        s["fieldInt"] = self.settings["fieldInt"]
-        s["number_of_series"] = self.settings["seriesNo"]
-
-        # If the user has the series box as {<variable>} where variable is
-        # any of the keys below, we want to replace it with the relavent value
-        # Potentially unnecessary at this point...
-        st = str(self.ui.tCCDSeries.text())
-        # NIRP, NIRW, FELF, FELP, SLITS
-        st = st.format(NIRP=s["NIRP"], NIRW=s["NIR_lambda"], FELF=s["FEL_lambda"],
-                       FELP=s["FELP"], SLITS=s["slits"], SPECL = s["center_lambda"])
-        s["series"] = st
-        return s
+    # def startTakeImage(self, imtype = "img"):
+    #     self.ui.bCCDImage.setEnabled(False)
+    #     self.ui.bCCDBack.setEnabled(False)
+    #     self.ui.gbSettings.setEnabled(False)
+    #     # Reset all the things kept track of during an exposure
+    #     self.settings["progress"] = 0
+    #     self.settings["FELPulses"] = 0
+    #     self.settings["fieldStrength"] = []
+    #     self.settings["fieldInt"] = []
+    #     self.ui.tOscPulses.setText("0")
+    #     self.getImageThread = TempThread(target = self.takeImage, args=imtype)
+    #
+    #     # Update exposure/gain if necesssary
+    #     if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
+    #         self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
+    #     if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
+    #         self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+    #
+    #     # self.updateProgTimer = QtCore.QTimer()
+    #     # self.updateProgTimer.timeout.connect(self.updateProgress)
+    #     # self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
+    #
+    #     self.elapsedTimer = QtCore.QElapsedTimer()
+    #     if self.settings["isScopePaused"]:
+    #         self.settings["exposing"] = True
+    #         self.elapsedTimer.start()
+    #         QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
+    #                                  self.updateProgress)
+    #     else:
+    #         self.updateOscDataSig.connect(self.startProgressBar)
+    #     self.getImageThread.start()
+    #
+    # def startProgressBar(self):
+    #     self.settings["exposing"] = True
+    #     self.elapsedTimer.start()
+    #     QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
+    #                              self.updateProgress)
+    #     # Don't want the signal to keep calling this functin
+    #     self.updateOscDataSig.disconnect(self.startProgressBar)
+    #
+    #
+    # def takeImage(self, imtype):
+    #     """
+    #     Want to have the exposing flags set here just so there's no funny business
+    #     Sometimes the other thread may msibehave and we don't want photons to keep on
+    #     counting
+    #     """
+    #     self.settings["exposing"] = True
+    #     self.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
+    #     self.CCD.dllStartAcquisition()
+    #     self.CCD.dllWaitForAcquisition()
+    #     self.settings["exposing"] = False
+    #     # self.killTimerSig.emit(self.updateProgTimer)
+    #     data = self.CCD.getImage()
+    #
+    #     # Store the data appropriately and update the graphe
+    #     if imtype=="img":
+    #         self.curData = data
+    #         self.updateDataSig.emit(True, False, False)
+    #     else:
+    #         self.curBG = data
+    #         self.updateDataSig.emit(False, False, False)
+    #
+    #     self.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
+    #
+    #     ####################################
+    #     #
+    #     # Concerning the image numbers:
+    #     #
+    #     # Things were getting confusing having an internal variable and the textbox
+    #     # so switched to only using textbox. But this has issue that, since texboxes
+    #     # can't be updated from non-main threads (or it's unpredictable), signals are needed
+    #     # But this has issues that a fast computer will instantiate the object before
+    #     # the text is updated, so they're out of sync. This way, we know that the textbox
+    #     # will be incremented by one, but we forcibly tell it that it's going to be incremented
+    #     # instead of hoping that things will time properly
+    #     #
+    #     ####################################
+    #     if imtype=="img":
+    #         self.curDataEMCCD = EMCCD_image(self.curData,
+    #                                         str(self.ui.tImageName.text()),
+    #                                         str(self.ui.tCCDImageNum.value()+1),
+    #                                         str(self.ui.tCCDComments.toPlainText()),
+    #                                         self.genEquipmentDict())
+    #         self.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
+    #         try:
+    #             self.curDataEMCCD.save_images(self.settings["saveDir"])
+    #         except Exception as e:
+    #             log.warning("Error saving data image, {}".format(e))
+    #
+    #         if self.settings["doCRR"]:
+    #             try:
+    #                 self.curDataEMCCD.cosmic_ray_removal()
+    #             except Exception as e:
+    #                 print "cosmic,",e
+    #         else:
+    #             self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
+    #
+    #         try:
+    #             self.curDataEMCCD = self.curDataEMCCD - self.curBGEMCCD
+    #         except Exception as e:
+    #             print 'subraction:', e
+    #
+    #         try:
+    #             self.curDataEMCCD.make_spectrum()
+    #         except Exception as e:
+    #             print e
+    #
+    #         try:
+    #             self.curDataEMCCD.inspect_dark_regions()
+    #         except Exception as e:
+    #             print "Error inspecting dark region", e
+    #
+    #         try:
+    #             self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
+    #         except Exception as e:
+    #             log.warning("Error saving spectrum,",e)
+    #         self.updateDataSig.emit(True, True, False) # update with the cleaned data
+    #
+    #
+    #         #######################
+    #         # Handling of series tag to add things up live
+    #         #
+    #         # Want it to save only the latest series, but also
+    #         # the previous ones should be saved (hence why this is
+    #         # after the saving is being done)
+    #         #######################
+    #         if (self.prevDataEMCCD is not None and
+    #                     str(self.ui.tCCDSeries.text()) != "" and
+    #                     self.prevDataEMCCD.equipment_dict["series"] ==
+    #                     self.curDataEMCCD.equipment_dict["series"] and
+    #                 self.ui.mSeriesSum.isChecked()):
+    #             log.debug("Added to previous series")
+    #             # Un-normalize by the number currently in series
+    #             self.prevDataEMCCD.clean_array*=self.settings["seriesNo"]
+    #             try:
+    #                 self.prevDataEMCCD += self.curDataEMCCD
+    #             except Exception as e:
+    #                 log.warning("Error adding data in series: {}".format(e))
+    #             # print "\n\tPOST: {}, {}".format(id(self.prevDataEMCCD))
+    #             self.ui.mSeriesUndo.setEnabled(True)
+    #
+    #             self.prevDataEMCCD.make_spectrum()
+    #
+    #             # Save the summed, unnormalized spectrum
+    #             try:
+    #                 self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
+    #             except Exception as e:
+    #                 log.warning("Error saving SERIES spectrum, {}".format(e))
+    #
+    #             self.settings["seriesNo"] +=1
+    #             self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
+    #             # but PLOT the normalized average
+    #             self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
+    #             self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
+    #
+    #             # Update the plots with this new data
+    #             self.updateDataSig.emit(True, True, True)
+    #
+    #         elif str(self.ui.tCCDSeries.text()) != "" and self.ui.mSeriesSum.isChecked():
+    #             log.info("Had to make a new series")
+    #             self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+    #             self.prevDataEMCCD.file_no += "seriesed"
+    #             self.settings["seriesNo"] = 1
+    #             self.ui.groupBox_42.setTitle("Series (1)")
+    #
+    #
+    #         else:
+    #             #######################
+    #             # THINK ABOUT HTIS WHEN YOU'RE NOT TIRED
+    #             #######################
+    #             self.prevDataEMCCD = None
+    #             self.settings["seriesNo"] = 0
+    #             self.ui.groupBox_42.setTitle("Series")
+    #
+    #     else:
+    #         self.curBGEMCCD = EMCCD_image(self.curBG,
+    #                                         str(self.ui.tBackgroundName.text()),
+    #                                         str(self.ui.tCCDBGNum.value()+1),
+    #                                         str(self.ui.tCCDComments.toPlainText()),
+    #                                         self.genEquipmentDict())
+    #         self.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
+    #         try:
+    #             self.curBGEMCCD.save_images(self.settings["saveDir"])
+    #         except Exception as e:
+    #             log.warning("Error saving background iamge, {}".format(e))
+    #
+    #         if self.settings["doCRR"]:
+    #             self.curBGEMCCD.cosmic_ray_removal()
+    #         else:
+    #             self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
+    #
+    #         self.curBGEMCCD.make_spectrum()
+    #
+    #         self.curBGEMCCD.inspect_dark_regions()
+    #
+    #         self.updateDataSig.emit(False, True, False) # update with the cleaned data
+    #
+    #     self.updateElementSig.emit(self.ui.lCCDProg, "Done.")
+    #     self.ui.bCCDImage.setEnabled(True)
+    #     self.ui.bCCDBack.setEnabled(True)
+    #     self.ui.gbSettings.setEnabled(True)
+    #
+    # def startTakeContinuous(self, val):
+    #     if val is True:
+    #     # Update exposure/gain if necesssary
+    #         if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
+    #             self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
+    #         if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
+    #             self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+    #         self.ui.gbSettings.setEnabled(False)
+    #         self.ui.bCCDBack.setEnabled(False)
+    #         self.ui.bCCDImage.setEnabled(False)
+    #         self.p1.addItem(self.ilOne)
+    #         self.p1.addItem(self.ilTwo)
+    #         self.getContinuousThread = TempThread(target = self.takeContinuous)
+    #         self.getContinuousThread.start()
+    #
+    # def takeContinuous(self):
+    #     while self.ui.mFileTakeContinuous.isChecked():
+    #         self.CCD.dllStartAcquisition()
+    #         self.CCD.dllWaitForAcquisition()
+    #         self.curData = self.CCD.getImage()
+    #         self.updateDataSig.emit(True, False, False)
+    #
+    #     self.p1.removeItem(self.ilOne)
+    #     self.p1.removeItem(self.ilTwo)
+    #
+    #     self.ui.gbSettings.setEnabled(True)
+    #     self.ui.bCCDBack.setEnabled(True)
+    #     self.ui.bCCDImage.setEnabled(True)
+    #
+    #
+    # def genEquipmentDict(self):
+    #     """
+    #     The EMCCD class wants a specific dictionary of values. This function will return it
+    #     :return:
+    #     """
+    #     s = dict()
+    #     s["ccd_temperature"] = str(self.ui.tSettingsCurrTemp.text())
+    #     s["exposure"] = float(self.CCD.cameraSettings["exposureTime"])
+    #     s["gain"] = int(self.CCD.cameraSettings["gain"])
+    #     s["y_min"] = int(self.ui.tCCDYMin.text())
+    #     s["y_max"] = int(self.ui.tCCDYMax.text())
+    #     s["grating"] = int(self.ui.sbSpecGrating.value())
+    #     s["center_lambda"] = float(self.ui.sbSpecWavelength.value())
+    #     s["slits"] = str(self.ui.tCCDSlits.text())
+    #     s["dark_region"] = None
+    #     s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
+    #     s["nir_power"] = str(self.ui.tCCDNIRP.text())
+    #     s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
+    #     s["fel_power"] = str(self.ui.tCCDFELP.text())
+    #     s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
+    #     s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
+    #     s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
+    #     s["fel_pulses"] = int(self.ui.tOscPulses.text())
+    #     s["fieldStrength"] = self.settings["fieldStrength"]
+    #     s["fieldInt"] = self.settings["fieldInt"]
+    #     s["number_of_series"] = self.settings["seriesNo"]
+    #
+    #     # If the user has the series box as {<variable>} where variable is
+    #     # any of the keys below, we want to replace it with the relavent value
+    #     # Potentially unnecessary at this point...
+    #     st = str(self.ui.tCCDSeries.text())
+    #     # NIRP, NIRW, FELF, FELP, SLITS
+    #     st = st.format(NIRP=s["NIRP"], NIRW=s["NIR_lambda"], FELF=s["FEL_lambda"],
+    #                    FELP=s["FELP"], SLITS=s["slits"], SPECL = s["center_lambda"])
+    #     s["series"] = st
+    #     return s
 
     def stopTimer(self, timer):
         """
@@ -1143,92 +1190,92 @@ class CCDWindow(QtGui.QMainWindow):
         """
         timer.stop()
 
-    def updateImage(self, isSig = True, isClean = False, isSeries = False):
-        """
-        :param isSig: To update the top or bottom
-        :param isClean: Where to get the updated data from (local thing or the
-                        EMCCD class
-        :param isSeries: A flag for whether we take from prevDataEMCCD or not
-        :return:
-        """
-        if isSeries:
-            log.debug("updated image from series data")
-            self.pSpec.setData(self.prevDataEMCCD.spectrum[:,0],
-                                   self.prevDataEMCCD.spectrum[:,1])
-            self.pSigImage.setImage(self.prevDataEMCCD.clean_array)
-            self.pSigHist.setLevels(self.prevDataEMCCD.clean_array.min(),
-                                    self.prevDataEMCCD.clean_array.max())
-            return
-
-        if isSig:
-            if isClean:
-                self.pSigImage.setImage(self.curDataEMCCD.clean_array)
-                self.pSigHist.setLevels(self.curDataEMCCD.clean_array.min(),
-                                        self.curDataEMCCD.clean_array.max())
-                try:
-                    self.pSpec.setData(self.curDataEMCCD.spectrum[:,0],
-                                   self.curDataEMCCD.spectrum[:,1])
-                except Exception as e:
-                    log.debug('Failed setting plot', e)
-            else:
-                self.pSigImage.setImage(self.curData)
-                self.pSigHist.setLevels(self.curData.min(), self.curData.max())
-        else:
-            if isClean:
-                self.pBackImage.setImage(self.curBGEMCCD.clean_array)
-                self.pBackHist.setLevels(self.curBGEMCCD.clean_array.min(),
-                                        self.curBGEMCCD.clean_array.max())
-            else:
-                self.pBackImage.setImage(self.curBG)
-                self.pBackHist.setLevels(self.curBG.min(), self.curBG.max())
-
-    def undoLastSeries(self):
-        log.debug("Substracting last data")
-        # pg.plot(self.prevDataEMCCD.spectrum[:,0],
-        #                            self.prevDataEMCCD.spectrum[:,1], title="pre")
-        # Un-normalize by the number of FEL pulses
-        self.prevDataEMCCD.clean_array *= self.settings["seriesNo"]
-
-        self.prevDataEMCCD -= self.curDataEMCCD
-        self.settings["seriesNo"]-=1
-        self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
-
-        self.prevDataEMCCD.make_spectrum()
-        try:
-            self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
-        except Exception as e:
-            log.warning("Error saving SERIES spectrum after undo, {}".format(e))
-
-        # renormalize by the number of pulses
-        try:
-            self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
-        except ZeroDivisionError:
-            pass
-        try:
-            self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
-        except:
-            pass
-
-        self.updateDataSig.emit(True, True, True)
-        self.ui.mSeriesUndo.setEnabled(False)
-
-    def updateProgress(self):
-        if self.settings["progress"] < 100:
-            self.settings["progress"] += 1
-            self.ui.pCCD.setValue(self.settings["progress"])
-            newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
-                      - (self.elapsedTimer.elapsed())
-            if newTime < 0:
-                newTime = 0
-            try:
-                QtCore.QTimer.singleShot(newTime,
-                                         self.updateProgress)
-            except:
-                pass
-        else:
-            self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
-            self.settings["exposing"] = False
-            self.elapsedTimer = None
+    # def updateImage(self, isSig = True, isClean = False, isSeries = False):
+    #     """
+    #     :param isSig: To update the top or bottom
+    #     :param isClean: Where to get the updated data from (local thing or the
+    #                     EMCCD class
+    #     :param isSeries: A flag for whether we take from prevDataEMCCD or not
+    #     :return:
+    #     """
+    #     if isSeries:
+    #         log.debug("updated image from series data")
+    #         self.pSpec.setData(self.prevDataEMCCD.spectrum[:,0],
+    #                                self.prevDataEMCCD.spectrum[:,1])
+    #         self.pSigImage.setImage(self.prevDataEMCCD.clean_array)
+    #         self.pSigHist.setLevels(self.prevDataEMCCD.clean_array.min(),
+    #                                 self.prevDataEMCCD.clean_array.max())
+    #         return
+    #
+    #     if isSig:
+    #         if isClean:
+    #             self.pSigImage.setImage(self.curDataEMCCD.clean_array)
+    #             self.pSigHist.setLevels(self.curDataEMCCD.clean_array.min(),
+    #                                     self.curDataEMCCD.clean_array.max())
+    #             try:
+    #                 self.pSpec.setData(self.curDataEMCCD.spectrum[:,0],
+    #                                self.curDataEMCCD.spectrum[:,1])
+    #             except Exception as e:
+    #                 log.debug('Failed setting plot', e)
+    #         else:
+    #             self.pSigImage.setImage(self.curData)
+    #             self.pSigHist.setLevels(self.curData.min(), self.curData.max())
+    #     else:
+    #         if isClean:
+    #             self.pBackImage.setImage(self.curBGEMCCD.clean_array)
+    #             self.pBackHist.setLevels(self.curBGEMCCD.clean_array.min(),
+    #                                     self.curBGEMCCD.clean_array.max())
+    #         else:
+    #             self.pBackImage.setImage(self.curBG)
+    #             self.pBackHist.setLevels(self.curBG.min(), self.curBG.max())
+    #
+    # def undoLastSeries(self):
+    #     log.debug("Substracting last data")
+    #     # pg.plot(self.prevDataEMCCD.spectrum[:,0],
+    #     #                            self.prevDataEMCCD.spectrum[:,1], title="pre")
+    #     # Un-normalize by the number of FEL pulses
+    #     self.prevDataEMCCD.clean_array *= self.settings["seriesNo"]
+    #
+    #     self.prevDataEMCCD -= self.curDataEMCCD
+    #     self.settings["seriesNo"]-=1
+    #     self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
+    #
+    #     self.prevDataEMCCD.make_spectrum()
+    #     try:
+    #         self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
+    #     except Exception as e:
+    #         log.warning("Error saving SERIES spectrum after undo, {}".format(e))
+    #
+    #     # renormalize by the number of pulses
+    #     try:
+    #         self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
+    #     except ZeroDivisionError:
+    #         pass
+    #     try:
+    #         self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
+    #     except:
+    #         pass
+    #
+    #     self.updateDataSig.emit(True, True, True)
+    #     self.ui.mSeriesUndo.setEnabled(False)
+    #
+    # def updateProgress(self):
+    #     if self.settings["progress"] < 100:
+    #         self.settings["progress"] += 1
+    #         self.ui.pCCD.setValue(self.settings["progress"])
+    #         newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
+    #                   - (self.elapsedTimer.elapsed())
+    #         if newTime < 0:
+    #             newTime = 0
+    #         try:
+    #             QtCore.QTimer.singleShot(newTime,
+    #                                      self.updateProgress)
+    #         except:
+    #             pass
+    #     else:
+    #         self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
+    #         self.settings["exposing"] = False
+    #         self.elapsedTimer = None
 
     def updateUIElement(self, element, val):
         """
@@ -1336,6 +1383,9 @@ class CCDWindow(QtGui.QMainWindow):
         # All clear, start closing things down
         #########
 
+        # Make sure the shutter isn't accidentally left open
+        # 0,0 -> Auto
+        self.CCD.setShutterEx(0, 0)
         if self.ui.tabWidget.indexOf(self.oscWidget) is not -1:
             self.oscWidget.close()
         if not fastExit:

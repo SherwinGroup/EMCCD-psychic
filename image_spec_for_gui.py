@@ -19,6 +19,7 @@ import logging
 log = logging.getLogger("EMCCD")
 
 class EMCCD_image(object):
+    origin_import = '\nWavelength,Signal\nnm,arb. u.'
     
     def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
         """
@@ -150,7 +151,7 @@ class EMCCD_image(object):
         self.equipment_dict['y_min'] = y_min
         self.equipment_dict['y_max'] = y_max
     
-    def cosmic_ray_removal(self, mygain=1, myreadnoise=3.0, mysigclip=5.0, mysigfrac=0.3, myobjlim=3.0, myverbose=True):
+    def cosmic_ray_removal(self, mygain=10, myreadnoise=0.2, mysigclip=5.0, mysigfrac=0.01, myobjlim=3.0, myverbose=True):
         '''
         This is a single operation of cosmic ray removal.
 
@@ -221,7 +222,7 @@ class EMCCD_image(object):
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-        origin_import = '\nWavelength,Signal\nnm,arb. u.'
+        origin_import = self.origin_import
 
         filename = self.getFileName(prefix)
 
@@ -327,30 +328,10 @@ class HSG_image(EMCCD_image):
         Want to also add field information from the FEL
         """
         ret = super(HSG_image, self).__add__(other)
-        ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
+        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
+        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
+        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
 
-        return ret
-
-    def __sub__(self, other):
-        ret = super(HSG_image, self).__sub__(other)
-        # Want to remove the pulse information that we
-        # previously added in
-
-        for i in other.equipment_dict["fieldStrength"]:
-            try:
-                ret.equipment_dict["fieldStrength"].remove(i)
-            except:
-                print "EMCCD.__sub__\\fieldStrength:\n\tValue not found,",i
-
-        for i in other.equipment_dict["fieldInt"]:
-            try:
-                ret.equipment_dict["fieldInt"].remove(i)
-            except:
-                print "EMCCD.__sub__:\n\tValue not found,",i
-
-        ret.equipment_dict["FEL_pulses"] -= other.equipment_dict["FEL_pulses"]
         return ret
 
 
@@ -359,9 +340,9 @@ class HSG_image(EMCCD_image):
         Want to also add field information from the FEL
         """
         ret = super(HSG_image, self).__sub__(other)
-        ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
+        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
+        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
+        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
 
         return ret
 
@@ -486,6 +467,7 @@ class PL_image(EMCCD_image):
 
     
 class Abs_image(EMCCD_image):
+    origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
     def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None
@@ -505,6 +487,8 @@ class Abs_image(EMCCD_image):
         return True
 
     def __div__(self, other):
+        # self is the reference spectrum
+        # other is the tranmission data
 
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))
