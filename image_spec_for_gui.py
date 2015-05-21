@@ -327,30 +327,10 @@ class HSG_image(EMCCD_image):
         Want to also add field information from the FEL
         """
         ret = super(HSG_image, self).__add__(other)
-        ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
+        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
+        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
+        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
 
-        return ret
-
-    def __sub__(self, other):
-        ret = super(HSG_image, self).__sub__(other)
-        # Want to remove the pulse information that we
-        # previously added in
-
-        for i in other.equipment_dict["fieldStrength"]:
-            try:
-                ret.equipment_dict["fieldStrength"].remove(i)
-            except:
-                print "EMCCD.__sub__\\fieldStrength:\n\tValue not found,",i
-
-        for i in other.equipment_dict["fieldInt"]:
-            try:
-                ret.equipment_dict["fieldInt"].remove(i)
-            except:
-                print "EMCCD.__sub__:\n\tValue not found,",i
-
-        ret.equipment_dict["FEL_pulses"] -= other.equipment_dict["FEL_pulses"]
         return ret
 
 
@@ -359,9 +339,9 @@ class HSG_image(EMCCD_image):
         Want to also add field information from the FEL
         """
         ret = super(HSG_image, self).__sub__(other)
-        ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
+        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
+        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
+        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
 
         return ret
 

@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\HSG.ui'
 #
-# Created: Mon Apr 27 16:23:37 2015
-#      by: PyQt4 UI code generator 4.9.6
+# Created: Wed May 20 11:48:37 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -180,6 +180,16 @@ class Ui_HSG(object):
         self.gridLayout.setColumnStretch(1, 1)
         self.gridLayout.setColumnStretch(2, 1)
         self.verticalLayout_9.addLayout(self.gridLayout)
+        self.groupBox = QtGui.QGroupBox(self.tab_3)
+        self.groupBox.setFlat(True)
+        self.groupBox.setObjectName(_fromUtf8("groupBox"))
+        self.horizontalLayout_2 = QtGui.QHBoxLayout(self.groupBox)
+        self.horizontalLayout_2.setContentsMargins(0, 10, 0, 0)
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.tSampleName = QtGui.QLineEdit(self.groupBox)
+        self.tSampleName.setObjectName(_fromUtf8("tSampleName"))
+        self.horizontalLayout_2.addWidget(self.tSampleName)
+        self.verticalLayout_9.addWidget(self.groupBox)
         self.groupBox_46 = QtGui.QGroupBox(self.tab_3)
         self.groupBox_46.setFlat(True)
         self.groupBox_46.setObjectName(_fromUtf8("groupBox_46"))
@@ -189,7 +199,7 @@ class Ui_HSG(object):
         self.tCCDComments.setObjectName(_fromUtf8("tCCDComments"))
         self.horizontalLayout_37.addWidget(self.tCCDComments)
         self.verticalLayout_9.addWidget(self.groupBox_46)
-        self.verticalLayout_9.setStretch(1, 1)
+        self.verticalLayout_9.setStretch(2, 1)
         self.horizontalLayout_49.addLayout(self.verticalLayout_9)
         self.tabWidget_3.addTab(self.tab_3, _fromUtf8(""))
         self.tab_4 = QtGui.QWidget()
@@ -422,6 +432,7 @@ class Ui_HSG(object):
         self.tCCDEField.setText(_translate("HSG", "0.0", None))
         self.groupBox_60.setTitle(_translate("HSG", "I (kW/cm2)", None))
         self.tCCDIntensity.setText(_translate("HSG", "0.0", None))
+        self.groupBox.setTitle(_translate("HSG", "Sample Name:", None))
         self.groupBox_46.setTitle(_translate("HSG", "Comments", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_3), _translate("HSG", "Main Settings", None))
         self.groupBox_2.setTitle(_translate("HSG", "Sample Temp", None))
