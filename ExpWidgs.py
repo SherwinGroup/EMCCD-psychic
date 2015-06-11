@@ -4,13 +4,13 @@ import numpy as np
 import scipy.integrate as spi
 import re
 import time
-import os, sys, inspect
-cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-if cmd_subfolder not in sys.path:
-     sys.path.insert(0, cmd_subfolder)
-from Abs_ui import Ui_Abs
-from HSG_ui import Ui_HSG
-from PL_ui import Ui_PL
+# import os, sys, inspect
+# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
+# if cmd_subfolder not in sys.path:
+#      sys.path.insert(0, cmd_subfolder)
+from UIs.Abs_ui import Ui_Abs
+from UIs.HSG_ui import Ui_HSG
+from UIs.PL_ui import Ui_PL
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
@@ -640,13 +640,6 @@ class BaseExpWidget(QtGui.QWidget):
         s["bg_file_name"] = str(self.papa.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
         s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
         s["sample_name"] = str(self.ui.tSampleName.text())
-
-        # If the user has the series box as {<variable>} where variable is
-        # any of the keys below, we want to replace it with the relavent value
-        # Potentially unnecessary at this point...
-        st = str(self.ui.tCCDSeries.text())
-        st = st.format(SLITS=s["slits"], SPECL = s["center_lambda"],
-                       GAIN=s["gain"], EXP=s["exposure"])
         if self.hasFEL:
             s["fel_power"] = str(self.ui.tCCDFELP.text())
             s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
@@ -656,19 +649,32 @@ class BaseExpWidget(QtGui.QWidget):
             s["fieldStrength"] = self.runSettings["fieldStrength"]
             s["fieldInt"] = self.runSettings["fieldInt"]
 
-            st = st.format(FELF=s["fel_lambda"], FELP=s["fel_power"])
-
         if self.hasNIR:
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
 
-            st = st.format(NIRP=s["nir_power"], NIRW=s["nir_lambda"])
+        # If the user has the series box as {<variable>} where variable is
+        # any of the keys below, we want to replace it with the relavent value
+        # Potentially unnecessary at this point...
+        #
+        # Also, need to have all possible keywords here as
+        #     "{FELP}".format(GAIN=1)
+        # does not return "{FELP}", as one would hope,
+        # it just throws an error.
+        #
+        # Instead of adding a bunch of empty strings to the dict to
+        # fill the role, use dict.get() so that a key error isn't thrown
+        # when trying to access FEL/NIR only keys
+        st = str(self.ui.tCCDSeries.text())
+        st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
+                       GAIN=s.get("gain"), EXP=s.get("exposure"),
+                       FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
+                       NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
+
 
 
         s["series"] = st
         return s
-
-
 
 
     @staticmethod
@@ -721,6 +727,24 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())
 
     def createGuiElement(self, fnc, args):
+        """
+        You can't make a GUI element from a worker thread, only from the
+        main gui thread. This means that if you want to make a GUI element
+        (e.g. a dialog box) while in another thread, you need to tell
+        the main thread to do it, which is done through self.sigMakeGui.emit()
+        and sent here. Done in a very general way that a function is passed
+        to be called with given arguments. The return value is emitted in
+        sigKillEventLoop as the worker thread may want to wait for the
+        response before continuing.
+
+        :param fnc: a function to be called
+        :param args: a tuple of functions to pass
+            (signals can't do arbitrary numbers via *args, I don't think)
+        :return: emits return value through sigKillEventLoop.
+            ( terminating a QEventLoop.exec_() with a value will
+              cause the loop to return that value
+                (Note: May cause issue with non-integer returns?)
+        """
         ret = fnc(*args)
         self.sigKillEventLoop.emit(ret)
 

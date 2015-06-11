@@ -6,11 +6,11 @@ import re
 from InstsAndQt.customQt import *
 from InstsAndQt.Instruments import *
 import visa
-import os, sys, inspect
-cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-if cmd_subfolder not in sys.path:
-     sys.path.insert(0, cmd_subfolder)
-from Oscilloscope_ui import Ui_Oscilloscope
+# import os, sys, inspect
+# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
+# if cmd_subfolder not in sys.path:
+#      sys.path.insert(0, cmd_subfolder)
+from UIs.Oscilloscope_ui import Ui_Oscilloscope
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 
@@ -234,9 +234,13 @@ class OscWid(QtGui.QWidget):
                 self.ui.gOsc.removeItem(i)
             self.pOsc = self.poppedPlotWindow.pw.plot(pen='k')
             plotitem = self.poppedPlotWindow.pw.getPlotItem()
-            plotitem.setLabel('top',text='Reference Detector')
-            plotitem.setLabel('bottom',text='time scale',units='s')
+            # plotitem.setLabel('bottom',text='time scale',units='s')
             plotitem.setLabel('left',text='Voltage', units='V')
+            # I'd love to subclass the window further and figure out how to move it
+            # by dragging on the outer edge of the plot...
+            self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            self.poppedPlotWindow.show()
+            # self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowSystemMenuHint)
             self.poppedPlotWindow.closedSig.connect(self.cleanupCloseOsc)
             self.initLinearRegions(self.poppedPlotWindow.pw)
         else:

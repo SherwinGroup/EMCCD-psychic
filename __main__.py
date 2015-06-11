@@ -47,11 +47,11 @@ if os.name is not "posix":
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 # http://stackoverflow.com/questions/279237/import-a-module-from-a-relative-path?lq=1
-import os, sys, inspect
-cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-if cmd_subfolder not in sys.path:
-     sys.path.insert(0, cmd_subfolder)
-from mainWindow_ui import Ui_MainWindow
+# import os, sys, inspect
+# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
+# if cmd_subfolder not in sys.path:
+#      sys.path.insert(0, cmd_subfolder)
+from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
 
@@ -788,6 +788,12 @@ class CCDWindow(QtGui.QMainWindow):
         else: pass # just getting turned off (heh)
 
     def sweepLoop(self):
+        # Don't want it to keep asking if we want to save the image,
+        # so redefine the checking function to always return true
+        # Keep a reference to the old function so we can reset it
+        # afterwards
+        oldConfirmation = self.curExp.confirmImage
+        self.curExp.confirmImage = lambda : True
         for wavelength in self.sweepRange:
             if not self.sweep.isChecked(): break
             log.debug("At wavelength {}".format(wavelength))
@@ -812,8 +818,23 @@ class CCDWindow(QtGui.QMainWindow):
 
             self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
             log.debug("Called Take image")
+
             time.sleep(0.5)
             self.curExp.thDoExposure.wait()
+
+            # When analyzing, it would be nice to have origin
+            # import the data with the y-data labeled by
+            # the center lambda for ease with the legends/labeling
+            # Also add the file number foreasier identification
+            self.curExp.curDataEMCCD.origin_import = '\nWavelength,{}-{}\nnm,nm'.format(
+                self.curExp.curDataEMCCD.equipment_dict["center_lambda"],
+                self.curExp.curDataEMCCD.file_no
+            )
+            try:
+                self.curExp.curDataEMCCD.save_spectrum(self.settings["saveDir"])
+            except Exception as e:
+                log.debug("Error saving durings spectrum sweep {}".format(e))
+        self.curExp.confirmImage = oldConfirmation
         log.debug("Done with scan")
 
 
