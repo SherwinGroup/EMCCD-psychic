@@ -39,10 +39,10 @@ class AndorCapabilities(Structure):
 
 class AndorEMCCD(object):
     
-    def __init__(self):
+    def __init__(self, wantFake = False):
 
         self.dll = None
-        self.registerFunctions(wantFake = False)
+        self.registerFunctions(wantFake = wantFake)
         log.debug("About to initialize EMCCD")
         ret = self.dllInitialize('')
         if ret != 20002:

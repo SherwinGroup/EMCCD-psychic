@@ -228,7 +228,7 @@ class OscWid(QtGui.QWidget):
 
     def popoutOscilloscope(self):
         if self.poppedPlotWindow is None:
-            self.poppedPlotWindow = pgPlot()
+            self.poppedPlotWindow = BorderlessPgPlot()
             self.oldpOsc = self.pOsc
             for i in self.boxcarRegions:
                 self.ui.gOsc.removeItem(i)
@@ -238,7 +238,7 @@ class OscWid(QtGui.QWidget):
             plotitem.setLabel('left',text='Voltage', units='V')
             # I'd love to subclass the window further and figure out how to move it
             # by dragging on the outer edge of the plot...
-            self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+            # self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             self.poppedPlotWindow.show()
             # self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowSystemMenuHint)
             self.poppedPlotWindow.closedSig.connect(self.cleanupCloseOsc)
