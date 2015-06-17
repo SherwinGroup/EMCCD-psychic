@@ -640,6 +640,7 @@ class BaseExpWidget(QtGui.QWidget):
         s["bg_file_name"] = str(self.papa.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
         s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
         s["sample_name"] = str(self.ui.tSampleName.text())
+        s["spec_step"] = str(self.ui.tSpectrumStep.text())
         if self.hasFEL:
             s["fel_power"] = str(self.ui.tCCDFELP.text())
             s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
