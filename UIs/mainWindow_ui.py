@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Wed Apr 29 10:10:30 2015
-#      by: PyQt4 UI code generator 4.9.6
+# Created: Fri Jun 19 13:28:08 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(825, 874)
+        MainWindow.resize(827, 735)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/test/icon.jpg")), QtGui.QIcon.Selected, QtGui.QIcon.On)
         MainWindow.setWindowIcon(icon)
@@ -435,7 +435,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 825, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 827, 21))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         self.menuOther_Settings = QtGui.QMenu(self.menubar)
         self.menuOther_Settings.setObjectName(_fromUtf8("menuOther_Settings"))
@@ -483,6 +483,9 @@ class Ui_MainWindow(object):
         self.fExpTypeAbs.setObjectName(_fromUtf8("fExpTypeAbs"))
         self.mFileFastExit = QtGui.QAction(MainWindow)
         self.mFileFastExit.setObjectName(_fromUtf8("mFileFastExit"))
+        self.fExpTypeTwo_Color_Abs = QtGui.QAction(MainWindow)
+        self.fExpTypeTwo_Color_Abs.setCheckable(True)
+        self.fExpTypeTwo_Color_Abs.setObjectName(_fromUtf8("fExpTypeTwo_Color_Abs"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -494,6 +497,7 @@ class Ui_MainWindow(object):
         self.menuExperiment_Type.addAction(self.fExpTypeHSG)
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
+        self.menuExperiment_Type.addAction(self.fExpTypeTwo_Color_Abs)
         self.menubar.addAction(self.menuOther_Settings.menuAction())
         self.menubar.addAction(self.menuLive_Series.menuAction())
         self.menubar.addAction(self.menuExperiment_Type.menuAction())
@@ -615,6 +619,7 @@ class Ui_MainWindow(object):
         self.fExpTypePL.setText(_translate("MainWindow", "PL", None))
         self.fExpTypeAbs.setText(_translate("MainWindow", "Abs", None))
         self.mFileFastExit.setText(_translate("MainWindow", "Exit without shutdown", None))
+        self.fExpTypeTwo_Color_Abs.setText(_translate("MainWindow", "Two Color Abs", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1040</width>
-    <height>867</height>
+    <width>837</width>
+    <height>689</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -545,7 +545,7 @@
            <item row="0" column="2">
             <widget class="QGroupBox" name="groupBox_41">
              <property name="title">
-              <string>Rep Rate (s)</string>
+              <string>Rep Rate (Hz)</string>
              </property>
              <property name="flat">
               <bool>true</bool>
@@ -952,7 +952,7 @@
            <number>0</number>
           </property>
           <property name="bottomMargin">
-           <number>9</number>
+           <number>0</number>
           </property>
           <item>
            <widget class="QLineEdit" name="tCCDFELPulses">

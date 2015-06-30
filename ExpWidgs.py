@@ -11,6 +11,7 @@ import time
 from UIs.Abs_ui import Ui_Abs
 from UIs.HSG_ui import Ui_HSG
 from UIs.PL_ui import Ui_PL
+from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
@@ -802,8 +803,13 @@ class AbsWid(BaseExpWidget):
     hasFEL = False
 
     DataClass = Abs_image
-    def __init__(self, parent = None):
-        super(AbsWid, self).__init__(parent, Ui_Abs)
+    def __init__(self, parent = None, UI = None):
+        # Want a UI parameter because this class
+        # gets extended for two color (FEL/LED)
+        # abs experiments, and I need to pass
+        if UI is None:
+            UI = Ui_Abs
+        super(AbsWid, self).__init__(parent, UI)
         self.initUI()
         self.curRefEMCCD = None
         self.curAbsEMCCD = None # holds the actual absorption
@@ -955,6 +961,13 @@ class AbsWid(BaseExpWidget):
         # super(AbsWid, self).updateSpectrum(data)
         # pi = self.ui.gCCDBin.getPlotItem()
         # pi.setTitle(title)
+
+class TwoColorAbsWid(AbsWid):
+    hasFEL = True
+
+    def __init__(self, parent = None):
+        super(TwoColorAbsWid, self).__init__(parent, Ui_TwoColorAbs)
+
 
 
 class PLWid(BaseExpWidget):

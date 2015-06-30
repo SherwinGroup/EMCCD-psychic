@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\hbanks\Documents\GitHub\EMCCD-psychic\UIs\HSG.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\HSG.ui'
 #
-# Created: Wed Jun 17 13:05:07 2015
+# Created: Tue Jun 30 11:16:16 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_HSG(object):
     def setupUi(self, HSG):
         HSG.setObjectName(_fromUtf8("HSG"))
-        HSG.resize(1040, 867)
+        HSG.resize(837, 689)
         self.horizontalLayout = QtGui.QHBoxLayout(HSG)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.splitterAll = QtGui.QSplitter(HSG)
@@ -378,7 +378,7 @@ class Ui_HSG(object):
         self.groupBox_54.setFlat(True)
         self.groupBox_54.setObjectName(_fromUtf8("groupBox_54"))
         self.horizontalLayout_50 = QtGui.QHBoxLayout(self.groupBox_54)
-        self.horizontalLayout_50.setContentsMargins(0, 10, 0, 9)
+        self.horizontalLayout_50.setContentsMargins(0, 10, 0, 0)
         self.horizontalLayout_50.setObjectName(_fromUtf8("horizontalLayout_50"))
         self.tCCDFELPulses = QtGui.QLineEdit(self.groupBox_54)
         self.tCCDFELPulses.setReadOnly(True)
@@ -451,7 +451,7 @@ class Ui_HSG(object):
         self.groupBox_46.setTitle(_translate("HSG", "Comments", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_3), _translate("HSG", "Main Settings", None))
         self.groupBox_2.setTitle(_translate("HSG", "Sample Temp", None))
-        self.groupBox_41.setTitle(_translate("HSG", "Rep Rate (s)", None))
+        self.groupBox_41.setTitle(_translate("HSG", "Rep Rate (Hz)", None))
         self.tCCDFELRR.setText(_translate("HSG", "0.75", None))
         self.groupBox_44.setTitle(_translate("HSG", "Ymax", None))
         self.tCCDYMax.setText(_translate("HSG", "400", None))

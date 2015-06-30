@@ -262,12 +262,14 @@ class CCDWindow(QtGui.QMainWindow):
         self.expUIs["Abs"].setParent(None)
         self.expUIs["PL"] = PLWid(self)
         self.expUIs["PL"].setParent(None)
+        self.expUIs["Two Color Abs"] = TwoColorAbsWid(self)
+        self.expUIs["Two Color Abs"].setParent(None)
         # Connect the changes
         [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
 
         self.oscWidget = None
         self.curExp = None # Keep a reference if you ever want it
-        self.openHSG()
+        # self.openHSG()
         self.openExp("HSG")
 
 
@@ -411,17 +413,22 @@ class CCDWindow(QtGui.QMainWindow):
 
         curTabIdx = self.ui.tabWidget.currentIndex()
         newExp = str(sent.text())
-        if oldExp == "HSG":
-            self.closeHSG()
-        if oldExp in ["HSG", "PL", "Abs"]:
+        # if oldExp == "HSG":
+        #     self.closeHSG()
+        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
+            # hasFEL = self.getCurExp().hasFEL
             self.closeExp(oldExp)
+            # if hasFEL:
+            #     self.closeHSG()
         else:
             log.error("Unknown old experiment, {}".format(oldExp))
 
-        if newExp == "HSG":
-            self.openHSG()
-        if newExp in ["HSG", "PL", "Abs"]:
+        # if newExp == "HSG":
+        #     self.openHSG()
+        if newExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
             self.openExp(newExp)
+            # if self.getCurExp().hasFEL:
+            #     self.openHSG()
         else:
             log.error("Unknown experiment chosen, {}".format(newExp))
 
@@ -454,6 +461,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
             self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
+            self.openHSG() # Opens up the oscilloscope
 
 
 
@@ -462,6 +470,8 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.tabWidget.indexOf(self.expUIs[exp])
         )
         self.expUIs[exp].setParent(None)
+        if self.curExp.hasFEL:
+            self.closeHSG()
         self.curExp = None
 
     def openHSG(self):
