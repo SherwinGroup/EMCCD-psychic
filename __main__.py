@@ -90,7 +90,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -810,6 +810,8 @@ class CCDWindow(QtGui.QMainWindow):
             self.updateElementSig.emit(lambda: self.ui.sbSpecWavelength.setValue(wavelength), None)
             self.updateSpecWavelength()
             self.sigUpdateStatusBar.emit(str(wavelength))
+            time.sleep(0.5) # need to make sure the spectrometer and all things
+                            # get updated before startinge verything else
             self.ui.cSettingsShutterEx.setCurrentIndex(2) # perm closed
             self.settings["changedSettingsFlags"][-1] = 1
             self.updateSettings()
