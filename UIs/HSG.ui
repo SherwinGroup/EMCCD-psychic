@@ -70,7 +70,7 @@
                  <number>0</number>
                 </property>
                 <item row="0" column="0">
-                 <widget class="QLineEdit" name="tSampleName_2">
+                 <widget class="QLineEdit" name="tSampleName">
                   <property name="toolTip">
                    <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
                   </property>
@@ -995,7 +995,7 @@
  <tabstops>
   <tabstop>tCCDNIRP</tabstop>
   <tabstop>tCCDNIRwavelength</tabstop>
-  <tabstop>tSampleName_2</tabstop>
+  <tabstop>tSampleName</tabstop>
   <tabstop>tCCDFELP</tabstop>
   <tabstop>tCCDEField</tabstop>
   <tabstop>tCCDIntensity</tabstop>

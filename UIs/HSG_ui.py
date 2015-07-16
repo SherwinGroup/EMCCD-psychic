@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\HSG.ui'
 #
-# Created: Tue Jun 30 11:16:16 2015
+# Created: Thu Jul 16 11:47:29 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -58,15 +58,15 @@ class Ui_HSG(object):
         self.gridLayout_12.setSpacing(0)
         self.gridLayout_12.setContentsMargins(0, 10, 0, 0)
         self.gridLayout_12.setObjectName(_fromUtf8("gridLayout_12"))
-        self.tSampleName_2 = QtGui.QLineEdit(self.groupBox_42)
-        self.tSampleName_2.setStatusTip(_fromUtf8(""))
-        self.tSampleName_2.setWhatsThis(_fromUtf8(""))
-        self.tSampleName_2.setAccessibleName(_fromUtf8(""))
-        self.tSampleName_2.setAccessibleDescription(_fromUtf8(""))
-        self.tSampleName_2.setInputMethodHints(QtCore.Qt.ImhNone)
-        self.tSampleName_2.setText(_fromUtf8(""))
-        self.tSampleName_2.setObjectName(_fromUtf8("tSampleName_2"))
-        self.gridLayout_12.addWidget(self.tSampleName_2, 0, 0, 1, 1)
+        self.tSampleName = QtGui.QLineEdit(self.groupBox_42)
+        self.tSampleName.setStatusTip(_fromUtf8(""))
+        self.tSampleName.setWhatsThis(_fromUtf8(""))
+        self.tSampleName.setAccessibleName(_fromUtf8(""))
+        self.tSampleName.setAccessibleDescription(_fromUtf8(""))
+        self.tSampleName.setInputMethodHints(QtCore.Qt.ImhNone)
+        self.tSampleName.setText(_fromUtf8(""))
+        self.tSampleName.setObjectName(_fromUtf8("tSampleName"))
+        self.gridLayout_12.addWidget(self.tSampleName, 0, 0, 1, 1)
         self.gridLayout.addWidget(self.groupBox_42, 0, 2, 1, 1)
         self.groupBox_4 = QtGui.QGroupBox(self.tab_3)
         self.groupBox_4.setFlat(True)
@@ -395,8 +395,8 @@ class Ui_HSG(object):
         self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(HSG)
         HSG.setTabOrder(self.tCCDNIRP, self.tCCDNIRwavelength)
-        HSG.setTabOrder(self.tCCDNIRwavelength, self.tSampleName_2)
-        HSG.setTabOrder(self.tSampleName_2, self.tCCDFELP)
+        HSG.setTabOrder(self.tCCDNIRwavelength, self.tSampleName)
+        HSG.setTabOrder(self.tSampleName, self.tCCDFELP)
         HSG.setTabOrder(self.tCCDFELP, self.tCCDEField)
         HSG.setTabOrder(self.tCCDEField, self.tCCDIntensity)
         HSG.setTabOrder(self.tCCDIntensity, self.bCCDImage)
@@ -425,7 +425,7 @@ class Ui_HSG(object):
     def retranslateUi(self, HSG):
         HSG.setWindowTitle(_translate("HSG", "Form", None))
         self.groupBox_42.setTitle(_translate("HSG", "Sample", None))
-        self.tSampleName_2.setToolTip(_translate("HSG", "NIRP, NIRW, FELF, FELP, SLITS, SPECL", None))
+        self.tSampleName.setToolTip(_translate("HSG", "NIRP, NIRW, FELF, FELP, SLITS, SPECL", None))
         self.groupBox_4.setTitle(_translate("HSG", "NIR Power (mW)", None))
         self.tCCDNIRP.setText(_translate("HSG", "0", None))
         self.bCCDBack.setText(_translate("HSG", "Take Background", None))
