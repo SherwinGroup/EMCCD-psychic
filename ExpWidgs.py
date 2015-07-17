@@ -132,7 +132,7 @@ class BaseExpWidget(QtGui.QWidget):
                     str(self.ui.tCCDSeries.text())))
         self.ui.tCCDSampleTemp.editingFinished.connect(
                 lambda: self.papa.settings.__setitem__('sample_temp',
-                         int(self.ui.tCCDSampleTemp.text())))
+                         float(self.ui.tCCDSampleTemp.text())))
         self.ui.tCCDYMin.editingFinished.connect(
                 lambda : self.papa.settings.__setitem__('y_min',
                         int(self.ui.tCCDYMin.text())))

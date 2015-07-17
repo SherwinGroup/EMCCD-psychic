@@ -808,10 +808,12 @@ class CCDWindow(QtGui.QMainWindow):
             if not self.sweep.isChecked(): break
             log.debug("At wavelength {}".format(wavelength))
             self.updateElementSig.emit(lambda: self.ui.sbSpecWavelength.setValue(wavelength), None)
-            self.updateSpecWavelength()
-            self.sigUpdateStatusBar.emit(str(wavelength))
             time.sleep(0.5) # need to make sure the spectrometer and all things
                             # get updated before startinge verything else
+                            # do it before calling update, so taht those
+                            # timing issues with signals are avoided
+            self.updateSpecWavelength()
+            self.sigUpdateStatusBar.emit(str(wavelength))
             self.ui.cSettingsShutterEx.setCurrentIndex(2) # perm closed
             self.settings["changedSettingsFlags"][-1] = 1
             self.updateSettings()

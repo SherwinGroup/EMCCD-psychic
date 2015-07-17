@@ -13,3 +13,16 @@ fix your misunderstanding with how string formatting works for NIRP in genequipd
 Weird one second pause between "keep file" and the buttons releasing
 
 Check spectrometer backlash
+
+
+
+
+Series/sample name in one of the widgest
+
+fix temp to be floats
+
+add box for LED current in Abs widget
+
+Fix header lines for abs
+
+fix series for empty files )PL?)
