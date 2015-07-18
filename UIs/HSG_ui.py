@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\HSG.ui'
 #
-# Created: Thu Jul 16 11:47:29 2015
+# Created: Fri Jul 17 14:23:26 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_HSG(object):
     def setupUi(self, HSG):
         HSG.setObjectName(_fromUtf8("HSG"))
-        HSG.resize(837, 689)
+        HSG.resize(838, 690)
         self.horizontalLayout = QtGui.QHBoxLayout(HSG)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.splitterAll = QtGui.QSplitter(HSG)
@@ -59,6 +59,7 @@ class Ui_HSG(object):
         self.gridLayout_12.setContentsMargins(0, 10, 0, 0)
         self.gridLayout_12.setObjectName(_fromUtf8("gridLayout_12"))
         self.tSampleName = QtGui.QLineEdit(self.groupBox_42)
+        self.tSampleName.setToolTip(_fromUtf8(""))
         self.tSampleName.setStatusTip(_fromUtf8(""))
         self.tSampleName.setWhatsThis(_fromUtf8(""))
         self.tSampleName.setAccessibleName(_fromUtf8(""))
@@ -182,17 +183,17 @@ class Ui_HSG(object):
         self.verticalLayout_9.addLayout(self.gridLayout)
         self.horizontalLayout_3 = QtGui.QHBoxLayout()
         self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
-        self.groupBox_6 = QtGui.QGroupBox(self.tab_3)
-        self.groupBox_6.setFlat(True)
-        self.groupBox_6.setObjectName(_fromUtf8("groupBox_6"))
-        self.horizontalLayout_5 = QtGui.QHBoxLayout(self.groupBox_6)
+        self.groupBox_Series = QtGui.QGroupBox(self.tab_3)
+        self.groupBox_Series.setFlat(True)
+        self.groupBox_Series.setObjectName(_fromUtf8("groupBox_Series"))
+        self.horizontalLayout_5 = QtGui.QHBoxLayout(self.groupBox_Series)
         self.horizontalLayout_5.setSpacing(0)
         self.horizontalLayout_5.setContentsMargins(0, 10, 0, 0)
         self.horizontalLayout_5.setObjectName(_fromUtf8("horizontalLayout_5"))
-        self.tCCDSeries = QtGui.QLineEdit(self.groupBox_6)
+        self.tCCDSeries = QtGui.QLineEdit(self.groupBox_Series)
         self.tCCDSeries.setObjectName(_fromUtf8("tCCDSeries"))
         self.horizontalLayout_5.addWidget(self.tCCDSeries)
-        self.horizontalLayout_3.addWidget(self.groupBox_6)
+        self.horizontalLayout_3.addWidget(self.groupBox_Series)
         self.groupBox = QtGui.QGroupBox(self.tab_3)
         self.groupBox.setFlat(True)
         self.groupBox.setObjectName(_fromUtf8("groupBox"))
@@ -425,7 +426,6 @@ class Ui_HSG(object):
     def retranslateUi(self, HSG):
         HSG.setWindowTitle(_translate("HSG", "Form", None))
         self.groupBox_42.setTitle(_translate("HSG", "Sample", None))
-        self.tSampleName.setToolTip(_translate("HSG", "NIRP, NIRW, FELF, FELP, SLITS, SPECL", None))
         self.groupBox_4.setTitle(_translate("HSG", "NIR Power (mW)", None))
         self.tCCDNIRP.setText(_translate("HSG", "0", None))
         self.bCCDBack.setText(_translate("HSG", "Take Background", None))
@@ -446,7 +446,8 @@ class Ui_HSG(object):
         self.tCCDEField.setText(_translate("HSG", "0.0", None))
         self.groupBox_60.setTitle(_translate("HSG", "I (kW/cm2)", None))
         self.tCCDIntensity.setText(_translate("HSG", "0.0", None))
-        self.groupBox_6.setTitle(_translate("HSG", "Series", None))
+        self.groupBox_Series.setTitle(_translate("HSG", "Series", None))
+        self.tCCDSeries.setToolTip(_translate("HSG", "NIRP, NIRW, FELF, FELP, SLITS, SPECL", None))
         self.groupBox.setTitle(_translate("HSG", "Spectrum step", None))
         self.groupBox_46.setTitle(_translate("HSG", "Comments", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_3), _translate("HSG", "Main Settings", None))

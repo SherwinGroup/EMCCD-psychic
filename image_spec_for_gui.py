@@ -467,7 +467,7 @@ class PL_image(EMCCD_image):
 
     
 class Abs_image(EMCCD_image):
-    origin_import = '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
+    origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
     def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None

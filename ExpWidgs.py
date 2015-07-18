@@ -142,6 +142,10 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.tCCDSlits.editingFinished.connect(
                 lambda: self.papa.settings.__setitem__('slits',
                         int(self.ui.tCCDSlits.text())))
+        self.ui.tSampleName.editingFinished.connect(
+            lambda: self.papa.settings.__setitem__("sample_name",
+                        str(self.ui.tSampleName.text()))
+        )
 
         if self.hasNIR:
             self.ui.tCCDNIRwavelength.textAccepted.connect(self.parseNIRL)
@@ -477,7 +481,7 @@ class BaseExpWidget(QtGui.QWidget):
         else:
             self.prevDataEMCCD = None
             self.runSettings["seriesNo"] = 0
-            self.ui.groupBox_42.setTitle("Series")
+            self.ui.groupBox_Series.setTitle("Series")
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.toggleUIElements(True)
 
@@ -543,9 +547,13 @@ class BaseExpWidget(QtGui.QWidget):
         # the previous ones should be saved (hence why this is
         # after the saving is being done)
         #######################
-        if (self.prevDataEMCCD is not None and
-                    self.prevDataEMCCD.equipment_dict["series"] ==
-                    self.curDataEMCCD.equipment_dict["series"]):
+        groupBox = self.ui.groupBox_Series
+
+        if (self.prevDataEMCCD is not None and # Is there something to add to?
+                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
+                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
             log.debug("Added two series together")
             # Un-normalize by the number currently in series
             self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
@@ -568,7 +576,7 @@ class BaseExpWidget(QtGui.QWidget):
                 log.debug("Error saving series data, {}".format(e))
 
             self.runSettings["seriesNo"] +=1
-            self.ui.groupBox_42.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
             # but PLOT the normalized average
             self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
             self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
@@ -581,13 +589,13 @@ class BaseExpWidget(QtGui.QWidget):
             self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
             self.prevDataEMCCD.file_no += "seriesed"
             self.runSettings["seriesNo"] = 1
-            self.ui.groupBox_42.setTitle("Series (1)")
+            groupBox.setTitle("Series (1)")
 
 
         else:
             self.prevDataEMCCD = None
             self.runSettings["seriesNo"] = 0
-            self.ui.groupBox_42.setTitle("Series")
+            groupBox.setTitle("Series")
             log.debug("Made a new series where I didn't think I'd be")
 
     def undoSeries(self):
@@ -613,7 +621,7 @@ class BaseExpWidget(QtGui.QWidget):
             log.debug("Error saving series data, {}".format(e))
 
         self.runSettings["seriesNo"] -=1
-        self.ui.groupBox_42.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+        self.ui.groupBox_Series.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
         # but PLOT the normalized average
         self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
         self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
@@ -846,6 +854,8 @@ class AbsWid(BaseExpWidget):
         else:
             self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
+            self.curAbsEMCCD.origin_import = \
+                '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
             try:
                 self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
             except Exception as e:
@@ -866,6 +876,8 @@ class AbsWid(BaseExpWidget):
                                             str(self.ui.tCCDRefNum.value()+1),
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
+        self.curRefEMCCD.origin_import = \
+            '\nWavelength, Raw Blank\nnm,arb. u.'
 
         try:
             self.curRefEMCCD.save_images(self.papa.settings["saveDir"], prefix="absBlank_")
@@ -961,6 +973,12 @@ class AbsWid(BaseExpWidget):
         # super(AbsWid, self).updateSpectrum(data)
         # pi = self.ui.gCCDBin.getPlotItem()
         # pi.setTitle(title)
+
+    def genEquipmentDict(self):
+        s = super(AbsWid, self).genEquipmentDict()
+        s["led_current"] = float(self.ui.tCCDLEDCurrent.text())
+        s["led_temp"] = float(self.ui.tCCDLEDTemp.text())
+        return s
 
 class TwoColorAbsWid(AbsWid):
     hasFEL = True

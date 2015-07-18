@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\hbanks\Documents\GitHub\EMCCD-psychic\UIs\PL.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\PL.ui'
 #
-# Created: Wed Jun 17 13:29:33 2015
+# Created: Fri Jul 17 14:18:37 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -57,6 +57,7 @@ class Ui_PL(object):
         self.gridLayout_12.setContentsMargins(0, 10, 0, 0)
         self.gridLayout_12.setObjectName(_fromUtf8("gridLayout_12"))
         self.tSampleName = QtGui.QLineEdit(self.groupBox_42)
+        self.tSampleName.setToolTip(_fromUtf8(""))
         self.tSampleName.setStatusTip(_fromUtf8(""))
         self.tSampleName.setWhatsThis(_fromUtf8(""))
         self.tSampleName.setAccessibleName(_fromUtf8(""))
@@ -144,16 +145,16 @@ class Ui_PL(object):
         self.verticalLayout_3.addLayout(self.gridLayout)
         self.horizontalLayout_4 = QtGui.QHBoxLayout()
         self.horizontalLayout_4.setObjectName(_fromUtf8("horizontalLayout_4"))
-        self.groupBox = QtGui.QGroupBox(self.tab_3)
-        self.groupBox.setFlat(True)
-        self.groupBox.setObjectName(_fromUtf8("groupBox"))
-        self.horizontalLayout = QtGui.QHBoxLayout(self.groupBox)
+        self.groupBox_Series = QtGui.QGroupBox(self.tab_3)
+        self.groupBox_Series.setFlat(True)
+        self.groupBox_Series.setObjectName(_fromUtf8("groupBox_Series"))
+        self.horizontalLayout = QtGui.QHBoxLayout(self.groupBox_Series)
         self.horizontalLayout.setContentsMargins(0, 10, 0, -1)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        self.tCCDSeries = QtGui.QLineEdit(self.groupBox)
+        self.tCCDSeries = QtGui.QLineEdit(self.groupBox_Series)
         self.tCCDSeries.setObjectName(_fromUtf8("tCCDSeries"))
         self.horizontalLayout.addWidget(self.tCCDSeries)
-        self.horizontalLayout_4.addWidget(self.groupBox)
+        self.horizontalLayout_4.addWidget(self.groupBox_Series)
         self.groupBox_3 = QtGui.QGroupBox(self.tab_3)
         self.groupBox_3.setFlat(True)
         self.groupBox_3.setObjectName(_fromUtf8("groupBox_3"))
@@ -281,7 +282,6 @@ class Ui_PL(object):
     def retranslateUi(self, PL):
         PL.setWindowTitle(_translate("PL", "Form", None))
         self.groupBox_42.setTitle(_translate("PL", "Sample", None))
-        self.tSampleName.setToolTip(_translate("PL", "NIRP, NIRW, FELF, FELP, SLITS, SPECL", None))
         self.groupBox_4.setTitle(_translate("PL", "NIR Power (mW)", None))
         self.tCCDNIRP.setText(_translate("PL", "0", None))
         self.bCCDBack.setText(_translate("PL", "Take Background", None))
@@ -296,7 +296,8 @@ class Ui_PL(object):
         self.tCCDNIRwavelength.setText(_translate("PL", "0", None))
         self.groupBox_37.setTitle(_translate("PL", "Image Number", None))
         self.tCCDImageNum.setText(_translate("PL", "0", None))
-        self.groupBox.setTitle(_translate("PL", "Series", None))
+        self.groupBox_Series.setTitle(_translate("PL", "Series", None))
+        self.tCCDSeries.setToolTip(_translate("PL", "NIRP, NIRW, FELF, FELP, SLITS, SPECL", None))
         self.groupBox_3.setTitle(_translate("PL", "Spectrum step", None))
         self.groupBox_46.setTitle(_translate("PL", "Comments", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_3), _translate("PL", "Main Settings", None))

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>837</width>
-    <height>689</height>
+    <width>838</width>
+    <height>690</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -72,7 +72,7 @@
                 <item row="0" column="0">
                  <widget class="QLineEdit" name="tSampleName">
                   <property name="toolTip">
-                   <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
+                   <string/>
                   </property>
                   <property name="statusTip">
                    <string/>
@@ -431,7 +431,7 @@
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_3">
              <item>
-              <widget class="QGroupBox" name="groupBox_6">
+              <widget class="QGroupBox" name="groupBox_Series">
                <property name="title">
                 <string>Series</string>
                </property>
@@ -455,7 +455,11 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QLineEdit" name="tCCDSeries"/>
+                 <widget class="QLineEdit" name="tCCDSeries">
+                  <property name="toolTip">
+                   <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
+                  </property>
+                 </widget>
                 </item>
                </layout>
               </widget>

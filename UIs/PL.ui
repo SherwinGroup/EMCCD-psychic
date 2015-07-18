@@ -70,7 +70,7 @@
               <item row="0" column="0">
                <widget class="QLineEdit" name="tSampleName">
                 <property name="toolTip">
-                 <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
+                 <string/>
                 </property>
                 <property name="statusTip">
                  <string/>
@@ -324,7 +324,7 @@
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_4">
            <item>
-            <widget class="QGroupBox" name="groupBox">
+            <widget class="QGroupBox" name="groupBox_Series">
              <property name="title">
               <string>Series</string>
              </property>
@@ -342,7 +342,11 @@
                <number>0</number>
               </property>
               <item>
-               <widget class="QLineEdit" name="tCCDSeries"/>
+               <widget class="QLineEdit" name="tCCDSeries">
+                <property name="toolTip">
+                 <string>NIRP, NIRW, FELF, FELP, SLITS, SPECL</string>
+                </property>
+               </widget>
               </item>
              </layout>
             </widget>

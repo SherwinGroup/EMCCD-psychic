@@ -90,7 +90,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = False)
+            self.CCD = AndorEMCCD(wantFake = True)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -212,6 +212,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["nir_power"] = 0
         s["nir_lambda"] = 0
         s["series"] = ""
+        s["sample_name"] = ""
         s["fel_power"] = 0
         s["exposure"] = 0.5
         s["gain"] = 1
@@ -450,6 +451,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
         self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
         self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
+        self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
 
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
@@ -849,6 +851,7 @@ class CCDWindow(QtGui.QMainWindow):
             except Exception as e:
                 log.debug("Error saving durings spectrum sweep {}".format(e))
         self.curExp.confirmImage = oldConfirmation
+        self.updateElementSig.emit(lambda : self.sweep.setChecked(False), None)
         log.debug("Done with scan")
 
 
@@ -1380,6 +1383,9 @@ class CCDWindow(QtGui.QMainWindow):
         # All clear, start closing things down
         #########
 
+        # Make sure the shutter isn't accidentally left open
+        # 0,0 -> Auto
+        self.CCD.setShutterEx(0, 0)
         if self.ui.tabWidget.indexOf(self.oscWidget) is not -1:
             self.oscWidget.close()
         if not fastExit:

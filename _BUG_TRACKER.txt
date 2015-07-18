@@ -1,28 +1,2 @@
-Turn off the "Take picture" buttons while cooling down.
-
-Fix the rep rate lambda
-
-series should check to make sure everything else is the same (file name?)
 
 what happens when you set the image to 100-300 and sum over 0-400? -60k appears?
-
-Make popped out osc window borderless and unlabled axes for smaller footprint.
-
-fix your misunderstanding with how string formatting works for NIRP in genequipdict
-
-Weird one second pause between "keep file" and the buttons releasing
-
-Check spectrometer backlash
-
-
-
-
-Series/sample name in one of the widgest
-
-fix temp to be floats
-
-add box for LED current in Abs widget
-
-Fix header lines for abs
-
-fix series for empty files )PL?)
