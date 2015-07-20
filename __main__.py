@@ -5,13 +5,13 @@ Created on Sat Feb 14 15:06:30 2015
 @author: Home
 """
 
+from __future__ import absolute_import
+
 import numpy as np
 from PyQt4 import QtCore, QtGui
 from Andor import AndorEMCCD
 import pyqtgraph as pg
 import pyqtgraph.console as pgc
-import scipy.integrate as spi
-from image_spec_for_gui import EMCCD_image, calc_THz_intensity, calc_THz_field
 from InstsAndQt.Instruments import *
 from InstsAndQt.customQt import *
 import copy
@@ -90,7 +90,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()

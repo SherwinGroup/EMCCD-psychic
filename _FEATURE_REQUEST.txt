@@ -5,15 +5,10 @@ Either disable semilogy or find a way to set it
 
 MEDIUM:
 -----------------------------------
-Add series things in software
 Get a dark noise reading from the background slide.  That is, sum up the pixels as we would for an actual spectrum, then get the standard deviation (or whatever it is we'd want), then add this to the dictionary at the head of the spectrum file.  This way we have a "pure" number to use when calculating error bars.
 
 EASY:
 -----------------------------------
-Add a sample entry box.  This is really frustrating in its current implementation (i.e. bad notes).
-Calculate standard deviation of the dark noise and add it to JSON dict
-Make electric field calculator
-Sort JSON values not with upper/lowercase. Shit's frustrating, yo
 
 V2
 ---------------------
