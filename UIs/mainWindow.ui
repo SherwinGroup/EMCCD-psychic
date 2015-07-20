@@ -1117,6 +1117,16 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>Misc Tools</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_8">
+        <item>
+         <layout class="QVBoxLayout" name="miscToolsLayout"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </item>
    </layout>

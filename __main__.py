@@ -55,6 +55,8 @@ from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
 
+
+
 try:
     a = QtCore.QString()
 except AttributeError:
@@ -381,6 +383,15 @@ class CCDWindow(QtGui.QMainWindow):
         self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
         self.console.triggered.connect(self.openDebugConsole)
 
+        ###############################
+        #
+        # These are commands for adding the motor controller
+        # window.
+        #
+        ###########################
+        self.addPolarizerMotorDriver()
+        self.ui.miscToolsLayout.addStretch(10)
+
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
@@ -478,7 +489,7 @@ class CCDWindow(QtGui.QMainWindow):
 
     def openHSG(self):
         self.oscWidget = OscWid(self)
-        self.ui.tabWidget.addTab(self.oscWidget, "Oscilloscope")
+        self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
 
     def closeHSG(self):
         self.ui.tabWidget.removeTab(
@@ -747,6 +758,17 @@ class CCDWindow(QtGui.QMainWindow):
                 os.mkdir(specFold)
             except Exception as e:
                 log.warning("Could not make folder for spectrum {}. Error: {}".format(specFold, e))
+
+    @staticmethod
+    def ____ADDING_MISC_TOOLS():pass
+    def addPolarizerMotorDriver(self):
+        import motordriver.__main__ as md
+        motorDriverGB = QtGui.QGroupBox("Attenuator", self)
+        motorDriverGB.setFlat(True)
+        layout = QtGui.QVBoxLayout()
+        layout.addWidget(md.MotorWindow())
+        motorDriverGB.setLayout(layout)
+        self.ui.miscToolsLayout.addWidget(motorDriverGB)
 
     @staticmethod
     def __SPECTROMETER(): pass

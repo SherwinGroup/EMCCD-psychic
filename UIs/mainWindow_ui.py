@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Fri Jun 19 13:28:08 2015
+# Created: Mon Jul 20 16:38:46 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -432,6 +432,14 @@ class Ui_MainWindow(object):
         self.gridLayout_16.addItem(spacerItem3, 4, 0, 1, 1)
         self.horizontalLayout_40.addLayout(self.gridLayout_16)
         self.tabWidget.addTab(self.tabSpec, _fromUtf8(""))
+        self.tab = QtGui.QWidget()
+        self.tab.setObjectName(_fromUtf8("tab"))
+        self.verticalLayout_8 = QtGui.QVBoxLayout(self.tab)
+        self.verticalLayout_8.setObjectName(_fromUtf8("verticalLayout_8"))
+        self.miscToolsLayout = QtGui.QVBoxLayout()
+        self.miscToolsLayout.setObjectName(_fromUtf8("miscToolsLayout"))
+        self.verticalLayout_8.addLayout(self.miscToolsLayout)
+        self.tabWidget.addTab(self.tab, _fromUtf8(""))
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
@@ -604,6 +612,7 @@ class Ui_MainWindow(object):
         self.cSpecGPIB.setToolTip(_translate("MainWindow", "ASRL1", None))
         self.groupBox_48.setTitle(_translate("MainWindow", "Current Grating", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabSpec), _translate("MainWindow", "Spectrometer", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Misc Tools", None))
         self.menuOther_Settings.setTitle(_translate("MainWindow", "Other Settings", None))
         self.menuLive_Series.setTitle(_translate("MainWindow", "Live Series", None))
         self.menuExperiment_Type.setTitle(_translate("MainWindow", "Experiment Type", None))
