@@ -770,6 +770,26 @@ class CCDWindow(QtGui.QMainWindow):
         motorDriverGB.setLayout(layout)
         self.ui.miscToolsLayout.addWidget(motorDriverGB)
 
+        # Disable the control panel for the motor driver
+        # It the mutexs still occasionally lock if you're not careful,
+        # and that could be catastrophic if the CCD is at -90 and
+        # the software locks.
+        #
+        # Why am I doing it this way instead of keeping a reference
+        # when instantiating, changing it then?
+        #
+        # Because this gives me a way to access it, without keeping
+        # another class attribute, while the software is running
+        # (If this or other objects need to be modified)
+        # It is not pretty, and I apologize. It probably
+        # wouldn't be hard to keep an external reference,
+        # but I don't see why; it shouldn't have to be referenced
+        # after this point
+        self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.mMoreSettings.setEnabled(False)
+        #                              |                      |_____[0] is the layout, [1] is the obj
+        #                              |
+        #                              |_______________________motordriver groupbox is the first thing in the layout
+
     @staticmethod
     def __SPECTROMETER(): pass
     def SpecGPIBChanged(self):
