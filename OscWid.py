@@ -109,11 +109,22 @@ class OscWid(QtGui.QWidget):
         self.ui.bOscInit.clicked.connect(self.initOscRegions)
         self.ui.bOPop.clicked.connect(self.popoutOscilloscope)
 
+
+        ###################
+        # Setting plot labels
+        ##################
         self.pOsc = self.ui.gOsc.plot(pen='k')
         plotitem = self.ui.gOsc.getPlotItem()
+
+        self.plotItem = plotitem
         plotitem.setTitle('Reference Detector')
         plotitem.setLabel('bottom',text='time scale',units='s')
         plotitem.setLabel('left',text='Voltage', units='V')
+        # add a textbox for pk-pk value
+        self.pkText = pg.TextItem('', color=(0,0,0))
+        self.pkText.setPos(0,0)
+        self.pkText.setFont(QtGui.QFont("", 15))
+        self.ui.gOsc.addItem(self.pkText)
 
         #Now we make an array of all the textboxes for the linear regions to make it
         #easier to iterate through them. Set it up in memory identical to how it
@@ -156,8 +167,6 @@ class OscWid(QtGui.QWidget):
         item.addItem(self.boxcarRegions[1])
         item.addItem(self.boxcarRegions[2])
 
-
-
     def initOscRegions(self):
         try:
             length = len(self.settings['pyData'])
@@ -174,7 +183,6 @@ class OscWid(QtGui.QWidget):
         for i in range(len(self.boxcarRegions)):
             self.boxcarRegions[i].setRegion(tuple((point, point)))
             self.settings[d[i]] = list((point, point))
-
 
     def updateLinearRegionValues(self):
         sender = self.sender()
@@ -232,8 +240,11 @@ class OscWid(QtGui.QWidget):
             self.oldpOsc = self.pOsc
             for i in self.boxcarRegions:
                 self.ui.gOsc.removeItem(i)
+            self.ui.gOsc.removeItem(self.pkText)
+            self.poppedPlotWindow.pw.addItem(self.pkText)
             self.pOsc = self.poppedPlotWindow.pw.plot(pen='k')
             plotitem = self.poppedPlotWindow.pw.getPlotItem()
+            self.plotItem = plotitem
             # plotitem.setLabel('bottom',text='time scale',units='s')
             plotitem.setLabel('left',text='Voltage', units='V')
             # I'd love to subclass the window further and figure out how to move it
@@ -249,7 +260,9 @@ class OscWid(QtGui.QWidget):
     def cleanupCloseOsc(self):
         self.poppedPlotWindow = None
         self.pOsc = self.oldpOsc
+        self.plotItem = self.ui.gOsc.plotItem
         self.initLinearRegions()
+        self.ui.gOsc.addItem(self.pkText)
 
     @staticmethod
     def __OPEN_CONTROLLER(): pass
@@ -384,7 +397,13 @@ class OscWid(QtGui.QWidget):
     def updateOscilloscopeGraph(self, data):
         self.settings['pyData'] = data
         self.pOsc.setData(data[:,0], data[:,1])
+        self.plotItem.vb.update()
+        [i['item'].update() for i in self.plotItem.axes.values()]
+        min, max = np.min(data[:,1]), np.max(data[:,1])
+        self.pkText.setPos(self.plotItem.getAxis('bottom').range[0],
+                           self.plotItem.getAxis('left').range[1])
 
+        self.pkText.setText("{:.1f}".format(max-min), color=(0,0,0))
     def close(self):
         print "close"
         self.settings['shouldScopeLoop'] = False

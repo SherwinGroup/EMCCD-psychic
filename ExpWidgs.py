@@ -313,30 +313,69 @@ class BaseExpWidget(QtGui.QWidget):
             self.exposureElapsedTimer = None
 
     def startContinuous(self, value):
+        # If not value, the box was being unchecked,
+        # starting can ignore the call
         if value:
+
             self.runSettings["takingContinuous"] = True
+            # Add infinite lines for ease in aligning
             self.p1.addItem(self.ilOnep1)
             self.p1.addItem(self.ilTwop1)
             self.ui.gCCDBin.plotItem.addItem(self.ilOnep2)
             self.ui.gCCDBin.plotItem.addItem(self.ilTwop2)
+
+            # There's some weird, hard to track bug where occasionally,
+            # if you're taking continuous, and you switch tabs and
+            # then turn it on and off (or something like that. It seems
+            # to be related to toggling it when you're not on the
+            # data collection window), the plots would freeze, and would
+            # require a resize (movign splitters, resizing window) to redraw
+            # properly.
+            #
+            # First attempt, here, is to just turn off other tabs so that
+            # you can never toggle collection when in another tab
+            # Another fix could be looking into forcing a redraw of the plots
+            # after updating data, (or calling whatever is called when a
+            # widget gets a resize), though I don't konw how expensive it would
+            # be to call a redraw for every single image.
+            #
+            # Note also that the bug is hard to find because it doesn't seem to
+            # appear on faster-running computers (better ram? faster cpu? details
+            # unclear)
+            for i in range(self.papa.ui.tabWidget.count()):
+                 if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+                 self.papa.ui.tabWidget.setTabEnabled(i, False)
+            # Take an image and have the thread call the continuous collection loop
+            # Done this way so that it's working off the same thread
+            # that data collection would normally be performed on
             self.takeImage(isBackground = self.takeContinuousLoop)
 
     def takeContinuousLoop(self):
         while self.papa.ui.mFileTakeContinuous.isChecked():
+            # Update from the image that was taken in the first call
+            # when starting the loop
             self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
+            # create the object and clean it up
             image = EMCCD_image(self.rawData,
                                 "", "", "", self.genEquipmentDict())
+            # Ignore CRR and just set the clean to raw for summing
             image.clean_array = image.raw_array
             image.make_spectrum()
             self.sigUpdateGraphs.emit(self.updateSpectrum, image.spectrum)
             self.doExposure()
+        # re-enable UI elements, remove alignment plots
         self.toggleUIElements(True)
         self.p1.removeItem(self.ilOnep1)
         self.p1.removeItem(self.ilTwop1)
-        self.runSettings["takingContinuous"] = False
-
         self.ui.gCCDBin.plotItem.removeItem(self.ilOnep2)
         self.ui.gCCDBin.plotItem.removeItem(self.ilTwop2)
+
+        # re-enable the other tabs
+        for i in range(self.papa.ui.tabWidget.count()):
+             if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+             self.papa.ui.tabWidget.setTabEnabled(i, True)
+        self.runSettings["takingContinuous"] = False
+
 
 
     @staticmethod

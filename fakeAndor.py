@@ -80,8 +80,10 @@ class fAndorEMCCD(object):
         np.random.seed()
         new = [int(round(i)) for i in 100 * np.random.normal(0, 1, args[0][1])]
         big = [int(round(i))+5000 for i in 100 * np.random.normal(0, 1, args[0][1])]
+        # make non-sideband 1/5
+        sidebanded = bool(np.random.randint(5))
         for i in range(args[0][1]):
-            if i>1600*150 and i<1600*250:
+            if sidebanded and i>1600*150 and i<1600*250:
                 if (i-750)%1600==0 or (i-751)%1600==0:
                     arr[i] = big[i]/10
                 elif (i-500)%1600==0 or (i-501)%1600==0:
