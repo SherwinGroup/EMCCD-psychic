@@ -458,7 +458,8 @@ class BaseExpWidget(QtGui.QWidget):
         ####################################
 
     def processImage(self):
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
+        if not self.papa.ui.mLivePlotsDisableRawPlots.isChecked():
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curDataEMCCD = self.DataClass(self.rawData,
@@ -743,7 +744,8 @@ class BaseExpWidget(QtGui.QWidget):
     def updateSignalImage(self, data = None):
         data = np.array(data)
         self.pSigImage.setImage(data)
-        self.pSigHist.setLevels(data.min(), data.max())
+        if not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
+            self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
         data = np.array(data)

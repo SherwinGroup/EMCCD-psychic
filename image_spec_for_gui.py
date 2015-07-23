@@ -50,9 +50,9 @@ class EMCCD_image(object):
         self.file_no = file_no
         self.description = description
         self.equipment_dict = equipment_dict
-        if self.equipment_dict['y_max'] - self.equipment_dict['y_min'] > int(self.raw_shape[0]):
+        if self.equipment_dict['y_max'] - self.equipment_dict['y_min'] > int(self.raw_shape[1]):
             log.warning("y_min and y_max were set incorrectly")
-            self.equipment_dict['y_max'] = int(self.raw_shape[0]) - 1
+            self.equipment_dict['y_max'] = int(self.raw_shape[1]) - 1
             self.equipment_dict['y_min'] = 0
         self.clean_array = None
         self.spectrum = None

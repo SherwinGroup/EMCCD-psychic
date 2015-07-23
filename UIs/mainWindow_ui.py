@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Mon Jul 20 16:38:46 2015
+# Created: Thu Jul 23 14:07:34 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -451,6 +451,8 @@ class Ui_MainWindow(object):
         self.menuLive_Series.setObjectName(_fromUtf8("menuLive_Series"))
         self.menuExperiment_Type = QtGui.QMenu(self.menubar)
         self.menuExperiment_Type.setObjectName(_fromUtf8("menuExperiment_Type"))
+        self.menuLive_Plots = QtGui.QMenu(self.menubar)
+        self.menuLive_Plots.setObjectName(_fromUtf8("menuLive_Plots"))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(MainWindow)
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
@@ -494,6 +496,12 @@ class Ui_MainWindow(object):
         self.fExpTypeTwo_Color_Abs = QtGui.QAction(MainWindow)
         self.fExpTypeTwo_Color_Abs.setCheckable(True)
         self.fExpTypeTwo_Color_Abs.setObjectName(_fromUtf8("fExpTypeTwo_Color_Abs"))
+        self.mLivePlotsDisableHistogramAutoscale = QtGui.QAction(MainWindow)
+        self.mLivePlotsDisableHistogramAutoscale.setCheckable(True)
+        self.mLivePlotsDisableHistogramAutoscale.setObjectName(_fromUtf8("mLivePlotsDisableHistogramAutoscale"))
+        self.mLivePlotsDisableRawPlots = QtGui.QAction(MainWindow)
+        self.mLivePlotsDisableRawPlots.setCheckable(True)
+        self.mLivePlotsDisableRawPlots.setObjectName(_fromUtf8("mLivePlotsDisableRawPlots"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -506,9 +514,12 @@ class Ui_MainWindow(object):
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
         self.menuExperiment_Type.addAction(self.fExpTypeTwo_Color_Abs)
+        self.menuLive_Plots.addAction(self.mLivePlotsDisableHistogramAutoscale)
+        self.menuLive_Plots.addAction(self.mLivePlotsDisableRawPlots)
         self.menubar.addAction(self.menuOther_Settings.menuAction())
         self.menubar.addAction(self.menuLive_Series.menuAction())
         self.menubar.addAction(self.menuExperiment_Type.menuAction())
+        self.menubar.addAction(self.menuLive_Plots.menuAction())
 
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
@@ -616,6 +627,7 @@ class Ui_MainWindow(object):
         self.menuOther_Settings.setTitle(_translate("MainWindow", "Other Settings", None))
         self.menuLive_Series.setTitle(_translate("MainWindow", "Live Series", None))
         self.menuExperiment_Type.setTitle(_translate("MainWindow", "Experiment Type", None))
+        self.menuLive_Plots.setTitle(_translate("MainWindow", "Live Plots", None))
         self.mFileDoCRR.setText(_translate("MainWindow", "Do cosmic ray removal", None))
         self.mFileBreakTemp.setText(_translate("MainWindow", "Break temperature loop", None))
         self.mFileTakeContinuous.setText(_translate("MainWindow", "Take continuous", None))
@@ -629,6 +641,8 @@ class Ui_MainWindow(object):
         self.fExpTypeAbs.setText(_translate("MainWindow", "Abs", None))
         self.mFileFastExit.setText(_translate("MainWindow", "Exit without shutdown", None))
         self.fExpTypeTwo_Color_Abs.setText(_translate("MainWindow", "Two Color Abs", None))
+        self.mLivePlotsDisableHistogramAutoscale.setText(_translate("MainWindow", "Disable Histogram autoscale", None))
+        self.mLivePlotsDisableRawPlots.setText(_translate("MainWindow", "Disable Raw Plots", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc

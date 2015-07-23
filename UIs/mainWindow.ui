@@ -1167,9 +1167,17 @@
     <addaction name="fExpTypeAbs"/>
     <addaction name="fExpTypeTwo_Color_Abs"/>
    </widget>
+   <widget class="QMenu" name="menuLive_Plots">
+    <property name="title">
+     <string>Live Plots</string>
+    </property>
+    <addaction name="mLivePlotsDisableHistogramAutoscale"/>
+    <addaction name="mLivePlotsDisableRawPlots"/>
+   </widget>
    <addaction name="menuOther_Settings"/>
    <addaction name="menuLive_Series"/>
    <addaction name="menuExperiment_Type"/>
+   <addaction name="menuLive_Plots"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="mFileDoCRR">
@@ -1274,6 +1282,22 @@
    </property>
    <property name="text">
     <string>Two Color Abs</string>
+   </property>
+  </action>
+  <action name="mLivePlotsDisableHistogramAutoscale">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Disable Histogram autoscale</string>
+   </property>
+  </action>
+  <action name="mLivePlotsDisableRawPlots">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Disable Raw Plots</string>
    </property>
   </action>
  </widget>
