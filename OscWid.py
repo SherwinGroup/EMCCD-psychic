@@ -113,7 +113,10 @@ class OscWid(QtGui.QWidget):
         ###################
         # Setting plot labels
         ##################
+        import sys
         self.pOsc = self.ui.gOsc.plot(pen='k')
+        self.ui.gOsc.sigRangeChanged.connect(self.updatePkTextPos)
+
         plotitem = self.ui.gOsc.getPlotItem()
 
         self.plotItem = plotitem
@@ -400,10 +403,15 @@ class OscWid(QtGui.QWidget):
         self.plotItem.vb.update()
         [i['item'].update() for i in self.plotItem.axes.values()]
         min, max = np.min(data[:,1]), np.max(data[:,1])
-        self.pkText.setPos(self.plotItem.getAxis('bottom').range[0],
-                           self.plotItem.getAxis('left').range[1])
+        # self.pkText.setPos(self.plotItem.getAxis('bottom').range[0],
+        #                    self.plotItem.getAxis('left').range[1])
 
         self.pkText.setText("{:.1f}".format(max-min), color=(0,0,0))
+
+    def updatePkTextPos(self, null, range):
+        self.pkText.setPos(range[0][0], range[1][1])
+
+
     def close(self):
         print "close"
         self.settings['shouldScopeLoop'] = False
