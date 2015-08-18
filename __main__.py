@@ -367,12 +367,17 @@ class CCDWindow(QtGui.QMainWindow):
         # Connections for file menu things
         ##################
         # All I want it to do is set a flag which gets checked later.
+        # I think I learned to just check the state of the UI element instead
+        # of this dict value, but I'm not 100% sure
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
-        # self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
+
         self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
+        self.ui.mSeriesRemove.triggered.connect(self.getCurExp().removeCurrentSeries)
+        self.ui.mSeriesReset.triggered.connect(self.getCurExp().setCurrentSeries)
+
         self.ui.mFileFastExit.triggered.connect(self.close)
 
         self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
@@ -776,19 +781,21 @@ class CCDWindow(QtGui.QMainWindow):
         # the software locks.
         #
         # Why am I doing it this way instead of keeping a reference
-        # when instantiating, changing it then?
+        # when instantiating, referencing it by that?
         #
         # Because this gives me a way to access it, without keeping
         # another class attribute, while the software is running
         # (If this or other objects need to be modified)
         # It is not pretty, and I apologize. It probably
-        # wouldn't be hard to keep an external reference,
+        # wouldn't be hard to keep an internal reference,
         # but I don't see why; it shouldn't have to be referenced
         # after this point
         self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.mMoreSettings.setEnabled(False)
         #                              |                      |_____[0] is the layout, [1] is the obj
         #                              |
         #                              |_______________________motordriver groupbox is the first thing in the layout
+
+        self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
 
     @staticmethod
     def __SPECTROMETER(): pass

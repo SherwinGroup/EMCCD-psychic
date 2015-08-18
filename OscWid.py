@@ -244,14 +244,14 @@ class OscWid(QtGui.QWidget):
             for i in self.boxcarRegions:
                 self.ui.gOsc.removeItem(i)
             self.ui.gOsc.removeItem(self.pkText)
+            self.ui.gOsc.sigRangeChanged.disconnect(self.updatePkTextPos)
             self.poppedPlotWindow.pw.addItem(self.pkText)
             self.pOsc = self.poppedPlotWindow.pw.plot(pen='k')
+            self.poppedPlotWindow.pw.sigRangeChanged.connect(self.updatePkTextPos)
             plotitem = self.poppedPlotWindow.pw.getPlotItem()
             self.plotItem = plotitem
             # plotitem.setLabel('bottom',text='time scale',units='s')
             plotitem.setLabel('left',text='Voltage', units='V')
-            # I'd love to subclass the window further and figure out how to move it
-            # by dragging on the outer edge of the plot...
             # self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
             self.poppedPlotWindow.show()
             # self.poppedPlotWindow.setWindowFlags(QtCore.Qt.WindowSystemMenuHint)
@@ -261,11 +261,13 @@ class OscWid(QtGui.QWidget):
             self.poppedPlotWindow.raise_()
 
     def cleanupCloseOsc(self):
+        self.poppedPlotWindow.pw.sigRangeChanged.disconnect(self.updatePkTextPos)
         self.poppedPlotWindow = None
         self.pOsc = self.oldpOsc
         self.plotItem = self.ui.gOsc.plotItem
         self.initLinearRegions()
         self.ui.gOsc.addItem(self.pkText)
+        self.ui.gOsc.sigRangeChanged.connect(self.updatePkTextPos)
 
     @staticmethod
     def __OPEN_CONTROLLER(): pass
@@ -344,8 +346,14 @@ class OscWid(QtGui.QWidget):
                 self.settings["pyFP"] = pyFP
                 self.settings["pyCD"] = pyCD
 
+                # The front porch is now much tinier than previously used
+                # to, potentially due to Nick optimizing the YAG. Who knows.
+                # But that makes it a little hard to tell the FP from background
+                # since it's so small. Therefore, we just check against the
+                # CD value to see
                 if (
-                    (pyFP > pyBG * self.ui.tOscFPRatio.value()) and
+                    # (pyFP > pyBG * self.ui.tOscFPRatio.value())
+                    #     and
                     (pyCD > pyBG * self.ui.tOscCDRatio.value())
                 ):
                     self.settings["FELPulses"] += 1
@@ -376,8 +384,11 @@ class OscWid(QtGui.QWidget):
         pyCDidx = self.findIndices(pyCDbounds, pyD[:,0])
 
         pyBG = spi.simps(pyD[pyBGidx[0]:pyBGidx[1],1], pyD[pyBGidx[0]:pyBGidx[1], 0])
+        pyBG /= np.diff(pyBGidx)
         pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
+        pyFP /= np.diff(pyFPidx)
         pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
+        pyCD /= np.diff(pyCDidx)
 
         return pyBG, pyFP, pyCD
 
@@ -401,19 +412,16 @@ class OscWid(QtGui.QWidget):
         self.settings['pyData'] = data
         self.pOsc.setData(data[:,0], data[:,1])
         self.plotItem.vb.update()
-        [i['item'].update() for i in self.plotItem.axes.values()]
+        # [i['item'].update() for i in self.plotItem.axes.values()]
         min, max = np.min(data[:,1]), np.max(data[:,1])
-        # self.pkText.setPos(self.plotItem.getAxis('bottom').range[0],
-        #                    self.plotItem.getAxis('left').range[1])
 
-        self.pkText.setText("{:.1f}".format((max-min)*10000), color=(0,0,0))
+        self.pkText.setText("{:.1f}".format((max-min)*1000), color=(0,0,0))
 
     def updatePkTextPos(self, null, range):
         self.pkText.setPos(range[0][0], range[1][1])
 
 
     def close(self):
-        print "close"
         self.settings['shouldScopeLoop'] = False
         self.settings["doPhotonCounting"] = False
         #Stop pausing

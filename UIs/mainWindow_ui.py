@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Thu Jul 23 14:07:34 2015
+# Created: Tue Aug 18 10:20:01 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -502,6 +502,11 @@ class Ui_MainWindow(object):
         self.mLivePlotsDisableRawPlots = QtGui.QAction(MainWindow)
         self.mLivePlotsDisableRawPlots.setCheckable(True)
         self.mLivePlotsDisableRawPlots.setObjectName(_fromUtf8("mLivePlotsDisableRawPlots"))
+        self.mSeriesRemove = QtGui.QAction(MainWindow)
+        self.mSeriesRemove.setObjectName(_fromUtf8("mSeriesRemove"))
+        self.mSeriesReset = QtGui.QAction(MainWindow)
+        self.mSeriesReset.setStatusTip(_fromUtf8(""))
+        self.mSeriesReset.setObjectName(_fromUtf8("mSeriesReset"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -510,6 +515,8 @@ class Ui_MainWindow(object):
         self.menuOther_Settings.addAction(self.mFileFastExit)
         self.menuLive_Series.addAction(self.mSeriesSum)
         self.menuLive_Series.addAction(self.mSeriesUndo)
+        self.menuLive_Series.addAction(self.mSeriesRemove)
+        self.menuLive_Series.addAction(self.mSeriesReset)
         self.menuExperiment_Type.addAction(self.fExpTypeHSG)
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
@@ -643,6 +650,9 @@ class Ui_MainWindow(object):
         self.fExpTypeTwo_Color_Abs.setText(_translate("MainWindow", "Two Color Abs", None))
         self.mLivePlotsDisableHistogramAutoscale.setText(_translate("MainWindow", "Disable Histogram autoscale", None))
         self.mLivePlotsDisableRawPlots.setText(_translate("MainWindow", "Disable Raw Plots", None))
+        self.mSeriesRemove.setText(_translate("MainWindow", "Remove Series", None))
+        self.mSeriesReset.setText(_translate("MainWindow", "Set Current as First", None))
+        self.mSeriesReset.setToolTip(_translate("MainWindow", "Set the current image as the first image in the series", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc

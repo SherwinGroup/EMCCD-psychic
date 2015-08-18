@@ -1157,6 +1157,8 @@
     </property>
     <addaction name="mSeriesSum"/>
     <addaction name="mSeriesUndo"/>
+    <addaction name="mSeriesRemove"/>
+    <addaction name="mSeriesReset"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">
@@ -1298,6 +1300,22 @@
    </property>
    <property name="text">
     <string>Disable Raw Plots</string>
+   </property>
+  </action>
+  <action name="mSeriesRemove">
+   <property name="text">
+    <string>Remove Series</string>
+   </property>
+  </action>
+  <action name="mSeriesReset">
+   <property name="text">
+    <string>Set Current as First</string>
+   </property>
+   <property name="toolTip">
+    <string>Set the current image as the first image in the series</string>
+   </property>
+   <property name="statusTip">
+    <string/>
    </property>
   </action>
  </widget>

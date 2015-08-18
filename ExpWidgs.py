@@ -2,6 +2,7 @@ from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
 import scipy.integrate as spi
+import scipy.stats as spt # for calculating FEL pulse information
 import re
 import time
 # import os, sys, inspect
@@ -578,7 +579,90 @@ class BaseExpWidget(QtGui.QWidget):
         ret = loop.exec_()
         return ret == QtGui.QMessageBox.Save
         # return True
+    def genEquipmentDict(self):
+        """
+        The EMCCD class wants a specific dictionary of values. This function will return it
+        :return:
+        """
+        s = dict()
+        s["ccd_temperature"] = str(self.papa.ui.tSettingsCurrTemp.text())
+        s["exposure"] = float(self.papa.CCD.cameraSettings["exposureTime"])
+        s["gain"] = int(self.papa.CCD.cameraSettings["gain"])
+        s["y_min"] = int(self.ui.tCCDYMin.text())
+        s["y_max"] = int(self.ui.tCCDYMax.text())
+        s["grating"] = int(self.papa.ui.sbSpecGrating.value())
+        s["center_lambda"] = float(self.papa.ui.sbSpecWavelength.value())
+        s["slits"] = str(self.ui.tCCDSlits.text())
+        s["dark_region"] = None
+        s["bg_file_name"] = str(self.papa.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
+        s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
+        s["sample_name"] = str(self.ui.tSampleName.text())
+        s["spec_step"] = str(self.ui.tSpectrumStep.text())
+        if self.hasFEL:
+            s["fel_power"] = str(self.ui.tCCDFELP.text())
+            s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
+            s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
+            s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
+                str(self.ui.tCCDFELPulses.text()).strip() else 0
 
+            # We've started to do really long exposures
+            # ( 10 min ~ 300-400 FEL pulses)
+            # which gets annoying when we used to print every pulse
+            # Now we just print some statistics and hope it's
+            # useful enough for us
+            fs = np.array(self.runSettings["fieldStrength"])
+            # prevent warnings/errors when no pulses counted
+            if len(fs)==0:
+                fs = [0]
+            s["fieldStrength"] = {
+                "mean":np.mean(fs),
+                "std": np.std(fs),
+                "skew": spt.skew(fs),
+                "kurtosis": spt.kurtosis(fs)
+            }
+
+            fs = np.array(self.runSettings["fieldInt"])
+            if len(fs)==0:
+                fs = [0]
+            s["fieldInt"] = {
+                "mean":np.mean(fs),
+                "std": np.std(fs),
+                "skew": spt.skew(fs),
+                "kurtosis": spt.kurtosis(fs)
+            }
+
+            # s["fieldInt"] = self.runSettings["fieldInt"]
+
+        if self.hasNIR:
+            s["nir_power"] = str(self.ui.tCCDNIRP.text())
+            s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
+
+        # If the user has the series box as {<variable>} where variable is
+        # any of the keys below, we want to replace it with the relavent value
+        # Potentially unnecessary at this point...
+        #
+        # Also, need to have all possible keywords here as
+        #     "{FELP}".format(GAIN=1)
+        # does not return "{FELP}", as one would hope,
+        # it just throws an error.
+        #
+        # Instead of adding a bunch of empty strings to the dict to
+        # fill the role, use dict.get() so that a key error isn't thrown
+        # when trying to access FEL/NIR only keys
+        st = str(self.ui.tCCDSeries.text())
+        st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
+                       GAIN=s.get("gain"), EXP=s.get("exposure"),
+                       FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
+                       NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
+
+
+
+        s["series"] = st
+        return s
+
+
+    @staticmethod
+    def __SERIES_METHODS(): pass
 
     def analyzeSeries(self):
         #######################
@@ -593,6 +677,8 @@ class BaseExpWidget(QtGui.QWidget):
         if (self.prevDataEMCCD is not None and # Is there something to add to?
                     self.prevDataEMCCD.equipment_dict["series"] == # With the same
                     self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                    self.prevDataEMCCD.equipment_dict["spec_step"] == # With the same
+                    self.curDataEMCCD.equipment_dict["spec_step"] and # spectrum step?
                 self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
                 self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
             log.debug("Added two series together")
@@ -640,7 +726,7 @@ class BaseExpWidget(QtGui.QWidget):
             log.debug("Made a new series where I didn't think I'd be")
 
     def undoSeries(self):
-        log.debug("Added two series together")
+        log.debug("Removed two series together")
         # Un-normalize by the number currently in series
         self.prevDataEMCCD.clean_array *= self.runSettings["seriesNo"]
 
@@ -672,60 +758,32 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
 
 
-    def genEquipmentDict(self):
+    def removeCurrentSeries(self):
         """
-        The EMCCD class wants a specific dictionary of values. This function will return it
+        Sometimes you mess up and took something with series tags
+        that you didn't want taken. This will reset self.prevdata to
+        None so that none ofthe things put into the series up to now
+        will be added to the next ones.
         :return:
         """
-        s = dict()
-        s["ccd_temperature"] = str(self.papa.ui.tSettingsCurrTemp.text())
-        s["exposure"] = float(self.papa.CCD.cameraSettings["exposureTime"])
-        s["gain"] = int(self.papa.CCD.cameraSettings["gain"])
-        s["y_min"] = int(self.ui.tCCDYMin.text())
-        s["y_max"] = int(self.ui.tCCDYMax.text())
-        s["grating"] = int(self.papa.ui.sbSpecGrating.value())
-        s["center_lambda"] = float(self.papa.ui.sbSpecWavelength.value())
-        s["slits"] = str(self.ui.tCCDSlits.text())
-        s["dark_region"] = None
-        s["bg_file_name"] = str(self.papa.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
-        s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
-        s["sample_name"] = str(self.ui.tSampleName.text())
-        s["spec_step"] = str(self.ui.tSpectrumStep.text())
-        if self.hasFEL:
-            s["fel_power"] = str(self.ui.tCCDFELP.text())
-            s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
-            s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
-            s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
-                str(self.ui.tCCDFELPulses.text()).strip() else 0
-            s["fieldStrength"] = self.runSettings["fieldStrength"]
-            s["fieldInt"] = self.runSettings["fieldInt"]
+        self.prevDataEMCCD = None
+        self.runSettings["seriesNo"] = 0
+        self.ui.groupBox_Series.setTitle("Series")
 
-        if self.hasNIR:
-            s["nir_power"] = str(self.ui.tCCDNIRP.text())
-            s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
-
-        # If the user has the series box as {<variable>} where variable is
-        # any of the keys below, we want to replace it with the relavent value
-        # Potentially unnecessary at this point...
-        #
-        # Also, need to have all possible keywords here as
-        #     "{FELP}".format(GAIN=1)
-        # does not return "{FELP}", as one would hope,
-        # it just throws an error.
-        #
-        # Instead of adding a bunch of empty strings to the dict to
-        # fill the role, use dict.get() so that a key error isn't thrown
-        # when trying to access FEL/NIR only keys
-        st = str(self.ui.tCCDSeries.text())
-        st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
-                       GAIN=s.get("gain"), EXP=s.get("exposure"),
-                       FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
-                       NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
-
-
-
-        s["series"] = st
-        return s
+    def setCurrentSeries(self):
+        """
+        Maybe you forgot to check the "Do Series" button.
+        Maybe you forgot to put the series tag in properly.
+        Maybe you put in the wrong series tag
+            (fix it, call removeCurrentSeries followed by this one)
+        Setting the series after the fact may have some much helpful
+        after-the-fact uses.
+        :return:
+        """
+        self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+        self.prevDataEMCCD.file_no += "seriesed"
+        self.runSettings["seriesNo"] = 1
+        self.ui.groupBox_Series.setTitle("Series (1)")
 
 
     @staticmethod

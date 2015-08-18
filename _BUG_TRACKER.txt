@@ -1,9 +1,0 @@
-Oscwid:
-	scale to mV
-	reconnect signal when doing popout window for rescalling
-	
-seriesing with spectrum step
-
-disable quit with the attenuator tab
-
-add button to set series to None (for when we fuck up)
