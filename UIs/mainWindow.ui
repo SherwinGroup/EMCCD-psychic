@@ -1117,6 +1117,16 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>Misc Tools</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_8">
+        <item>
+         <layout class="QVBoxLayout" name="miscToolsLayout"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </item>
    </layout>
@@ -1147,6 +1157,8 @@
     </property>
     <addaction name="mSeriesSum"/>
     <addaction name="mSeriesUndo"/>
+    <addaction name="mSeriesRemove"/>
+    <addaction name="mSeriesReset"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">
@@ -1157,9 +1169,17 @@
     <addaction name="fExpTypeAbs"/>
     <addaction name="fExpTypeTwo_Color_Abs"/>
    </widget>
+   <widget class="QMenu" name="menuLive_Plots">
+    <property name="title">
+     <string>Live Plots</string>
+    </property>
+    <addaction name="mLivePlotsDisableHistogramAutoscale"/>
+    <addaction name="mLivePlotsDisableRawPlots"/>
+   </widget>
    <addaction name="menuOther_Settings"/>
    <addaction name="menuLive_Series"/>
    <addaction name="menuExperiment_Type"/>
+   <addaction name="menuLive_Plots"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="mFileDoCRR">
@@ -1264,6 +1284,38 @@
    </property>
    <property name="text">
     <string>Two Color Abs</string>
+   </property>
+  </action>
+  <action name="mLivePlotsDisableHistogramAutoscale">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Disable Histogram autoscale</string>
+   </property>
+  </action>
+  <action name="mLivePlotsDisableRawPlots">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Disable Raw Plots</string>
+   </property>
+  </action>
+  <action name="mSeriesRemove">
+   <property name="text">
+    <string>Remove Series</string>
+   </property>
+  </action>
+  <action name="mSeriesReset">
+   <property name="text">
+    <string>Set Current as First</string>
+   </property>
+   <property name="toolTip">
+    <string>Set the current image as the first image in the series</string>
+   </property>
+   <property name="statusTip">
+    <string/>
    </property>
   </action>
  </widget>

@@ -2,6 +2,7 @@ from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
 import scipy.integrate as spi
+import scipy.stats as spt # for calculating FEL pulse information
 import re
 import time
 # import os, sys, inspect
@@ -313,30 +314,70 @@ class BaseExpWidget(QtGui.QWidget):
             self.exposureElapsedTimer = None
 
     def startContinuous(self, value):
+        # If not value, the box was being unchecked,
+        # starting can ignore the call
         if value:
+
             self.runSettings["takingContinuous"] = True
+            # Add infinite lines for ease in aligning
             self.p1.addItem(self.ilOnep1)
             self.p1.addItem(self.ilTwop1)
             self.ui.gCCDBin.plotItem.addItem(self.ilOnep2)
             self.ui.gCCDBin.plotItem.addItem(self.ilTwop2)
+
+            # There's some weird, hard to track bug where occasionally,
+            # if you're taking continuous, and you switch tabs and
+            # then turn it on and off (or something like that. It seems
+            # to be related to toggling it when you're not on the
+            # data collection window), the plots would freeze, and would
+            # require a resize (movign splitters, resizing window) to redraw
+            # properly.
+            #
+            # First attempt, here, is to just turn off other tabs so that
+            # you can never toggle collection when in another tab
+            # Another fix could be looking into forcing a redraw of the plots
+            # after updating data, (or calling whatever is called when a
+            # widget gets a resize), though I don't konw how expensive it would
+            # be to call a redraw for every single image.
+            #
+            # Note also that the bug is hard to find because it doesn't seem to
+            # appear on faster-running computers (better ram? faster cpu? details
+            # unclear)
+            for i in range(self.papa.ui.tabWidget.count()):
+                 if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+                 self.papa.ui.tabWidget.setTabEnabled(i, False)
+            # Take an image and have the thread call the continuous collection loop
+            # Done this way so that it's working off the same thread
+            # that data collection would normally be performed on
             self.takeImage(isBackground = self.takeContinuousLoop)
 
     def takeContinuousLoop(self):
         while self.papa.ui.mFileTakeContinuous.isChecked():
+            self.doExposure()
+            # Update from the image that was taken in the first call
+            # when starting the loop
             self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
+            # create the object and clean it up
             image = EMCCD_image(self.rawData,
                                 "", "", "", self.genEquipmentDict())
+            # Ignore CRR and just set the clean to raw for summing
             image.clean_array = image.raw_array
             image.make_spectrum()
             self.sigUpdateGraphs.emit(self.updateSpectrum, image.spectrum)
-            self.doExposure()
+            # self.doExposure()
+        # re-enable UI elements, remove alignment plots
         self.toggleUIElements(True)
         self.p1.removeItem(self.ilOnep1)
         self.p1.removeItem(self.ilTwop1)
-        self.runSettings["takingContinuous"] = False
-
         self.ui.gCCDBin.plotItem.removeItem(self.ilOnep2)
         self.ui.gCCDBin.plotItem.removeItem(self.ilTwop2)
+
+        # re-enable the other tabs
+        for i in range(self.papa.ui.tabWidget.count()):
+             if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+             self.papa.ui.tabWidget.setTabEnabled(i, True)
+        self.runSettings["takingContinuous"] = False
+
 
 
     @staticmethod
@@ -419,7 +460,8 @@ class BaseExpWidget(QtGui.QWidget):
         ####################################
 
     def processImage(self):
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
+        if not self.papa.ui.mLivePlotsDisableRawPlots.isChecked():
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curDataEMCCD = self.DataClass(self.rawData,
@@ -484,8 +526,6 @@ class BaseExpWidget(QtGui.QWidget):
             self.ui.groupBox_Series.setTitle("Series")
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.toggleUIElements(True)
-
-
 
     def processBackground(self):
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
@@ -630,7 +670,24 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
 
-
+    def confirmImage(self):
+        """
+        Prompts the user to ensure the most recent image is acceptable.
+        :return: Boolean of whether or not to accept.
+        """
+        loop = QtCore.QEventLoop()
+        self.sigKillEventLoop.connect(lambda v: loop.exit(v))
+        self.sigMakeGui.emit(
+            QtGui.QMessageBox.information, (
+            None,"Confirm",
+            """Save most recent scan?""",
+            QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard,
+            QtGui.QMessageBox.Save
+        )
+        )
+        ret = loop.exec_()
+        return ret == QtGui.QMessageBox.Save
+        # return True
     def genEquipmentDict(self):
         """
         The EMCCD class wants a specific dictionary of values. This function will return it
@@ -656,8 +713,35 @@ class BaseExpWidget(QtGui.QWidget):
             s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
             s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
                 str(self.ui.tCCDFELPulses.text()).strip() else 0
-            s["fieldStrength"] = self.runSettings["fieldStrength"]
-            s["fieldInt"] = self.runSettings["fieldInt"]
+
+
+            # We've started to do really long exposures
+            # ( 10 min ~ 300-400 FEL pulses)
+            # which gets annoying when we used to print every pulse
+            # Now we just print some statistics and hope it's
+            # useful enough for us
+            fs = np.array(self.runSettings["fieldStrength"])
+            # prevent warnings/errors when no pulses counted
+            if len(fs)==0:
+                fs = [0]
+            s["fieldStrength"] = {
+                "mean":np.mean(fs),
+                "std": np.std(fs),
+                "skew": spt.skew(fs),
+                "kurtosis": spt.kurtosis(fs)
+            }
+
+            fs = np.array(self.runSettings["fieldInt"])
+            if len(fs)==0:
+                fs = [0]
+            s["fieldInt"] = {
+                "mean":np.mean(fs),
+                "std": np.std(fs),
+                "skew": spt.skew(fs),
+                "kurtosis": spt.kurtosis(fs)
+            }
+
+            # s["fieldInt"] = self.runSettings["fieldInt"]
 
         if self.hasNIR:
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
@@ -687,6 +771,132 @@ class BaseExpWidget(QtGui.QWidget):
         return s
 
 
+
+    @staticmethod
+    def __SERIES_METHODS(): pass
+
+    def analyzeSeries(self):
+        #######################
+        # Handling of series tag to add things up live
+        #
+        # Want it to save only the latest series, but also
+        # the previous ones should be saved (hence why this is
+        # after the saving is being done)
+        #######################
+        groupBox = self.ui.groupBox_Series
+
+        if (self.prevDataEMCCD is not None and # Is there something to add to?
+                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
+                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                    self.prevDataEMCCD.equipment_dict["spec_step"] == # With the same
+                    self.curDataEMCCD.equipment_dict["spec_step"] and # spectrum step?
+                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+            log.debug("Added two series together")
+            # Un-normalize by the number currently in series
+            self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
+
+            try:
+                self.prevDataEMCCD += self.curDataEMCCD
+            except Exception as e:
+                log.debug("Error adding series data, {}".format(e))
+            else:
+                self.papa.ui.mSeriesUndo.setEnabled(True)
+
+            self.prevDataEMCCD.make_spectrum()
+
+            # Save the summed, unnormalized spectrum
+            try:
+                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+                self.papa.sigUpdateStatusBar.emit("Saved Series")
+            except Exception as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+                log.debug("Error saving series data, {}".format(e))
+
+            self.runSettings["seriesNo"] +=1
+            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+            # but PLOT the normalized average
+            self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
+            self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
+
+            # Update the plots with this new data
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+            self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+        elif str(self.ui.tCCDSeries.text()) != "":
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.prevDataEMCCD.file_no += "seriesed"
+            self.runSettings["seriesNo"] = 1
+            groupBox.setTitle("Series (1)")
+
+
+        else:
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            groupBox.setTitle("Series")
+            log.debug("Made a new series where I didn't think I'd be")
+
+    def undoSeries(self):
+        log.debug("Removed two series together")
+        # Un-normalize by the number currently in series
+        self.prevDataEMCCD.clean_array *= self.runSettings["seriesNo"]
+
+        try:
+            self.prevDataEMCCD -= self.curDataEMCCD
+        except Exception as e:
+            log.debug("Error undoing series data, {}".format(e))
+        else:
+            self.papa.ui.mSeriesUndo.setEnabled(False)
+
+        self.prevDataEMCCD.make_spectrum()
+
+        # Save the summed, unnormalized spectrum
+        try:
+            self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+            self.papa.sigUpdateStatusBar.emit("Saved Series")
+        except Exception as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+            log.debug("Error saving series data, {}".format(e))
+
+        self.runSettings["seriesNo"] -=1
+        self.ui.groupBox_Series.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+        # but PLOT the normalized average
+        self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
+        self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
+
+        # Update the plots with this new data
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+
+    def removeCurrentSeries(self):
+        """
+        Sometimes you mess up and took something with series tags
+        that you didn't want taken. This will reset self.prevdata to
+        None so that none ofthe things put into the series up to now
+        will be added to the next ones.
+        :return:
+        """
+        self.prevDataEMCCD = None
+        self.runSettings["seriesNo"] = 0
+        self.ui.groupBox_Series.setTitle("Series")
+
+    def setCurrentSeries(self):
+        """
+        Maybe you forgot to check the "Do Series" button.
+        Maybe you forgot to put the series tag in properly.
+        Maybe you put in the wrong series tag
+            (fix it, call removeCurrentSeries followed by this one)
+        Setting the series after the fact may have some much helpful
+        after-the-fact uses.
+        :return:
+        """
+        self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+        self.prevDataEMCCD.file_no += "seriesed"
+        self.runSettings["seriesNo"] = 1
+        self.ui.groupBox_Series.setTitle("Series (1)")
+
+
     @staticmethod
     def __BASIC_UI_CHANGES(): pass
 
@@ -704,7 +914,8 @@ class BaseExpWidget(QtGui.QWidget):
     def updateSignalImage(self, data = None):
         data = np.array(data)
         self.pSigImage.setImage(data)
-        self.pSigHist.setLevels(data.min(), data.max())
+        if not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
+            self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
         data = np.array(data)

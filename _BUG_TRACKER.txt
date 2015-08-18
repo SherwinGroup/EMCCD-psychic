@@ -1,2 +1,0 @@
-
-what happens when you set the image to 100-300 and sum over 0-400? -60k appears?

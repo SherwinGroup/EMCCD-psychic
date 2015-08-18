@@ -702,6 +702,13 @@ class cosmicsimage:
             
             if iterres["niter"] == 0:
                 break
+
+            if iterres["niter"] > 500:
+                # In our CCD data, we never have this many cosmics.
+                # if we do, then the settings are wrong, because it
+                # detected too many and we want to abort this,
+                # isntead of wasting time.
+                break
         
 
 # Top-level functions

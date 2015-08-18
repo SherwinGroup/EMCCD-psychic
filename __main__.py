@@ -55,6 +55,8 @@ from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
 
+
+
 try:
     a = QtCore.QString()
 except AttributeError:
@@ -365,12 +367,17 @@ class CCDWindow(QtGui.QMainWindow):
         # Connections for file menu things
         ##################
         # All I want it to do is set a flag which gets checked later.
+        # I think I learned to just check the state of the UI element instead
+        # of this dict value, but I'm not 100% sure
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
-        # self.ui.mSeriesUndo.triggered.connect(self.undoLastSeries)
+
         self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
+        self.ui.mSeriesRemove.triggered.connect(self.getCurExp().removeCurrentSeries)
+        self.ui.mSeriesReset.triggered.connect(self.getCurExp().setCurrentSeries)
+
         self.ui.mFileFastExit.triggered.connect(self.close)
 
         self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
@@ -381,6 +388,15 @@ class CCDWindow(QtGui.QMainWindow):
         self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
         self.console.triggered.connect(self.openDebugConsole)
 
+
+        ###############################
+        #
+        # These are commands for adding the motor controller
+        # window.
+        #
+        ###########################
+        self.addPolarizerMotorDriver()
+        self.ui.miscToolsLayout.addStretch(10)
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
@@ -478,7 +494,7 @@ class CCDWindow(QtGui.QMainWindow):
 
     def openHSG(self):
         self.oscWidget = OscWid(self)
-        self.ui.tabWidget.addTab(self.oscWidget, "Oscilloscope")
+        self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
 
     def closeHSG(self):
         self.ui.tabWidget.removeTab(
@@ -747,6 +763,39 @@ class CCDWindow(QtGui.QMainWindow):
                 os.mkdir(specFold)
             except Exception as e:
                 log.warning("Could not make folder for spectrum {}. Error: {}".format(specFold, e))
+
+    @staticmethod
+    def ____ADDING_MISC_TOOLS():pass
+    def addPolarizerMotorDriver(self):
+        import motordriver.__main__ as md
+        motorDriverGB = QtGui.QGroupBox("Attenuator", self)
+        motorDriverGB.setFlat(True)
+        layout = QtGui.QVBoxLayout()
+        layout.addWidget(md.MotorWindow())
+        motorDriverGB.setLayout(layout)
+        self.ui.miscToolsLayout.addWidget(motorDriverGB)
+
+        # Disable the control panel for the motor driver
+        # It the mutexs still occasionally lock if you're not careful,
+        # and that could be catastrophic if the CCD is at -90 and
+        # the software locks.
+        #
+        # Why am I doing it this way instead of keeping a reference
+        # when instantiating, referencing it by that?
+        #
+        # Because this gives me a way to access it, without keeping
+        # another class attribute, while the software is running
+        # (If this or other objects need to be modified)
+        # It is not pretty, and I apologize. It probably
+        # wouldn't be hard to keep an internal reference,
+        # but I don't see why; it shouldn't have to be referenced
+        # after this point
+        self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.mMoreSettings.setEnabled(False)
+        #                              |                      |_____[0] is the layout, [1] is the obj
+        #                              |
+        #                              |_______________________motordriver groupbox is the first thing in the layout
+
+        self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
 
     @staticmethod
     def __SPECTROMETER(): pass
