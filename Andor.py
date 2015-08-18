@@ -789,7 +789,32 @@ class AndorEMCCD(object):
         self.dllSetADChannel = dll.SetADChannel
         self.dllSetADChannel.restype = c_uint
         self.dllSetADChannel.argtypes = [c_uint]
-        
+
+
+
+        """
+        SetCoolerMode: This function determines whether the fan is switched
+        off when an application ends.
+
+        Parameters
+        ----------
+        int mode:
+            1 – Temperature is maintained on ShutDown
+            0 – Returns to ambient temperature on ShutDown
+
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Parameters set.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_ACQUIRING           Acquisition in progress.
+            DRV_P1INVALID           State parameter was not zero or one.
+        """
+        self.dllSetCoolerMode = dll.SetCoolerMode
+        self.dllSetCoolerMode.restype = c_uint
+        self.dllSetCoolerMode.argtypes = [c_uint]
+
+
         """
         SetEMCCDGain: Allows the user to change the amplitude of clock voltages 
         thereby amplifying the signal. Gain values between 0 and 255 are permitted.

@@ -99,13 +99,37 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.CCD.initialize()
 
+        # A note on the cooler:
+        # This command will make it so the cooling fan
+        # will not turn off when the software is closed.
+        # Turning it off is bad when the temperature is <0
+        # because it can lead to warming of the CCD chip at
+        # damagingly fast rates. The option to leave it on
+        # continuously has two main benefits
+        # 1) If the software crashes (rare, but possible),
+        #    the chip should stay cold and the software
+        #    or SOLIS software can be started and recover
+        #    safely
+        # 2) Software changes that need to occur live, but
+        #    after cooling, can be pushed after the CCD is
+        #    cold without waiting 20 minutes for it to warm
+        #    and recool
+        #
+        # For reason 1) above, we want to disable the auto-
+        # shutoff of the cooler immediately to prevent issues
+        # for software crashes.
+
+        self.CCD.dllSetCoolerMode(1)
+
         self.initUI()
 
         # Check to make sure the software didn't crash and the temperature is currently cold
         temp = self.CCD.getTemperature()
-        self.ui.tSettingsGotoTemp.setText(str(temp))
+        self.ui.tSettingsCurrTemp.setText(str(temp))
         if temp < 0:
             self.doTempSet(temp)
+
+
 
         self.Spectrometer = None
         self.Agilent = None
@@ -1360,21 +1384,19 @@ class CCDWindow(QtGui.QMainWindow):
         print 'closing,', event.type()
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:
-            # Note, this does not work. Remove this stuff in a future version.
-            pass
-            # ret = QtGui.QMessageBox.warning(
-            #     self,
-            #     "Warning",
-            #     "This will leave the CCD and cooler on.\n"
-            #     "Only use if you intend to immediately restart "
-            #     "control software",
-            #     QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
-            #     QtGui.QMessageBox.Cancel
-            # )
-            # if ret == QtGui.QMessageBox.Cancel:
-            #     event.ignore()
-            #     return
-            # fastExit = True
+            ret = QtGui.QMessageBox.warning(
+                self,
+                "Warning",
+                "This will leave the CCD and cooler on.\n"
+                "Only use if you intend to immediately restart "
+                "control software",
+                QtGui.QMessageBox.Ok | QtGui.QMessageBox.Cancel,
+                QtGui.QMessageBox.Cancel
+            )
+            if ret == QtGui.QMessageBox.Cancel:
+                event.ignore()
+                return
+            fastExit = True
         try:
             log.info("Waiting for temperature set thread")
             self.setTempThread.wait()
@@ -1440,10 +1462,14 @@ class CCDWindow(QtGui.QMainWindow):
         if not fastExit:
             ret = self.CCD.dllCoolerOFF()
             log.debug("cooler off ret: {}".format(self.CCD.parseRetCode(ret)))
-            ret = self.CCD.dllShutDown()
-            log.debug("shutdown ret: {}".format(self.CCD.parseRetCode(ret)))
+            ret = self.CCD.dllSetCoolerMode(0)
+            log.debug("coller off ret: {}".format(self.CCD.parseRetCode(ret)))
+            # ret = self.CCD.dllShutDown()
+            # log.debug("shutdown ret: {}".format(self.CCD.parseRetCode(ret)))
         else:
-            log.warning("Didn't shut down the CCD!")
+            log.warning("Didn't turn off the cooler!")
+        ret = self.CCD.dllShutDown()
+        log.debug("shutdown ret: {}".format(self.CCD.parseRetCode(ret)))
         self.Spectrometer.close()
 
         self.CCD.cameraSettings = dict()  # Something is throwing an error when this isn't here
