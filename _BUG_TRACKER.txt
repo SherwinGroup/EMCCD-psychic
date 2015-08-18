@@ -1,2 +1,9 @@
+Oscwid:
+	scale to mV
+	reconnect signal when doing popout window for rescalling
+	
+seriesing with spectrum step
 
-what happens when you set the image to 100-300 and sum over 0-400? -60k appears?
+disable quit with the attenuator tab
+
+add button to set series to None (for when we fuck up)

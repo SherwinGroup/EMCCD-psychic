@@ -352,6 +352,7 @@ class BaseExpWidget(QtGui.QWidget):
 
     def takeContinuousLoop(self):
         while self.papa.ui.mFileTakeContinuous.isChecked():
+            self.doExposure()
             # Update from the image that was taken in the first call
             # when starting the loop
             self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
@@ -362,7 +363,7 @@ class BaseExpWidget(QtGui.QWidget):
             image.clean_array = image.raw_array
             image.make_spectrum()
             self.sigUpdateGraphs.emit(self.updateSpectrum, image.spectrum)
-            self.doExposure()
+            # self.doExposure()
         # re-enable UI elements, remove alignment plots
         self.toggleUIElements(True)
         self.p1.removeItem(self.ilOnep1)

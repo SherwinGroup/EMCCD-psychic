@@ -406,7 +406,7 @@ class OscWid(QtGui.QWidget):
         # self.pkText.setPos(self.plotItem.getAxis('bottom').range[0],
         #                    self.plotItem.getAxis('left').range[1])
 
-        self.pkText.setText("{:.1f}".format(max-min), color=(0,0,0))
+        self.pkText.setText("{:.1f}".format((max-min)*10000), color=(0,0,0))
 
     def updatePkTextPos(self, null, range):
         self.pkText.setPos(range[0][0], range[1][1])
