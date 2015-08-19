@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Tue Aug 18 10:20:01 2015
+# Created: Wed Aug 19 09:52:31 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -507,6 +507,9 @@ class Ui_MainWindow(object):
         self.mSeriesReset = QtGui.QAction(MainWindow)
         self.mSeriesReset.setStatusTip(_fromUtf8(""))
         self.mSeriesReset.setObjectName(_fromUtf8("mSeriesReset"))
+        self.fExpTypeAlignment = QtGui.QAction(MainWindow)
+        self.fExpTypeAlignment.setCheckable(True)
+        self.fExpTypeAlignment.setObjectName(_fromUtf8("fExpTypeAlignment"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -521,6 +524,7 @@ class Ui_MainWindow(object):
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
         self.menuExperiment_Type.addAction(self.fExpTypeTwo_Color_Abs)
+        self.menuExperiment_Type.addAction(self.fExpTypeAlignment)
         self.menuLive_Plots.addAction(self.mLivePlotsDisableHistogramAutoscale)
         self.menuLive_Plots.addAction(self.mLivePlotsDisableRawPlots)
         self.menubar.addAction(self.menuOther_Settings.menuAction())
@@ -653,6 +657,7 @@ class Ui_MainWindow(object):
         self.mSeriesRemove.setText(_translate("MainWindow", "Remove Series", None))
         self.mSeriesReset.setText(_translate("MainWindow", "Set Current as First", None))
         self.mSeriesReset.setToolTip(_translate("MainWindow", "Set the current image as the first image in the series", None))
+        self.fExpTypeAlignment.setText(_translate("MainWindow", "Alignment", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc

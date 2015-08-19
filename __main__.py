@@ -92,7 +92,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = False)
+            self.CCD = AndorEMCCD(wantFake = True)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -291,6 +291,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.expUIs["PL"].setParent(None)
         self.expUIs["Two Color Abs"] = TwoColorAbsWid(self)
         self.expUIs["Two Color Abs"].setParent(None)
+        self.expUIs["Alignment"] = AlignWid(self)
+        self.expUIs["Alignment"].setParent(None)
         # Connect the changes
         [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
 
@@ -456,7 +458,7 @@ class CCDWindow(QtGui.QMainWindow):
         newExp = str(sent.text())
         # if oldExp == "HSG":
         #     self.closeHSG()
-        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
+        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
             # hasFEL = self.getCurExp().hasFEL
             self.closeExp(oldExp)
             # if hasFEL:
@@ -466,7 +468,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         # if newExp == "HSG":
         #     self.openHSG()
-        if newExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
+        if newExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
             self.openExp(newExp)
             # if self.getCurExp().hasFEL:
             #     self.openHSG()

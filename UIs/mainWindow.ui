@@ -1168,6 +1168,7 @@
     <addaction name="fExpTypePL"/>
     <addaction name="fExpTypeAbs"/>
     <addaction name="fExpTypeTwo_Color_Abs"/>
+    <addaction name="fExpTypeAlignment"/>
    </widget>
    <widget class="QMenu" name="menuLive_Plots">
     <property name="title">
@@ -1316,6 +1317,14 @@
    </property>
    <property name="statusTip">
     <string/>
+   </property>
+  </action>
+  <action name="fExpTypeAlignment">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Alignment</string>
    </property>
   </action>
  </widget>
