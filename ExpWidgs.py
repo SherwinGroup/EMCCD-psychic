@@ -1112,9 +1112,9 @@ class AlignWid(BaseExpWidget):
         self.ilOne.sigPositionChanged.connect(self.sumLines)
         self.ilTwo.sigPositionChanged.connect(self.sumLines)
         self.ilThree.sigPositionChanged.connect(self.sumLines)
-        self.curveOne = self.ui.gCCDBin.plot(pen='r')
-        self.curveTwo = self.ui.gCCDBin.plot(pen='b')
-        self.curveThree = self.ui.gCCDBin.plot(pen='g')
+        self.curveOne = self.ui.gCCDBin.plot(pen=pg.mkPen('r', width=3))
+        self.curveTwo = self.ui.gCCDBin.plot(pen=pg.mkPen('b', width=3))
+        self.curveThree = self.ui.gCCDBin.plot(pen=pg.mkPen('g', width=3))
         self.ui.tCCDSampleTemp.setText('2')
 
 
