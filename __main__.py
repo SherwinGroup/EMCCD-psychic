@@ -62,6 +62,12 @@ try:
 except AttributeError:
     QtCore.QString = str
 
+neLines = [
+    692.947,
+    703.241, 717.394, 724.512, 743.890,
+    747.244, 748.887, 753.577, 754.404
+]
+
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -230,6 +236,8 @@ class CCDWindow(QtGui.QMainWindow):
         # do you want me to remove cosmic rays?
         s["doCRR"] = True
         s["takeContinuous"] = False
+        # flag for allowing the automatic spectrometer sweeping
+        s["doSpecSweep"] = False
 
         # Misc settings concerning the experimental parameters.
         # They are set by the children experimental widgets, but kept here so that
@@ -411,6 +419,10 @@ class CCDWindow(QtGui.QMainWindow):
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
+        self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
+        self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
+        self.neCal.setEnabled(False)
+
         self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
         self.console.triggered.connect(self.openDebugConsole)
 
@@ -549,6 +561,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHStart.setEnabled(val)
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
+        self.neCal.setEnabled(val)
 
     def openDebugConsole(self):
         self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
@@ -861,18 +874,42 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSpecCurGr.setText(str(new))
 
     def startSweepLoop(self, val):
+        if hasattr(val, '__iter__'):
+            # If you pass a list of values, just go to those
+            # I want this for a lazy way to set the spectrometer to
+            # Ne lines, too
+
+            a = QtGui.QMessageBox()
+            a.setText("Do you want to scan up?")
+            a.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Cancel)
+            ret = a.exec_()
+            if ret == QtGui.QMessageBox.Cancel:
+                self.settings["doSpecSweep"] = False
+                return
+            elif ret == QtGui.QMessageBox.Yes:
+                self.sweepRange = np.array(val)
+            else:
+                self.sweepRange = np.array(val)[::-1]
+
+            self.thDoSpectrometerSweep.target = self.sweepLoop
+            self.thDoSpectrometerSweep.start()
+            self.settings["doSpecSweep"] = True
+            return
         if val:
             start, step, end, ok = ScanParameterDialog.getSteps(self)
             if not ok:
                 self.sweep.setChecked(False)
+                self.settings["doSpecSweep"] = False
                 return
             else:
+                self.settings["doSpecSweep"] = True
                 log.debug("Dialog accepted, {}, {}, {}".format(start, step, end))
 
                 self.sweepRange = np.arange(start, end, step)
                 self.thDoSpectrometerSweep.target = self.sweepLoop
                 self.thDoSpectrometerSweep.start()
-        else: pass # just getting turned off (heh)
+        else:
+            self.settings["doSpecSweep"] = False # just getting turned off
 
     def sweepLoop(self):
         # Don't want it to keep asking if we want to save the image,
@@ -882,7 +919,7 @@ class CCDWindow(QtGui.QMainWindow):
         oldConfirmation = self.curExp.confirmImage
         self.curExp.confirmImage = lambda : True
         for wavelength in self.sweepRange:
-            if not self.sweep.isChecked(): break
+            if not self.settings["doSpecSweep"]: break
             log.debug("At wavelength {}".format(wavelength))
             self.updateElementSig.emit(lambda: self.ui.sbSpecWavelength.setValue(wavelength), None)
             time.sleep(0.5) # need to make sure the spectrometer and all things
@@ -905,7 +942,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.settings["changedSettingsFlags"][-1] = 1
             self.updateSettings()
             log.debug("set shutter Auto")
-            if not self.sweep.isChecked(): break
+            if not self.settings["doSpecSweep"]: break
 
             self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
             log.debug("Called Take image")
