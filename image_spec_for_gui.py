@@ -514,9 +514,9 @@ def gen_wavelengths(center_lambda, grating):
     grating = which grating, 1 or 2
     center = center wavelength in nanometers
     '''
-    b = 0.75
-    k = -1.0
-    r = 16.0e-6
+    b = 0.75 # length of spectrometer, in m
+    k = -1.0 # order looking at
+    r = 16.0e-6 # distance between pixles on CCD
 
     if grating == 1:
         d = 1./1800000.
@@ -526,6 +526,8 @@ def gen_wavelengths(center_lambda, grating):
         d = 1./1200000.
         gamma = 0.2207676478674860
         delta = 1.352055027245235
+    elif grating == 3:
+        return np.arange(0, 1600)
     else:
         print "What a dick, that's not a valid grating"
         return None

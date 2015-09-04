@@ -380,7 +380,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_36.setObjectName(_fromUtf8("horizontalLayout_36"))
         self.sbSpecGrating = QtGui.QSpinBox(self.groupBox)
         self.sbSpecGrating.setMinimum(1)
-        self.sbSpecGrating.setMaximum(2)
+        self.sbSpecGrating.setMaximum(3)
         self.sbSpecGrating.setObjectName(_fromUtf8("sbSpecGrating"))
         self.horizontalLayout_36.addWidget(self.sbSpecGrating)
         self.gridLayout_16.addWidget(self.groupBox, 2, 0, 1, 1)
