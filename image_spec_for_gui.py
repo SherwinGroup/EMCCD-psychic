@@ -520,14 +520,16 @@ def gen_wavelengths(center_lambda, grating):
 
     if grating == 1:
         d = 1./1800000.
-        gamma = 0.2243885861015487
-        delta = 1.353959952416065
+        gamma = 0.213258508834
+        delta = 1.46389935365
     elif grating == 2:
         d = 1./1200000.
-        gamma = 0.2207676478674860
-        delta = 1.352055027245235
+        gamma = 0.207412628027
+        delta = 1.44998344749
     elif grating == 3:
-        return np.arange(0, 1600)
+        d = 1./600000.
+        gamma = 0.213428934011
+        delta = 1.34584754696
     else:
         print "What a dick, that's not a valid grating"
         return None
