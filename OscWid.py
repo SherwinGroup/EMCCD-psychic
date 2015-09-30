@@ -5,11 +5,9 @@ import scipy.integrate as spi
 import re
 from InstsAndQt.customQt import *
 from InstsAndQt.Instruments import *
+import InstsAndQt.Instruments
+InstsAndQt.Instruments.PRINT_OUTPUT = False
 import visa
-# import os, sys, inspect
-# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-# if cmd_subfolder not in sys.path:
-#      sys.path.insert(0, cmd_subfolder)
 from UIs.Oscilloscope_ui import Ui_Oscilloscope
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -92,6 +90,11 @@ class OscWid(QtGui.QWidget):
         s['bcpyFP'] = [0, 0]
         s['bcpyCD'] = [0, 0]
         s['pyData'] = None
+
+        s["pyBG"] = 0
+        s["pyFP"] = 0
+        s["pyCD"] = 0
+        s["CDtoFPRatio"] = 0
 
         self.settings = s
 
@@ -331,8 +334,17 @@ class OscWid(QtGui.QWidget):
                 self.scopePausingLoop.exec_()
                 continue
             pyData = self.Agilent.getSingleChannel(int(self.ui.cOChannel.currentIndex())+1)
+            # if str(self.ui.cPyroMode.currentText()) == "Integrating":
+            #     pyData[:,1] = np.cumsum(pyData[:,1])#*(pyData[1,0]-pyData[0,0])
+            #     log.critical("THIS IS A DEBUG LINE, GET RID OF THIS")
+
             if not self.settings['isScopePaused']:
                 self.pyDataSig.emit(pyData)
+                self.settings['pyData'] = pyData
+                pyBG, pyFP, pyCD = self.integrateData()
+                self.settings["pyBG"] = pyBG
+                self.settings["pyFP"] = pyFP
+                self.settings["pyCD"] = pyCD
                 self.updateOscDataSig.emit()
 
     def doPhotonCountingLoop(self):
@@ -341,10 +353,9 @@ class OscWid(QtGui.QWidget):
             self.updateOscDataSig.connect(self.photonWaitingLoop.exit)
             self.photonWaitingLoop.exec_()
             if self.papa.curExp.runSettings["exposing"]:
-                pyBG, pyFP, pyCD = self.integrateData()
-                self.settings["pyBG"] = pyBG
-                self.settings["pyFP"] = pyFP
-                self.settings["pyCD"] = pyCD
+                pyBG = self.settings["pyBG"]
+                pyFP = self.settings["pyFP"]
+                pyCD = self.settings["pyCD"]
 
                 # The front porch is now much tinier than previously used
                 # to, potentially due to Nick optimizing the YAG. Who knows.
@@ -374,6 +385,8 @@ class OscWid(QtGui.QWidget):
         #while trying to do analysis?
         pyD = self.settings['pyData']
 
+
+
         pyBGbounds = self.boxcarRegions[0].getRegion()
         pyBGidx = self.findIndices(pyBGbounds, pyD[:,0])
 
@@ -384,11 +397,31 @@ class OscWid(QtGui.QWidget):
         pyCDidx = self.findIndices(pyCDbounds, pyD[:,0])
 
         pyBG = spi.simps(pyD[pyBGidx[0]:pyBGidx[1],1], pyD[pyBGidx[0]:pyBGidx[1], 0])
-        pyBG /= np.diff(pyBGidx)
-        pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
-        pyFP /= np.diff(pyFPidx)
-        pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
-        pyCD /= np.diff(pyCDidx)
+        pyBG /= np.diff(pyBGidx)[0]
+
+        if str(self.ui.cPyroMode.currentText()) == "Instant":
+            # if the pyro is in instantaneous ("fast" mode), integrate the data
+            # ourselves
+            pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
+            pyFP /= np.diff(pyFPidx)[0]
+            pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
+            pyCD /= np.diff(pyCDidx)[0]
+            self.settings['CDtoFPRatio'] = pyCD/(pyCD + pyFP)
+        else:
+            # otherwise, assume it's in integrating mode, we just
+            # want to pick out the points at the end of the FP
+            # and the start of the CD
+
+            # fit the FP to a line in the region selected by the user
+            #
+            linearCoeff = np.polyfit(*pyD[pyFPidx,:].T, deg=1)
+            pyFP = np.polyval(x = pyD[pyFPidx[-1], 0], p = linearCoeff)
+
+            # for the CD, pick the first index given by the
+            # linearregion
+            pyCD = pyD[pyCDidx[0], 1]
+            self.settings['CDtoFPRatio'] = pyCD/pyFP
+
 
         return pyBG, pyFP, pyCD
 
@@ -412,10 +445,15 @@ class OscWid(QtGui.QWidget):
         self.settings['pyData'] = data
         self.pOsc.setData(data[:,0], data[:,1])
         self.plotItem.vb.update()
-        # [i['item'].update() for i in self.plotItem.axes.values()]
+        # [i['item'].update() for i in self.plotItem.axes.values()
         min, max = np.min(data[:,1]), np.max(data[:,1])
-
-        self.pkText.setText("{:.1f}".format((max-min)*1000), color=(0,0,0))
+        try:
+            self.pkText.setText("{:.1f}, {:.2f}".format((max-min)*1000,
+                                self.settings['CDtoFPRatio']), color=(0,0,0))
+        except:
+            print self.settings['CDtoFPRatio'], self.settings["pyBG"], self.settings["pyFP"],self.settings["pyCD"],
+            print type(self.settings["pyBG"]), type(self.settings["pyFP"]),type(self.settings["pyCD"])
+            raise
 
     def updatePkTextPos(self, null, range):
         self.pkText.setPos(range[0][0], range[1][1])

@@ -415,7 +415,7 @@ class BaseExpWidget(QtGui.QWidget):
         """
         :param BG: integrated background value
         :param FP: integrated front porch value
-        :param CD: integrated cavity dump region
+        :param CD: integrated cav   ity dump region
         :return:
         """
         try:
@@ -423,7 +423,11 @@ class BaseExpWidget(QtGui.QWidget):
             windowTrans = self.ui.tCCDWindowTransmission.value()
             effField = self.ui.tCCDEffectiveField.value()
             radius = self.ui.tCCDSpotSize.value()
-            ratio = FP/(FP + CD)
+            if str(self.papa.oscWidget.ui.cPyroMode.currentText()) == "Instant":
+                ratio = CD/(FP + CD)
+            else:
+                ratio = CD/FP
+            ratio = self.papa.oscWidget.settings['CDtoFPRatio']
             intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
                                        ratio = ratio)
             field = calc_THz_field(intensity)
