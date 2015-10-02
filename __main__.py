@@ -93,7 +93,7 @@ class CCDWindow(QtGui.QMainWindow):
 
     thDoSpectrometerSweep = TempThread()
 
-
+   
     def __init__(self):
         super(CCDWindow, self).__init__()
         log.debug("About to initialize settins")
@@ -101,7 +101,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
