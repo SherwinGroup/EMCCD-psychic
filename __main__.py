@@ -107,6 +107,13 @@ class CCDWindow(QtGui.QMainWindow):
             self.close()
 
         self.CCD.initialize()
+        if self.CCD.dllInitializeRet is not None:
+            MessageDialog(self,
+                          """Error! CCD was not initialized!
+                          A fake camera was initialized!\n\n Error: {}""".format(
+                              self.CCD.parseRetCode(self.CCD.dllInitializeRet)
+                          ),
+                          0)
 
         # A note on the cooler:
         # This command will make it so the cooling fan
@@ -404,6 +411,7 @@ class CCDWindow(QtGui.QMainWindow):
         # Connections for file menu things
         ##################
         # All I want it to do is set a flag which gets checked later.
+        # Later note:
         # I think I learned to just check the state of the UI element instead
         # of this dict value, but I'm not 100% sure
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
@@ -414,6 +422,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
         self.ui.mSeriesRemove.triggered.connect(self.getCurExp().removeCurrentSeries)
         self.ui.mSeriesReset.triggered.connect(self.getCurExp().setCurrentSeries)
+
+        self.ui.mLivePlotsForceAutoscale.triggered.connect(self.getCurExp().autoscaleSignalHistogram)
 
         self.ui.mFileFastExit.triggered.connect(self.close)
 
@@ -667,6 +677,7 @@ class CCDWindow(QtGui.QMainWindow):
             log.info('Change AD Channel: {}'.format(self.CCD.parseRetCode(ret)))
             if ret != 20002:
                 log.error("Error updating AD Channel. Return code, {}".format(ret))
+                self.warnSettingsFailure()
                 return
 
             # Changing the AD changes the available HSS. Find out what they are,
@@ -762,6 +773,13 @@ class CCDWindow(QtGui.QMainWindow):
 
         for (i, uiEle) in enumerate(self.settings["imageUI"]):
             uiEle.setText(str(self.CCD.cameraSettings['imageSettings'][i]))
+
+    def warnSettingsFailure(self):
+        """
+        For when you choose to update the camera settings,
+        but they get kicked back
+        """
+
 
     def chooseSaveDir(self):
         prevDir = self.settings["saveDir"]

@@ -44,7 +44,8 @@ class OscWid(QtGui.QWidget):
         self.initUI()
         self.papa = papa # For keeping track of things relevant to the parent widget
 
-        self.pyDataSig.connect(self.updateOscilloscopeGraph)
+        # self.pyDataSig.connect(self.updateOscilloscopeGraph)
+        self.updateOscDataSig.connect(self.updateOscilloscopeGraph)
         self.photonCountingThread = TempThread(target = self.doPhotonCountingLoop)
         self.photonCountingThread.start()
 
@@ -339,7 +340,7 @@ class OscWid(QtGui.QWidget):
             #     log.critical("THIS IS A DEBUG LINE, GET RID OF THIS")
 
             if not self.settings['isScopePaused']:
-                self.pyDataSig.emit(pyData)
+                # self.pyDataSig.emit(pyData)
                 self.settings['pyData'] = pyData
                 pyBG, pyFP, pyCD = self.integrateData()
                 self.settings["pyBG"] = pyBG
@@ -442,8 +443,8 @@ class OscWid(QtGui.QWidget):
         return start, end
 
 
-    def updateOscilloscopeGraph(self, data):
-        self.settings['pyData'] = data
+    def updateOscilloscopeGraph(self):
+        data = self.settings['pyData']
         self.pOsc.setData(data[:,0], data[:,1])
         self.plotItem.vb.update()
         # [i['item'].update() for i in self.plotItem.axes.values()
@@ -454,7 +455,6 @@ class OscWid(QtGui.QWidget):
         except:
             print self.settings['CDtoFPRatio'], self.settings["pyBG"], self.settings["pyFP"],self.settings["pyCD"],
             print type(self.settings["pyBG"]), type(self.settings["pyFP"]),type(self.settings["pyCD"])
-            raise
 
     def updatePkTextPos(self, null, range):
         self.pkText.setPos(range[0][0], range[1][1])

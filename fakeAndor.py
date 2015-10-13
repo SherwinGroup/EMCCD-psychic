@@ -32,6 +32,10 @@ class myCallable(object):
                 ret = 20036 # temp stabilized
             else:
                 ret = 20037
+        elif self.st == "Initialize":
+            ret = -1
+        elif self.st == 'InitializeMissingDLL':
+            ret = -2
 
         return ret
 

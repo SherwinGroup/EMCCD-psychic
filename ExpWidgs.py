@@ -265,6 +265,11 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.papa.CCD.dllStartAcquisition()
         if self.hasFEL and not self.papa.oscWidget.settings["isScopePaused"] and not self.papa.ui.mFileTakeContinuous.isChecked():
+            # Wait for an FEL pulse before we start counting, as determined by
+            # the oscilloscope triggering.
+            #
+            # This feature is intended to synchronize better with the camera
+            # exposure when it is also triggered by the FEL.
             waitForPulseLoop = QtCore.QEventLoop()
             self.papa.oscWidget.updateOscDataSig.connect(waitForPulseLoop.exit)
             waitForPulseLoop.exec_()
@@ -423,10 +428,10 @@ class BaseExpWidget(QtGui.QWidget):
             windowTrans = self.ui.tCCDWindowTransmission.value()
             effField = self.ui.tCCDEffectiveField.value()
             radius = self.ui.tCCDSpotSize.value()
-            if str(self.papa.oscWidget.ui.cPyroMode.currentText()) == "Instant":
-                ratio = CD/(FP + CD)
-            else:
-                ratio = CD/FP
+            # if str(self.papa.oscWidget.ui.cPyroMode.currentText()) == "Instant":
+            #     ratio = CD/(FP + CD)
+            # else:
+            #     ratio = CD/FP
             ratio = self.papa.oscWidget.settings['CDtoFPRatio']
             intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
                                        ratio = ratio)
@@ -808,8 +813,15 @@ class BaseExpWidget(QtGui.QWidget):
     def updateSignalImage(self, data = None):
         data = np.array(data)
         self.pSigImage.setImage(data)
-        if not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
-            self.pSigHist.setLevels(data.min(), data.max())
+        if self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
+            self.pSigImage.setLevels(self.pSigHist.getLevels())
+        else:
+            # self.pSigHist.setLevels(data.min(), data.max())
+            self.autoscaleSignalHistogram()
+
+    def autoscaleSignalHistogram(self):
+        data = self.pSigImage.image
+        self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
         data = np.array(data)
