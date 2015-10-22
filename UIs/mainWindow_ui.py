@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Fri Oct 02 13:38:45 2015
+# Created: Thu Oct 22 10:48:55 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -380,7 +380,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_36.setObjectName(_fromUtf8("horizontalLayout_36"))
         self.sbSpecGrating = QtGui.QSpinBox(self.groupBox)
         self.sbSpecGrating.setMinimum(1)
-        self.sbSpecGrating.setMaximum(2)
+        self.sbSpecGrating.setMaximum(3)
         self.sbSpecGrating.setObjectName(_fromUtf8("sbSpecGrating"))
         self.horizontalLayout_36.addWidget(self.sbSpecGrating)
         self.gridLayout_16.addWidget(self.groupBox, 2, 0, 1, 1)

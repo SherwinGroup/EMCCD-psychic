@@ -422,7 +422,7 @@ class OscWid(QtGui.QWidget):
             # linearregion
             pyCD = pyD[pyCDidx[0], 1]
             pyCD = np.mean(pyD[pyCDidx[0]:pyCDidx[1], 1])
-            self.settings['CDtoFPRatio'] = (pyCD-pyFP)/pyCD
+            self.settings['CDtoFPRatio'] = (pyCD-pyFP)/(pyCD - pyBG)
 
 
         return pyBG, pyFP, pyCD
