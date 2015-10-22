@@ -62,6 +62,15 @@ try:
 except AttributeError:
     QtCore.QString = str
 
+neLines = [
+    607.433, 609.616, 612.884, 614.306,
+    616.359, 621.728, 626.649, 633.442,
+    638.299, 640.225, 650.653, 653.288,
+    659.895, 667.828, 671.704, 692.947,
+    703.241, 717.394, 724.512, 743.890,
+    747.244, 748.887, 753.577, 754.404
+]
+
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -84,7 +93,7 @@ class CCDWindow(QtGui.QMainWindow):
 
     thDoSpectrometerSweep = TempThread()
 
-
+   
     def __init__(self):
         super(CCDWindow, self).__init__()
         log.debug("About to initialize settins")
@@ -98,6 +107,13 @@ class CCDWindow(QtGui.QMainWindow):
             self.close()
 
         self.CCD.initialize()
+        if self.CCD.dllInitializeRet is not None:
+            MessageDialog(self,
+                          """Error! CCD was not initialized!
+                          A fake camera was initialized!\n\n Error: {}""".format(
+                              self.CCD.parseRetCode(self.CCD.dllInitializeRet)
+                          ),
+                          0)
 
         # A note on the cooler:
         # This command will make it so the cooling fan
@@ -230,6 +246,8 @@ class CCDWindow(QtGui.QMainWindow):
         # do you want me to remove cosmic rays?
         s["doCRR"] = True
         s["takeContinuous"] = False
+        # flag for allowing the automatic spectrometer sweeping
+        s["doSpecSweep"] = False
 
         # Misc settings concerning the experimental parameters.
         # They are set by the children experimental widgets, but kept here so that
@@ -291,6 +309,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.expUIs["PL"].setParent(None)
         self.expUIs["Two Color Abs"] = TwoColorAbsWid(self)
         self.expUIs["Two Color Abs"].setParent(None)
+        self.expUIs["Alignment"] = AlignWid(self)
+        self.expUIs["Alignment"].setParent(None)
         # Connect the changes
         [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
 
@@ -391,6 +411,7 @@ class CCDWindow(QtGui.QMainWindow):
         # Connections for file menu things
         ##################
         # All I want it to do is set a flag which gets checked later.
+        # Later note:
         # I think I learned to just check the state of the UI element instead
         # of this dict value, but I'm not 100% sure
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
@@ -402,6 +423,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mSeriesRemove.triggered.connect(self.getCurExp().removeCurrentSeries)
         self.ui.mSeriesReset.triggered.connect(self.getCurExp().setCurrentSeries)
 
+        self.ui.mLivePlotsForceAutoscale.triggered.connect(self.getCurExp().autoscaleSignalHistogram)
+
         self.ui.mFileFastExit.triggered.connect(self.close)
 
         self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
@@ -409,8 +432,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
+        self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
+        self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
+        self.neCal.setEnabled(False)
+
         self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
         self.console.triggered.connect(self.openDebugConsole)
+
 
         ###############################
         #
@@ -420,7 +448,6 @@ class CCDWindow(QtGui.QMainWindow):
         ###########################
         self.addPolarizerMotorDriver()
         self.ui.miscToolsLayout.addStretch(10)
-
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
@@ -456,7 +483,7 @@ class CCDWindow(QtGui.QMainWindow):
         newExp = str(sent.text())
         # if oldExp == "HSG":
         #     self.closeHSG()
-        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
+        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
             # hasFEL = self.getCurExp().hasFEL
             self.closeExp(oldExp)
             # if hasFEL:
@@ -466,7 +493,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         # if newExp == "HSG":
         #     self.openHSG()
-        if newExp in ["HSG", "PL", "Abs", "Two Color Abs"]:
+        if newExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
             self.openExp(newExp)
             # if self.getCurExp().hasFEL:
             #     self.openHSG()
@@ -547,6 +574,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHStart.setEnabled(val)
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
+        self.neCal.setEnabled(val)
 
     def openDebugConsole(self):
         self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
@@ -649,6 +677,7 @@ class CCDWindow(QtGui.QMainWindow):
             log.info('Change AD Channel: {}'.format(self.CCD.parseRetCode(ret)))
             if ret != 20002:
                 log.error("Error updating AD Channel. Return code, {}".format(ret))
+                self.warnSettingsFailure()
                 return
 
             # Changing the AD changes the available HSS. Find out what they are,
@@ -744,6 +773,13 @@ class CCDWindow(QtGui.QMainWindow):
 
         for (i, uiEle) in enumerate(self.settings["imageUI"]):
             uiEle.setText(str(self.CCD.cameraSettings['imageSettings'][i]))
+
+    def warnSettingsFailure(self):
+        """
+        For when you choose to update the camera settings,
+        but they get kicked back
+        """
+
 
     def chooseSaveDir(self):
         prevDir = self.settings["saveDir"]
@@ -859,18 +895,42 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSpecCurGr.setText(str(new))
 
     def startSweepLoop(self, val):
+        if hasattr(val, '__iter__'):
+            # If you pass a list of values, just go to those
+            # I want this for a lazy way to set the spectrometer to
+            # Ne lines, too
+
+            a = QtGui.QMessageBox()
+            a.setText("Do you want to scan up?")
+            a.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Cancel)
+            ret = a.exec_()
+            if ret == QtGui.QMessageBox.Cancel:
+                self.settings["doSpecSweep"] = False
+                return
+            elif ret == QtGui.QMessageBox.Yes:
+                self.sweepRange = np.array(val)
+            else:
+                self.sweepRange = np.array(val)[::-1]
+
+            self.thDoSpectrometerSweep.target = self.sweepLoop
+            self.thDoSpectrometerSweep.start()
+            self.settings["doSpecSweep"] = True
+            return
         if val:
             start, step, end, ok = ScanParameterDialog.getSteps(self)
             if not ok:
                 self.sweep.setChecked(False)
+                self.settings["doSpecSweep"] = False
                 return
             else:
+                self.settings["doSpecSweep"] = True
                 log.debug("Dialog accepted, {}, {}, {}".format(start, step, end))
 
                 self.sweepRange = np.arange(start, end, step)
                 self.thDoSpectrometerSweep.target = self.sweepLoop
                 self.thDoSpectrometerSweep.start()
-        else: pass # just getting turned off (heh)
+        else:
+            self.settings["doSpecSweep"] = False # just getting turned off
 
     def sweepLoop(self):
         # Don't want it to keep asking if we want to save the image,
@@ -880,7 +940,7 @@ class CCDWindow(QtGui.QMainWindow):
         oldConfirmation = self.curExp.confirmImage
         self.curExp.confirmImage = lambda : True
         for wavelength in self.sweepRange:
-            if not self.sweep.isChecked(): break
+            if not self.settings["doSpecSweep"]: break
             log.debug("At wavelength {}".format(wavelength))
             self.updateElementSig.emit(lambda: self.ui.sbSpecWavelength.setValue(wavelength), None)
             time.sleep(0.5) # need to make sure the spectrometer and all things
@@ -903,7 +963,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.settings["changedSettingsFlags"][-1] = 1
             self.updateSettings()
             log.debug("set shutter Auto")
-            if not self.sweep.isChecked(): break
+            if not self.settings["doSpecSweep"]: break
 
             self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
             log.debug("Called Take image")

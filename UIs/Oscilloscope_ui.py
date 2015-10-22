@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\Oscilloscope.ui'
 #
-# Created: Tue Apr 07 15:24:53 2015
-#      by: PyQt4 UI code generator 4.9.6
+# Created: Fri Sep 25 13:24:53 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -110,6 +110,18 @@ class Ui_Oscilloscope(object):
         self.bOscInit = QtGui.QPushButton(self.tab)
         self.bOscInit.setObjectName(_fromUtf8("bOscInit"))
         self.gridLayout_5.addWidget(self.bOscInit, 0, 3, 1, 1)
+        self.groupBox = QtGui.QGroupBox(self.tab)
+        self.groupBox.setFlat(True)
+        self.groupBox.setObjectName(_fromUtf8("groupBox"))
+        self.horizontalLayout_2 = QtGui.QHBoxLayout(self.groupBox)
+        self.horizontalLayout_2.setContentsMargins(0, 10, 0, 0)
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.cPyroMode = QtGui.QComboBox(self.groupBox)
+        self.cPyroMode.setObjectName(_fromUtf8("cPyroMode"))
+        self.cPyroMode.addItem(_fromUtf8(""))
+        self.cPyroMode.addItem(_fromUtf8(""))
+        self.horizontalLayout_2.addWidget(self.cPyroMode)
+        self.gridLayout_5.addWidget(self.groupBox, 1, 3, 1, 1)
         self.horizontalLayout_6.addLayout(self.gridLayout_5)
         self.tabWidget_2.addTab(self.tab, _fromUtf8(""))
         self.tab_2 = QtGui.QWidget()
@@ -191,6 +203,7 @@ class Ui_Oscilloscope(object):
 
         self.retranslateUi(Oscilloscope)
         self.tabWidget_2.setCurrentIndex(0)
+        self.cPyroMode.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(Oscilloscope)
 
     def retranslateUi(self, Oscilloscope):
@@ -202,12 +215,15 @@ class Ui_Oscilloscope(object):
         self.groupBox_28.setTitle(_translate("Oscilloscope", "Front Porch End", None))
         self.groupBox_30.setTitle(_translate("Oscilloscope", "Cavity Dump End", None))
         self.bOscInit.setText(_translate("Oscilloscope", "Initialize Regions", None))
+        self.groupBox.setTitle(_translate("Oscilloscope", "Pyro Mode", None))
+        self.cPyroMode.setItemText(0, _translate("Oscilloscope", "Instant", None))
+        self.cPyroMode.setItemText(1, _translate("Oscilloscope", "Integrating", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab), _translate("Oscilloscope", "Boxcar Regions", None))
         self.groupBox_10.setTitle(_translate("Oscilloscope", "No. Pulses", None))
         self.groupBox_52.setTitle(_translate("Oscilloscope", "FP Ratio", None))
         self.tOscFPRatio.setText(_translate("Oscilloscope", "1", None))
         self.groupBox_53.setTitle(_translate("Oscilloscope", "CD Ratio", None))
-        self.tOscCDRatio.setText(_translate("Oscilloscope", "1", None))
+        self.tOscCDRatio.setText(_translate("Oscilloscope", "2", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_2), _translate("Oscilloscope", "Pulse Counting Settings", None))
         self.bOPause.setText(_translate("Oscilloscope", "Pause", None))
         self.groupBox_31.setTitle(_translate("Oscilloscope", "GPIB", None))

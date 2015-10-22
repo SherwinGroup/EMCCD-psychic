@@ -44,6 +44,7 @@ class AndorEMCCD(object):
         self.dll = None
         self.registerFunctions(wantFake = wantFake)
         log.debug("About to initialize EMCCD")
+        self.dllInitializeRet = None
         ret = self.dllInitialize('')
         if ret != 20002:
 
@@ -51,6 +52,7 @@ class AndorEMCCD(object):
                 self.parseRetCode(ret)
             ))
             self.dll = None
+            self.dllInitializeRet = ret
             self.registerFunctions(wantFake = True)
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
@@ -341,8 +343,10 @@ class AndorEMCCD(object):
                 except:
                     os.chdir(curdir)
                     log.error('Error loading the DLL. Using fake')
-                    from fakeAndor import fAndorEMCCD
-                    dll = fAndorEMCCD()
+                    # from fakeAndor import fAndorEMCCD
+                    import fakeAndor as FA
+                    dll = FA.fAndorEMCCD()
+                    dll.Initialize = FA.myCallable(lambda x: None, 'InitializeMissingDLL')
         
         self.dll = dll # For if it's ever needed to call things directly
         
@@ -1162,10 +1166,13 @@ class AndorEMCCD(object):
 
     @staticmethod
     def parseRetCode(value):
-        """Pass in the return value of a function and this will return 
+        """Pass in the return value of a function and this will return
+         values <0 correspond to personal error codes
         :rtype : String of the corresponding error message
         the string which it represents"""
         values = {
+            -1   : 'FakeAndor',
+            -2   : 'MissingDLL',
             20001: 'DRV_ERROR_CODES',
             20002: 'DRV_SUCCESS',
             20003: 'DRV_VXDNOTINSTALLED',

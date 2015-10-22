@@ -213,6 +213,47 @@
            </property>
           </widget>
          </item>
+         <item row="1" column="3">
+          <widget class="QGroupBox" name="groupBox">
+           <property name="title">
+            <string>Pyro Mode</string>
+           </property>
+           <property name="flat">
+            <bool>true</bool>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>10</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QComboBox" name="cPyroMode">
+              <property name="currentIndex">
+               <number>1</number>
+              </property>
+              <item>
+               <property name="text">
+                <string>Instant</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Integrating</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>
@@ -308,7 +349,7 @@
           <item>
            <widget class="QFNumberEdit" name="tOscCDRatio">
             <property name="text">
-             <string>1</string>
+             <string>2</string>
             </property>
            </widget>
           </item>

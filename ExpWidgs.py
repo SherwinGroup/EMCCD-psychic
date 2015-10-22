@@ -13,6 +13,7 @@ from UIs.Abs_ui import Ui_Abs
 from UIs.HSG_ui import Ui_HSG
 from UIs.PL_ui import Ui_PL
 from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
+from UIs.Alignment_ui import Ui_Alignment
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
@@ -264,6 +265,11 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.papa.CCD.dllStartAcquisition()
         if self.hasFEL and not self.papa.oscWidget.settings["isScopePaused"] and not self.papa.ui.mFileTakeContinuous.isChecked():
+            # Wait for an FEL pulse before we start counting, as determined by
+            # the oscilloscope triggering.
+            #
+            # This feature is intended to synchronize better with the camera
+            # exposure when it is also triggered by the FEL.
             waitForPulseLoop = QtCore.QEventLoop()
             self.papa.oscWidget.updateOscDataSig.connect(waitForPulseLoop.exit)
             waitForPulseLoop.exec_()
@@ -414,7 +420,7 @@ class BaseExpWidget(QtGui.QWidget):
         """
         :param BG: integrated background value
         :param FP: integrated front porch value
-        :param CD: integrated cavity dump region
+        :param CD: integrated cav   ity dump region
         :return:
         """
         try:
@@ -422,7 +428,11 @@ class BaseExpWidget(QtGui.QWidget):
             windowTrans = self.ui.tCCDWindowTransmission.value()
             effField = self.ui.tCCDEffectiveField.value()
             radius = self.ui.tCCDSpotSize.value()
-            ratio = FP/(FP + CD)
+            # if str(self.papa.oscWidget.ui.cPyroMode.currentText()) == "Instant":
+            #     ratio = CD/(FP + CD)
+            # else:
+            #     ratio = CD/FP
+            ratio = self.papa.oscWidget.settings['CDtoFPRatio']
             intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
                                        ratio = ratio)
             field = calc_THz_field(intensity)
@@ -527,8 +537,6 @@ class BaseExpWidget(QtGui.QWidget):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.toggleUIElements(True)
 
-
-
     def processBackground(self):
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
         self.toggleUIElements(True)
@@ -579,6 +587,117 @@ class BaseExpWidget(QtGui.QWidget):
         ret = loop.exec_()
         return ret == QtGui.QMessageBox.Save
         # return True
+
+
+    def analyzeSeries(self):
+        #######################
+        # Handling of series tag to add things up live
+        #
+        # Want it to save only the latest series, but also
+        # the previous ones should be saved (hence why this is
+        # after the saving is being done)
+        #######################
+        groupBox = self.ui.groupBox_Series
+
+        if (self.prevDataEMCCD is not None and # Is there something to add to?
+                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
+                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+            log.debug("Added two series together")
+            # Un-normalize by the number currently in series
+            self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
+
+            try:
+                self.prevDataEMCCD += self.curDataEMCCD
+            except Exception as e:
+                log.debug("Error adding series data, {}".format(e))
+            else:
+                self.papa.ui.mSeriesUndo.setEnabled(True)
+
+            self.prevDataEMCCD.make_spectrum()
+
+            # Save the summed, unnormalized spectrum
+            try:
+                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+                self.papa.sigUpdateStatusBar.emit("Saved Series")
+            except Exception as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+                log.debug("Error saving series data, {}".format(e))
+
+            self.runSettings["seriesNo"] +=1
+            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+            # but PLOT the normalized average
+            self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
+            self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
+
+            # Update the plots with this new data
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+            self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+        elif str(self.ui.tCCDSeries.text()) != "":
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.prevDataEMCCD.file_no += "seriesed"
+            self.runSettings["seriesNo"] = 1
+            groupBox.setTitle("Series (1)")
+
+
+        else:
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            groupBox.setTitle("Series")
+            log.debug("Made a new series where I didn't think I'd be")
+
+    def undoSeries(self):
+        log.debug("Added two series together")
+        # Un-normalize by the number currently in series
+        self.prevDataEMCCD.clean_array *= self.runSettings["seriesNo"]
+
+        try:
+            self.prevDataEMCCD -= self.curDataEMCCD
+        except Exception as e:
+            log.debug("Error undoing series data, {}".format(e))
+        else:
+            self.papa.ui.mSeriesUndo.setEnabled(False)
+
+        self.prevDataEMCCD.make_spectrum()
+
+        # Save the summed, unnormalized spectrum
+        try:
+            self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+            self.papa.sigUpdateStatusBar.emit("Saved Series")
+        except Exception as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+            log.debug("Error saving series data, {}".format(e))
+
+        self.runSettings["seriesNo"] -=1
+        self.ui.groupBox_Series.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+        # but PLOT the normalized average
+        self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
+        self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
+
+        # Update the plots with this new data
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+    def confirmImage(self):
+        """
+        Prompts the user to ensure the most recent image is acceptable.
+        :return: Boolean of whether or not to accept.
+        """
+        loop = QtCore.QEventLoop()
+        self.sigKillEventLoop.connect(lambda v: loop.exit(v))
+        self.sigMakeGui.emit(
+            QtGui.QMessageBox.information, (
+            None,"Confirm",
+            """Save most recent scan?""",
+            QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard,
+            QtGui.QMessageBox.Save
+        )
+        )
+        ret = loop.exec_()
+        return ret == QtGui.QMessageBox.Save
+        # return True
     def genEquipmentDict(self):
         """
         The EMCCD class wants a specific dictionary of values. This function will return it
@@ -604,6 +723,7 @@ class BaseExpWidget(QtGui.QWidget):
             s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
             s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
                 str(self.ui.tCCDFELPulses.text()).strip() else 0
+
 
             # We've started to do really long exposures
             # ( 10 min ~ 300-400 FEL pulses)
@@ -659,6 +779,7 @@ class BaseExpWidget(QtGui.QWidget):
 
         s["series"] = st
         return s
+
 
 
     @staticmethod
@@ -803,8 +924,15 @@ class BaseExpWidget(QtGui.QWidget):
     def updateSignalImage(self, data = None):
         data = np.array(data)
         self.pSigImage.setImage(data)
-        if not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
-            self.pSigHist.setLevels(data.min(), data.max())
+        if self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
+            self.pSigImage.setLevels(self.pSigHist.getLevels())
+        else:
+            # self.pSigHist.setLevels(data.min(), data.max())
+            self.autoscaleSignalHistogram()
+
+    def autoscaleSignalHistogram(self):
+        data = self.pSigImage.image
+        self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
         data = np.array(data)
@@ -1095,6 +1223,137 @@ class PLWid(BaseExpWidget):
     DataClass = PL_image
     def __init__(self, parent = None):
         super(PLWid, self).__init__(parent, Ui_PL)
+
+class AlignWid(BaseExpWidget):
+    hasNIR = True
+    hasFEL = False
+    DataClass = EMCCD_image
+    def __init__(self, parent=None):
+        super(AlignWid, self).__init__(parent, Ui_Alignment)
+        self.ilOne = pg.InfiniteLine(pos=100, movable=True, pen='r')
+        self.ilTwo = pg.InfiniteLine(pos=800, movable=True, pen='b')
+        self.ilThree = pg.InfiniteLine(pos=1100, movable=True, pen='g')
+        self.p1.addItem(self.ilOne)
+        self.p1.addItem(self.ilTwo)
+        self.p1.addItem(self.ilThree)
+        self.ilOne.sigPositionChanged.connect(self.sumLines)
+        self.ilTwo.sigPositionChanged.connect(self.sumLines)
+        self.ilThree.sigPositionChanged.connect(self.sumLines)
+        self.curveOne = self.ui.gCCDBin.plot(pen=pg.mkPen('r', width=3))
+        self.curveTwo = self.ui.gCCDBin.plot(pen=pg.mkPen('b', width=3))
+        self.curveThree = self.ui.gCCDBin.plot(pen=pg.mkPen('g', width=3))
+        self.ui.tCCDSampleTemp.setText('2')
+
+
+
+    def startContinuous(self, value):
+        # If not value, the box was being unchecked,
+        # starting can ignore the call
+        if value:
+
+            self.runSettings["takingContinuous"] = True
+
+            for i in range(self.papa.ui.tabWidget.count()):
+                 if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+                 self.papa.ui.tabWidget.setTabEnabled(i, False)
+            # Take an image and have the thread call the continuous collection loop
+            # Done this way so that it's working off the same thread
+            # that data collection would normally be performed on
+            self.takeImage(isBackground = self.takeContinuousLoop)
+
+    def takeContinuousLoop(self):
+        while self.papa.ui.mFileTakeContinuous.isChecked():
+            self.doExposure()
+            # Update from the image that was taken in the first call
+            # when starting the loop
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
+            # create the object and clean it up
+            image = EMCCD_image(self.rawData,
+                                "", "", "", self.genEquipmentDict())
+            # Ignore CRR and just set the clean to raw for summing
+            image.clean_array = image.raw_array
+            self.curDataEMCCD = image
+            self.sumLines()
+        for i in range(self.papa.ui.tabWidget.count()):
+             if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+             self.papa.ui.tabWidget.setTabEnabled(i, True)
+        # re-enable UI elements, remove alignment plots
+        self.toggleUIElements(True)
+
+
+    def processImage(self):
+        self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
+
+        self.curDataEMCCD = self.DataClass(self.rawData,
+                                            str(self.papa.ui.tImageName.text()),
+                                            str(self.ui.tCCDImageNum.value()+1),
+                                            str(self.ui.tCCDComments.toPlainText()),
+                                            self.genEquipmentDict())
+
+        self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
+
+
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
+        # self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
+        self.sumLines()
+
+        self.toggleUIElements(True)
+
+
+    def updateSpectrumOne(self, data = None):
+        self.curveOne.setData(data)
+
+    def updateSpectrumTwo(self, data = None):
+        self.curveTwo.setData(data)
+
+    def updateSpectrumThree(self, data = None):
+        self.curveThree.setData(data)
+
+
+    def sumLines(self, line=None):
+        if self.curDataEMCCD is None:
+            return
+        toDo = []
+        if line is None:
+            toDo = [1, 2, 3]
+        elif line is self.ilOne:
+            toDo = [1]
+        elif line is self.ilTwo:
+            toDo = [2]
+        elif line is self.ilThree:
+            toDo = [3]
+
+        if 1 in toDo:
+            pos = self.ilOne.value()
+            data = self.sumData(pos)
+            self.sigUpdateGraphs.emit(self.updateSpectrumOne, data)
+        if 2 in toDo:
+            pos = self.ilTwo.value()
+            data = self.sumData(pos)
+            self.sigUpdateGraphs.emit(self.updateSpectrumTwo, data)
+        if 3 in toDo:
+            pos = self.ilThree.value()
+            data = self.sumData(pos)
+            self.sigUpdateGraphs.emit(self.updateSpectrumThree, data)
+
+    def sumData(self, pos):
+        try:
+            width = int(self.ui.tCCDSampleTemp.text())
+        except ValueError:
+            width = 1
+        st = pos-width/2
+        if st<0:
+            st = 0
+        en = pos + width/2
+        if st == en:
+            en +=1
+        data = np.sum(self.curDataEMCCD.clean_array[st:en,:], axis=0)
+        data = data.astype(float)
+        data-=min(data)
+        data/=max(data)
+        return data
+
+
 
 if __name__ == '__main__':
     import sys
