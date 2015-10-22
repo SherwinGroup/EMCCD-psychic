@@ -42,6 +42,35 @@ class AndorEMCCD(object):
     def __init__(self, wantFake = False):
 
         self.dll = None
+        # Flag to keep track of whether the camera is
+        # real or not
+        self.amFake = False
+
+        self.cameraSettings = {
+            'xPixels': None,
+            'yPixels': None,
+            'numADChannels': None,
+            'curADChannel': None,
+            'outputAmp': None,
+            'numHSS': None,
+            'curHSS': None,
+            'HSS': [],
+            'numVSS': None,
+            'curVSS': None,
+            'VSS': [],
+            'curAcqMode': None,
+            'curReadMode': None,
+            'curTrig': None,
+            'imageSettings': [],
+            'exposureTime': None,
+            'gain': None,
+            'shutter': None,
+            'curShutterInt': None,
+            'curShutterEx': None,
+        }
+
+
+
         self.registerFunctions(wantFake = wantFake)
         log.debug("About to initialize EMCCD")
         self.dllInitializeRet = None
@@ -57,10 +86,11 @@ class AndorEMCCD(object):
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
         self.tempRetCode = '' # code to
-        self.cameraSettings = dict() # A dictionary to hold various parameters of the camera
+        # self.cameraSettings = dict() # A dictionary to hold various parameters of the camera
 
         self.data = None
         self.capabilities = AndorCapabilities(sizeof(c_ulong)*12,0,0,0,0,0,0,0,0,0,0,0)
+
 
 
     def gotoTemperature(self, *args):
@@ -276,8 +306,12 @@ class AndorEMCCD(object):
             (image[3]-image[2])/image[0]
         )) + 1
         y = int(round(
-            (image[5]-image[4]/image[1])
+            (image[5]-image[4])/image[1]
         )) + 1
+        # if image[0] != 1 or image[1] != 1:
+        #     print "Debugging: Non-standard binning"
+        #     print image
+        #     print x,y
 
         retdata = (c_int * (x * y))()
 
@@ -330,6 +364,7 @@ class AndorEMCCD(object):
         if wantFake:
             from fakeAndor import fAndorEMCCD
             dll = fAndorEMCCD()
+            self.amFake = True
         else:
             try:
                 dll = CDLL(name) #Change this to the appropriate name
@@ -346,6 +381,7 @@ class AndorEMCCD(object):
                     # from fakeAndor import fAndorEMCCD
                     import fakeAndor as FA
                     dll = FA.fAndorEMCCD()
+                    self.amFake = True
                     dll.Initialize = FA.myCallable(lambda x: None, 'InitializeMissingDLL')
         
         self.dll = dll # For if it's ever needed to call things directly

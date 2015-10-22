@@ -46,11 +46,7 @@ if os.name is not "posix":
     myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
-# http://stackoverflow.com/questions/279237/import-a-module-from-a-relative-path?lq=1
-# import os, sys, inspect
-# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-# if cmd_subfolder not in sys.path:
-#      sys.path.insert(0, cmd_subfolder)
+
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
@@ -101,7 +97,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = False)
+            self.CCD = AndorEMCCD(wantFake = True)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -114,6 +110,10 @@ class CCDWindow(QtGui.QMainWindow):
                               self.CCD.parseRetCode(self.CCD.dllInitializeRet)
                           ),
                           0)
+
+        self.initUI()
+        if self.checkSaveFile():
+            self.loadOldSettings()
 
         # A note on the cooler:
         # This command will make it so the cooling fan
@@ -136,8 +136,6 @@ class CCDWindow(QtGui.QMainWindow):
         # for software crashes.
 
         self.CCD.dllSetCoolerMode(1)
-
-        self.initUI()
 
         # Check to make sure the software didn't crash and the temperature is currently cold
         temp = self.CCD.getTemperature()
@@ -439,7 +437,6 @@ class CCDWindow(QtGui.QMainWindow):
         self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
         self.console.triggered.connect(self.openDebugConsole)
 
-
         ###############################
         #
         # These are commands for adding the motor controller
@@ -449,11 +446,16 @@ class CCDWindow(QtGui.QMainWindow):
         self.addPolarizerMotorDriver()
         self.ui.miscToolsLayout.addStretch(10)
 
+
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.show()
 
     @staticmethod
-    def __CHANGING_EXPERIMENT_TYPE(): pass
+    def _________________________PE(): pass
+    @staticmethod
+    def CHANGING_EXPERIMENT_TYPE(): pass
+    @staticmethod
+    def __________________________pe(): pass
     def updateExperiment(self, b):
         sent = self.sender()
         if not b: # You unchecked it, which isn't advised
@@ -562,7 +564,11 @@ class CCDWindow(QtGui.QMainWindow):
         return self.curExp
 
     @staticmethod
-    def __UI_CHANGES(): pass
+    def ____________ES(): pass
+    @staticmethod
+    def UI_CHANGES(): pass
+    @staticmethod
+    def ____________es(): pass
 
 
     def toggleExtraSettings(self, val=False):
@@ -587,6 +593,83 @@ class CCDWindow(QtGui.QMainWindow):
                 self.oscWidget.poppedPlotWindow.raise_()
                 self.raise_()
 
+
+    def makeSpectraFolder(self):
+        try:
+            self.saveSettings()
+        except:
+            pass
+        specFold = os.path.join(self.settings["saveDir"],
+                                'Spectra', str(self.ui.tImageName.text()))
+        if not os.path.exists(specFold):
+            try:
+                os.mkdir(specFold)
+            except Exception as e:
+                log.warning("Could not make folder for spectrum {}. Error: {}".format(specFold, e))
+
+    def resetUICameraSettings(self):
+        """
+        This function is called when the UI needs to reflect
+        whatever is specified in the CCD.cameraSettings dict. Two
+        big reasons are
+        1) User specifies invalid setting, want to reset it to
+           whatever the camera actually has set.
+        2) Want to automatically set the camera settings (recover from
+           crash/shutdown). This call should be followed by
+           self.updateSettings (with appropriate modification to
+           self.settings['changedSettingsFlag']
+        :return:
+        """
+        cBoxes = zip([self.ui.cSettingsADChannel,
+                      self.ui.cSettingsVSS,
+                      self.ui.cSettingsReadMode,
+                      self.ui.cSettingsHSS,
+                      self.ui.cSettingsTrigger,
+                      self.ui.cSettingsAcquisitionMode,
+                      self.ui.cSettingsShutter,
+                      self.ui.cSettingsShutterEx],
+                     ['curADChannel',
+                      'curVSS',
+                      'curReadMode',
+                      'curHSS',
+                      'curTrig',
+                      'curAcqMode',
+                      'curShutterInt',
+                      'curShutterEx',
+                      ])
+        for uiElem, key in cBoxes:
+            uiElem.setCurrentIndex(
+                uiElem.findText(
+                    str(self.CCD.cameraSettings[key])
+                )
+            )
+
+        tBoxes = zip([self.ui.tHBin,
+                      self.ui.tVBin,
+                      self.ui.tHStart,
+                      self.ui.tHEnd,
+                      self.ui.tVStart,
+                      self.ui.tVEnd],
+                     self.CCD.cameraSettings['imageSettings'])
+
+        for uiElem, key in tBoxes:
+            uiElem.setText(str(key))
+        self.settings["changedSettingsFlags"] = [0] * \
+                                                len(self.settings["changedSettingsFlags"])
+        self.ui.bSettingsApply.setEnabled(False)
+
+
+
+
+
+    @staticmethod
+    def _____________________GS(): pass
+
+    @staticmethod
+    def CHANGING_SETTINGS(): pass
+
+    @staticmethod
+    def _____________________gs(): pass
 
     def parseImageChange(self, st):
         """
@@ -677,7 +760,7 @@ class CCDWindow(QtGui.QMainWindow):
             log.info('Change AD Channel: {}'.format(self.CCD.parseRetCode(ret)))
             if ret != 20002:
                 log.error("Error updating AD Channel. Return code, {}".format(ret))
-                self.warnSettingsFailure()
+                self.warnSettingsFailure("AD Channel: {}".format(self.CCD.parseRetCode(ret)))
                 return
 
             # Changing the AD changes the available HSS. Find out what they are,
@@ -698,6 +781,10 @@ class CCDWindow(QtGui.QMainWindow):
         # The VSS has changed
         if changed[1] == 1:
             ret = self.CCD.setVSS(int(self.ui.cSettingsVSS.currentIndex()))
+            if ret != 20002:
+                log.error("Error updating VSS. Return code, {}".format(ret))
+                self.warnSettingsFailure("VSS: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info('Change VSS: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][1] = 0
 
@@ -705,24 +792,40 @@ class CCDWindow(QtGui.QMainWindow):
         # Read mode has changed
         if changed[2] == 1:
             ret = self.CCD.setRead(self.ui.cSettingsReadMode.currentIndex())
+            if ret != 20002:
+                log.error("Error updating ReadMode. Return code, {}".format(ret))
+                self.warnSettingsFailure("ReadMode: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info("Changed Read mode: {}".format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][2] = 0
 
         # HSS Changed
         if changed[3] == 1:
             ret = self.CCD.setHSS(self.ui.cSettingsHSS.currentIndex())
+            if ret != 20002:
+                log.error("Error updating HSS. Return code, {}".format(ret))
+                self.warnSettingsFailure("HSS: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info("Changed HSS: {}".format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][3] = 0
 
         # Trigger mode changed
         if changed[4] == 1:
             ret = self.CCD.setTrigger(self.ui.cSettingsTrigger.currentIndex())
+            if ret != 20002:
+                log.error("Error updating Trigger. Return code, {}".format(ret))
+                self.warnSettingsFailure("Trigger: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info('Changed Trigger: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][4] = 0
 
         # changed Acquisition mode
         if changed[5] == 1:
             ret = self.CCD.setAcqMode(self.ui.cSettingsAcquisitionMode.currentIndex())
+            if ret != 20002:
+                log.error("Error updating Acq Mode. Return code, {}".format(ret))
+                self.warnSettingsFailure("Acq Mode: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info('Changed Acq: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][5] = 0
 
@@ -732,6 +835,10 @@ class CCDWindow(QtGui.QMainWindow):
                 self.ui.cSettingsShutter.currentIndex(),
                 self.ui.cSettingsShutterEx.currentIndex()
             )
+            if ret != 20002:
+                log.error("Error updating Shutter. Return code, {}".format(ret))
+                self.warnSettingsFailure("Shutter: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info('Changed shutter: {}'.format(self.CCD.parseRetCode(ret)))
             self.settings["changedSettingsFlags"][6:8] = [0, 0]
 
@@ -741,10 +848,15 @@ class CCDWindow(QtGui.QMainWindow):
             # Get the array to change to
             vals = [int(i.text()) for i in self.settings["imageUI"]]
             ret = self.CCD.setImage(vals)
+            if ret != 20002:
+                log.error("Error updating Image. Return code, {}".format(ret))
+                self.warnSettingsFailure("Image: {}".format(self.CCD.parseRetCode(ret)))
+                return
             log.info("Changed image: {}".format(self.CCD.parseRetCode(ret)))
             self.settings["changedImageFlags"] = [0, 0, 0, 0, 0, 0]
 
         self.ui.bSettingsApply.setEnabled(False)
+        self.saveSettings()
 
     def cancelSettings(self):
         self.ui.cSettingsADChannel.setCurrentIndex(
@@ -774,11 +886,19 @@ class CCDWindow(QtGui.QMainWindow):
         for (i, uiEle) in enumerate(self.settings["imageUI"]):
             uiEle.setText(str(self.CCD.cameraSettings['imageSettings'][i]))
 
-    def warnSettingsFailure(self):
+    def warnSettingsFailure(self, extraInfo = None):
         """
         For when you choose to update the camera settings,
         but they get kicked back
         """
+        msg = """ Error: Invalid parameters sent to camera
+                      settings"""
+        if isinstance(extraInfo, str):
+            msg += extraInfo
+        MessageDialog(self,
+                      msg,
+                      0)
+        self.resetUICameraSettings()
 
 
     def chooseSaveDir(self):
@@ -815,17 +935,12 @@ class CCDWindow(QtGui.QMainWindow):
         if str(self.ui.tImageName.text()) != "test":
             self.makeSpectraFolder()
 
-    def makeSpectraFolder(self):
-        specFold = os.path.join(self.settings["saveDir"],
-                                'Spectra', str(self.ui.tImageName.text()))
-        if not os.path.exists(specFold):
-            try:
-                os.mkdir(specFold)
-            except Exception as e:
-                log.warning("Could not make folder for spectrum {}. Error: {}".format(specFold, e))
-
     @staticmethod
-    def ____ADDING_MISC_TOOLS():pass
+    def _____________________LS(): pass
+    @staticmethod
+    def ADDING_MISC_TOOLS():pass
+    @staticmethod
+    def _____________________ls(): pass
     def addPolarizerMotorDriver(self):
         import motordriver.__main__ as md
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
@@ -856,9 +971,12 @@ class CCDWindow(QtGui.QMainWindow):
         #                              |_______________________motordriver groupbox is the first thing in the layout
 
         self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
-
     @staticmethod
-    def __SPECTROMETER(): pass
+    def _______________ER(): pass
+    @staticmethod
+    def SPECTROMETER(): pass
+    @staticmethod
+    def ________________er(): pass
     def SpecGPIBChanged(self):
         self.Spectrometer.close()
         self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
@@ -992,9 +1110,12 @@ class CCDWindow(QtGui.QMainWindow):
 
 
 
-
     @staticmethod
-    def __CCD_CONTROLS(): pass
+    def ________________LS(): pass
+    @staticmethod
+    def CCD_CONTROLS(): pass
+    @staticmethod
+    def ________________ls(): pass
 
     def undoLastSeries(self):
         log.warning("UNDO LAST SERIES NOT IMPLEMENTED")
@@ -1044,275 +1165,137 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSettingsCurrTemp.setText(str(self.CCD.temperature))
         self.ui.tSettingsTempResponse.setText(self.CCD.tempRetCode)
 
-    # def startTakeImage(self, imtype = "img"):
-    #     self.ui.bCCDImage.setEnabled(False)
-    #     self.ui.bCCDBack.setEnabled(False)
-    #     self.ui.gbSettings.setEnabled(False)
-    #     # Reset all the things kept track of during an exposure
-    #     self.settings["progress"] = 0
-    #     self.settings["FELPulses"] = 0
-    #     self.settings["fieldStrength"] = []
-    #     self.settings["fieldInt"] = []
-    #     self.ui.tOscPulses.setText("0")
-    #     self.getImageThread = TempThread(target = self.takeImage, args=imtype)
-    #
-    #     # Update exposure/gain if necesssary
-    #     if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
-    #         self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
-    #     if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
-    #         self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
-    #
-    #     # self.updateProgTimer = QtCore.QTimer()
-    #     # self.updateProgTimer.timeout.connect(self.updateProgress)
-    #     # self.updateProgTimer.start(self.CCD.cameraSettings["exposureTime"]*10)
-    #
-    #     self.elapsedTimer = QtCore.QElapsedTimer()
-    #     if self.settings["isScopePaused"]:
-    #         self.settings["exposing"] = True
-    #         self.elapsedTimer.start()
-    #         QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
-    #                                  self.updateProgress)
-    #     else:
-    #         self.updateOscDataSig.connect(self.startProgressBar)
-    #     self.getImageThread.start()
-    #
-    # def startProgressBar(self):
-    #     self.settings["exposing"] = True
-    #     self.elapsedTimer.start()
-    #     QtCore.QTimer.singleShot(self.CCD.cameraSettings["exposureTime"]*10,
-    #                              self.updateProgress)
-    #     # Don't want the signal to keep calling this functin
-    #     self.updateOscDataSig.disconnect(self.startProgressBar)
-    #
-    #
-    # def takeImage(self, imtype):
-    #     """
-    #     Want to have the exposing flags set here just so there's no funny business
-    #     Sometimes the other thread may msibehave and we don't want photons to keep on
-    #     counting
-    #     """
-    #     self.settings["exposing"] = True
-    #     self.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
-    #     self.CCD.dllStartAcquisition()
-    #     self.CCD.dllWaitForAcquisition()
-    #     self.settings["exposing"] = False
-    #     # self.killTimerSig.emit(self.updateProgTimer)
-    #     data = self.CCD.getImage()
-    #
-    #     # Store the data appropriately and update the graphe
-    #     if imtype=="img":
-    #         self.curData = data
-    #         self.updateDataSig.emit(True, False, False)
-    #     else:
-    #         self.curBG = data
-    #         self.updateDataSig.emit(False, False, False)
-    #
-    #     self.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
-    #
-    #     ####################################
-    #     #
-    #     # Concerning the image numbers:
-    #     #
-    #     # Things were getting confusing having an internal variable and the textbox
-    #     # so switched to only using textbox. But this has issue that, since texboxes
-    #     # can't be updated from non-main threads (or it's unpredictable), signals are needed
-    #     # But this has issues that a fast computer will instantiate the object before
-    #     # the text is updated, so they're out of sync. This way, we know that the textbox
-    #     # will be incremented by one, but we forcibly tell it that it's going to be incremented
-    #     # instead of hoping that things will time properly
-    #     #
-    #     ####################################
-    #     if imtype=="img":
-    #         self.curDataEMCCD = EMCCD_image(self.curData,
-    #                                         str(self.ui.tImageName.text()),
-    #                                         str(self.ui.tCCDImageNum.value()+1),
-    #                                         str(self.ui.tCCDComments.toPlainText()),
-    #                                         self.genEquipmentDict())
-    #         self.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
-    #         try:
-    #             self.curDataEMCCD.save_images(self.settings["saveDir"])
-    #         except Exception as e:
-    #             log.warning("Error saving data image, {}".format(e))
-    #
-    #         if self.settings["doCRR"]:
-    #             try:
-    #                 self.curDataEMCCD.cosmic_ray_removal()
-    #             except Exception as e:
-    #                 print "cosmic,",e
-    #         else:
-    #             self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
-    #
-    #         try:
-    #             self.curDataEMCCD = self.curDataEMCCD - self.curBGEMCCD
-    #         except Exception as e:
-    #             print 'subraction:', e
-    #
-    #         try:
-    #             self.curDataEMCCD.make_spectrum()
-    #         except Exception as e:
-    #             print e
-    #
-    #         try:
-    #             self.curDataEMCCD.inspect_dark_regions()
-    #         except Exception as e:
-    #             print "Error inspecting dark region", e
-    #
-    #         try:
-    #             self.curDataEMCCD.save_spectrum(self.settings["saveDir"])
-    #         except Exception as e:
-    #             log.warning("Error saving spectrum,",e)
-    #         self.updateDataSig.emit(True, True, False) # update with the cleaned data
-    #
-    #
-    #         #######################
-    #         # Handling of series tag to add things up live
-    #         #
-    #         # Want it to save only the latest series, but also
-    #         # the previous ones should be saved (hence why this is
-    #         # after the saving is being done)
-    #         #######################
-    #         if (self.prevDataEMCCD is not None and
-    #                     str(self.ui.tCCDSeries.text()) != "" and
-    #                     self.prevDataEMCCD.equipment_dict["series"] ==
-    #                     self.curDataEMCCD.equipment_dict["series"] and
-    #                 self.ui.mSeriesSum.isChecked()):
-    #             log.debug("Added to previous series")
-    #             # Un-normalize by the number currently in series
-    #             self.prevDataEMCCD.clean_array*=self.settings["seriesNo"]
-    #             try:
-    #                 self.prevDataEMCCD += self.curDataEMCCD
-    #             except Exception as e:
-    #                 log.warning("Error adding data in series: {}".format(e))
-    #             # print "\n\tPOST: {}, {}".format(id(self.prevDataEMCCD))
-    #             self.ui.mSeriesUndo.setEnabled(True)
-    #
-    #             self.prevDataEMCCD.make_spectrum()
-    #
-    #             # Save the summed, unnormalized spectrum
-    #             try:
-    #                 self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
-    #             except Exception as e:
-    #                 log.warning("Error saving SERIES spectrum, {}".format(e))
-    #
-    #             self.settings["seriesNo"] +=1
-    #             self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
-    #             # but PLOT the normalized average
-    #             self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
-    #             self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
-    #
-    #             # Update the plots with this new data
-    #             self.updateDataSig.emit(True, True, True)
-    #
-    #         elif str(self.ui.tCCDSeries.text()) != "" and self.ui.mSeriesSum.isChecked():
-    #             log.info("Had to make a new series")
-    #             self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
-    #             self.prevDataEMCCD.file_no += "seriesed"
-    #             self.settings["seriesNo"] = 1
-    #             self.ui.groupBox_42.setTitle("Series (1)")
-    #
-    #
-    #         else:
-    #             #######################
-    #             # THINK ABOUT HTIS WHEN YOU'RE NOT TIRED
-    #             #######################
-    #             self.prevDataEMCCD = None
-    #             self.settings["seriesNo"] = 0
-    #             self.ui.groupBox_42.setTitle("Series")
-    #
-    #     else:
-    #         self.curBGEMCCD = EMCCD_image(self.curBG,
-    #                                         str(self.ui.tBackgroundName.text()),
-    #                                         str(self.ui.tCCDBGNum.value()+1),
-    #                                         str(self.ui.tCCDComments.toPlainText()),
-    #                                         self.genEquipmentDict())
-    #         self.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
-    #         try:
-    #             self.curBGEMCCD.save_images(self.settings["saveDir"])
-    #         except Exception as e:
-    #             log.warning("Error saving background iamge, {}".format(e))
-    #
-    #         if self.settings["doCRR"]:
-    #             self.curBGEMCCD.cosmic_ray_removal()
-    #         else:
-    #             self.curBGEMCCD.clean_array = self.curBGEMCCD.raw_array
-    #
-    #         self.curBGEMCCD.make_spectrum()
-    #
-    #         self.curBGEMCCD.inspect_dark_regions()
-    #
-    #         self.updateDataSig.emit(False, True, False) # update with the cleaned data
-    #
-    #     self.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-    #     self.ui.bCCDImage.setEnabled(True)
-    #     self.ui.bCCDBack.setEnabled(True)
-    #     self.ui.gbSettings.setEnabled(True)
-    #
-    # def startTakeContinuous(self, val):
-    #     if val is True:
-    #     # Update exposure/gain if necesssary
-    #         if not np.isclose(float(self.ui.tEMCCDExp.text()), self.CCD.cameraSettings["exposureTime"]):
-    #             self.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
-    #         if not int(self.ui.tEMCCDGain.text()) == self.CCD.cameraSettings["gain"]:
-    #             self.CCD.setGain(int(self.ui.tEMCCDGain.text()))
-    #         self.ui.gbSettings.setEnabled(False)
-    #         self.ui.bCCDBack.setEnabled(False)
-    #         self.ui.bCCDImage.setEnabled(False)
-    #         self.p1.addItem(self.ilOne)
-    #         self.p1.addItem(self.ilTwo)
-    #         self.getContinuousThread = TempThread(target = self.takeContinuous)
-    #         self.getContinuousThread.start()
-    #
-    # def takeContinuous(self):
-    #     while self.ui.mFileTakeContinuous.isChecked():
-    #         self.CCD.dllStartAcquisition()
-    #         self.CCD.dllWaitForAcquisition()
-    #         self.curData = self.CCD.getImage()
-    #         self.updateDataSig.emit(True, False, False)
-    #
-    #     self.p1.removeItem(self.ilOne)
-    #     self.p1.removeItem(self.ilTwo)
-    #
-    #     self.ui.gbSettings.setEnabled(True)
-    #     self.ui.bCCDBack.setEnabled(True)
-    #     self.ui.bCCDImage.setEnabled(True)
-    #
-    #
-    # def genEquipmentDict(self):
-    #     """
-    #     The EMCCD class wants a specific dictionary of values. This function will return it
-    #     :return:
-    #     """
-    #     s = dict()
-    #     s["ccd_temperature"] = str(self.ui.tSettingsCurrTemp.text())
-    #     s["exposure"] = float(self.CCD.cameraSettings["exposureTime"])
-    #     s["gain"] = int(self.CCD.cameraSettings["gain"])
-    #     s["y_min"] = int(self.ui.tCCDYMin.text())
-    #     s["y_max"] = int(self.ui.tCCDYMax.text())
-    #     s["grating"] = int(self.ui.sbSpecGrating.value())
-    #     s["center_lambda"] = float(self.ui.sbSpecWavelength.value())
-    #     s["slits"] = str(self.ui.tCCDSlits.text())
-    #     s["dark_region"] = None
-    #     s["bg_file_name"] = str(self.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
-    #     s["nir_power"] = str(self.ui.tCCDNIRP.text())
-    #     s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
-    #     s["fel_power"] = str(self.ui.tCCDFELP.text())
-    #     s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
-    #     s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
-    #     s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
-    #     s["fel_pulses"] = int(self.ui.tOscPulses.text())
-    #     s["fieldStrength"] = self.settings["fieldStrength"]
-    #     s["fieldInt"] = self.settings["fieldInt"]
-    #     s["number_of_series"] = self.settings["seriesNo"]
-    #
-    #     # If the user has the series box as {<variable>} where variable is
-    #     # any of the keys below, we want to replace it with the relavent value
-    #     # Potentially unnecessary at this point...
-    #     st = str(self.ui.tCCDSeries.text())
-    #     # NIRP, NIRW, FELF, FELP, SLITS
-    #     st = st.format(NIRP=s["NIRP"], NIRW=s["NIR_lambda"], FELF=s["FEL_lambda"],
-    #                    FELP=s["FELP"], SLITS=s["slits"], SPECL = s["center_lambda"])
-    #     s["series"] = st
-    #     return s
+
+    @staticmethod
+    def ____________NG(): pass
+    @staticmethod
+    def STATE_SAVING(): pass
+    @staticmethod
+    def ____________ng(): pass
+
+    def saveSettings(self):
+        """
+        Sometimes software crashes or needs to be restarted,
+        and all settings get lost. Sometimes this is just
+        inconvenient, other times it can lead to potentially
+        significant changes (pyro integration region change
+        may change power). This function should be called
+        when a parameter of interest gets changed, so
+        the save file gets updated
+        :return:
+        """
+        saveDict = dict()
+
+        saveDict.update(self.settings)
+        saveDict.update(self.CCD.cameraSettings)
+
+        # These ones aren't needed and may be
+        # bad to keep around.
+        try:
+            del saveDict['settingsUI']
+        except KeyError:
+            pass
+        try:
+            del saveDict['GPIBlist']
+        except KeyError:
+            pass
+        try:
+            del saveDict['imageUI']
+        except KeyError:
+            pass
+        try:
+            del saveDict['takeContinuous']
+        except KeyError:
+            pass
+        try:
+            del saveDict['exposureTime']
+        except KeyError:
+            pass
+        try:
+            del saveDict['gain']
+        except KeyError:
+            pass
+        saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
+        saveDict['saveName'] = str(self.ui.tImageName.text())
+
+        with open('Settings.txt', 'w') as fh:
+            json.dump(saveDict, fh, separators=(',', ': '),
+                      sort_keys=True, indent=4, default=lambda x: 'NotSerial')
+
+    @staticmethod
+    def checkSaveFile():
+        """
+        This will check to see wheteher there's a previous settings file,
+        and if it's recent enough that it should be loaded
+        :return:
+        """
+        if not os.path.isfile('Settings.txt'):
+            # File doesn't exist
+            return False
+        if (time.time() - os.path.getmtime('Settings.txt')) > 5 * 60:
+            # It's been longer than 5 minutes and likely isn't worth
+            # keeping open
+            return False
+        return True
+
+
+    def loadOldSettings(self):
+        """
+        load old settings from the file.
+        Note: this is pretty bad right now. It doesn't
+        really handle the AD/HSS very well (especially
+        because the AD set method is rather poor)
+        But we don't change that very often, so
+        for now, it'll just do it poorly.
+
+        Also note: I think things could go rather badly
+        if something goes wrong when setting:
+        If we force a change to the software CCDsettings dict,
+        but something fails when we try to set it, the software
+        will still "think" it's at whatever we force here,
+        even though it may not be.
+
+        However, this hopefully shouldn't be an issue. These
+        settings that we force should be whatever were last used,
+        and I can't imagine how the real deal camera would haev
+        a setting disappear.
+        :return:
+        """
+
+        with open('Settings.txt') as fh:
+            savedDict = json.load(fh)
+        self.settings.update({k:v for k,v in savedDict.items() if k in self.settings})
+
+        self.CCD.cameraSettings.update(
+            {k:v for k,v in savedDict.items() if k in self.CCD.cameraSettings})
+
+        # Call to set all of the camera settings to what we've loaded
+        self.resetUICameraSettings()
+
+
+        self.settings["changedSettingsFlags"] = [1] * \
+                                                len(self.settings["changedSettingsFlags"])
+        # Force a camera update
+        self.updateSettings()
+
+        # reopen the experiment tab, which should
+        # repopulate the experimental parameters.
+        # Might be a better way of doing this, but fekkit
+        self.closeExp()
+        self.openExp()
+
+        self.ui.tSettingsDirectory.setText(str(self.settings["saveDir"]))
+        self.ui.tImageName.setText(str(savedDict['saveName']))
+        self.ui.tBackgroundName.setText(str(savedDict['saveNameBG']))
+
+
+
+    @staticmethod
+    def ___________CS(): pass
+    @staticmethod
+    def MISC_FUNCS(): pass
+    @staticmethod
+    def ___________cs(): pass
 
     def stopTimer(self, timer):
         """
@@ -1322,93 +1305,6 @@ class CCDWindow(QtGui.QMainWindow):
         This will allow you to emit a signal to stop the timer
         """
         timer.stop()
-
-    # def updateImage(self, isSig = True, isClean = False, isSeries = False):
-    #     """
-    #     :param isSig: To update the top or bottom
-    #     :param isClean: Where to get the updated data from (local thing or the
-    #                     EMCCD class
-    #     :param isSeries: A flag for whether we take from prevDataEMCCD or not
-    #     :return:
-    #     """
-    #     if isSeries:
-    #         log.debug("updated image from series data")
-    #         self.pSpec.setData(self.prevDataEMCCD.spectrum[:,0],
-    #                                self.prevDataEMCCD.spectrum[:,1])
-    #         self.pSigImage.setImage(self.prevDataEMCCD.clean_array)
-    #         self.pSigHist.setLevels(self.prevDataEMCCD.clean_array.min(),
-    #                                 self.prevDataEMCCD.clean_array.max())
-    #         return
-    #
-    #     if isSig:
-    #         if isClean:
-    #             self.pSigImage.setImage(self.curDataEMCCD.clean_array)
-    #             self.pSigHist.setLevels(self.curDataEMCCD.clean_array.min(),
-    #                                     self.curDataEMCCD.clean_array.max())
-    #             try:
-    #                 self.pSpec.setData(self.curDataEMCCD.spectrum[:,0],
-    #                                self.curDataEMCCD.spectrum[:,1])
-    #             except Exception as e:
-    #                 log.debug('Failed setting plot', e)
-    #         else:
-    #             self.pSigImage.setImage(self.curData)
-    #             self.pSigHist.setLevels(self.curData.min(), self.curData.max())
-    #     else:
-    #         if isClean:
-    #             self.pBackImage.setImage(self.curBGEMCCD.clean_array)
-    #             self.pBackHist.setLevels(self.curBGEMCCD.clean_array.min(),
-    #                                     self.curBGEMCCD.clean_array.max())
-    #         else:
-    #             self.pBackImage.setImage(self.curBG)
-    #             self.pBackHist.setLevels(self.curBG.min(), self.curBG.max())
-    #
-    # def undoLastSeries(self):
-    #     log.debug("Substracting last data")
-    #     # pg.plot(self.prevDataEMCCD.spectrum[:,0],
-    #     #                            self.prevDataEMCCD.spectrum[:,1], title="pre")
-    #     # Un-normalize by the number of FEL pulses
-    #     self.prevDataEMCCD.clean_array *= self.settings["seriesNo"]
-    #
-    #     self.prevDataEMCCD -= self.curDataEMCCD
-    #     self.settings["seriesNo"]-=1
-    #     self.ui.groupBox_42.setTitle("Series ({})".format(self.settings["seriesNo"]))
-    #
-    #     self.prevDataEMCCD.make_spectrum()
-    #     try:
-    #         self.prevDataEMCCD.save_spectrum(self.settings["saveDir"])
-    #     except Exception as e:
-    #         log.warning("Error saving SERIES spectrum after undo, {}".format(e))
-    #
-    #     # renormalize by the number of pulses
-    #     try:
-    #         self.prevDataEMCCD.clean_array/=self.settings["seriesNo"]
-    #     except ZeroDivisionError:
-    #         pass
-    #     try:
-    #         self.prevDataEMCCD.spectrum[:,1]/=self.settings["seriesNo"]
-    #     except:
-    #         pass
-    #
-    #     self.updateDataSig.emit(True, True, True)
-    #     self.ui.mSeriesUndo.setEnabled(False)
-    #
-    # def updateProgress(self):
-    #     if self.settings["progress"] < 100:
-    #         self.settings["progress"] += 1
-    #         self.ui.pCCD.setValue(self.settings["progress"])
-    #         newTime = ((self.settings["progress"] + 1) * self.CCD.cameraSettings["exposureTime"]*10) \
-    #                   - (self.elapsedTimer.elapsed())
-    #         if newTime < 0:
-    #             newTime = 0
-    #         try:
-    #             QtCore.QTimer.singleShot(newTime,
-    #                                      self.updateProgress)
-    #         except:
-    #             pass
-    #     else:
-    #         self.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
-    #         self.settings["exposing"] = False
-    #         self.elapsedTimer = None
 
     def updateUIElement(self, element, val):
         """

@@ -1,0 +1,105 @@
+{
+    "HSS": [
+        20.200000762939453,
+        21.200000762939453,
+        22.200000762939453,
+        23.200000762939453
+    ],
+    "VSS": [
+        10.199999809265137,
+        11.199999809265137,
+        12.199999809265137
+    ],
+    "agilGPIBidx": 0,
+    "askedChiller": false,
+    "bcpyBG": [
+        4.75796082e-05,
+        6.15542952e-05
+    ],
+    "bcpyCD": [
+        0.000175750178,
+        0.000201493021
+    ],
+    "bcpyFP": [
+        0.000112128578,
+        0.000146329785
+    ],
+    "bgNumber": 0,
+    "changedImageFlags": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "changedSettingsFlags": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "curADChannel": 0,
+    "curAcqMode": "Single Scan",
+    "curHSS": 20.200000762939453,
+    "curReadMode": "Image",
+    "curShutterEx": "Fully Auto",
+    "curShutterInt": "Fully Auto",
+    "curTrig": "Internal",
+    "curVSS": 11.199999809265137,
+    "doCRR": false,
+    "doPhotonCounting": true,
+    "doSpecSweep": false,
+    "eff_field": 1.0,
+    "exposing": false,
+    "exposure": 0.5,
+    "fel_lambda": 17.9,
+    "fel_power": 1.6,
+    "fel_pulses": 0,
+    "fel_reprate": "1.07",
+    "fieldInt": [],
+    "fieldStrength": [],
+    "igNumber": 1,
+    "imageSettings": [
+        1,
+        1,
+        1,
+        1600,
+        100,
+        250
+    ],
+    "isImage": true,
+    "isScopePaused": true,
+    "nir_lambda": 12525.0,
+    "nir_power": 100.0,
+    "numADChannels": 3,
+    "numHSS": 4,
+    "numVSS": 3,
+    "outputAmp": 0,
+    "progress": 0,
+    "pyData": null,
+    "sample_name": "Loren",
+    "sample_spot_size": 0.05,
+    "sample_temp": 14.4,
+    "saveDir": "C:\\Users\\dvalovcin\\Desktop\\Junkers",
+    "saveName": "test",
+    "saveNameBG": "testBG",
+    "series": "",
+    "seriesNo": 0,
+    "shouldScopeLoop": true,
+    "shutter": [
+        0,
+        0
+    ],
+    "slits": 10,
+    "specGPIBidx": 0,
+    "window_trans": 1.0,
+    "xPixels": 1600,
+    "yPixels": 400,
+    "y_max": 30,
+    "y_min": 20
+}
