@@ -27,11 +27,15 @@ class myCallable(object):
         self.func(args)
         ret = 20002
         if self.st == "GetTemperature":
-            n = np.random.randint(100)
+            n = np.random.randint(20)
             if n == 1:
                 ret = 20036 # temp stabilized
             else:
                 ret = 20037
+        elif self.st == "Initialize":
+            ret = -1
+        elif self.st == 'InitializeMissingDLL':
+            ret = -2
 
         return ret
 
@@ -55,6 +59,7 @@ class fAndorEMCCD(object):
         self.PrepareAcquisition = myCallable(self.__voidReturn, 'PrepAcq')
         self.SetAcquisitionMode = myCallable(self.__voidReturn, 'SetAcqMode')
         self.SetADChannel = myCallable(self.__voidReturn, 'SetADChannel')
+        self.SetCoolerMode = myCallable(self.__voidReturn, 'SetCoolerMode')
         self.SetEMCCDGain = myCallable(self.__voidReturn, 'SetEMCCDGain')
         self.SetExposureTime = myCallable(self.__setExp, 'SetExposureTime')
         self.SetGain = myCallable(self.__voidReturn, 'SetGain')

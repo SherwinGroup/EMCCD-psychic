@@ -975,7 +975,7 @@
                 <number>1</number>
                </property>
                <property name="maximum">
-                <number>2</number>
+                <number>3</number>
                </property>
               </widget>
              </item>
@@ -1168,6 +1168,7 @@
     <addaction name="fExpTypePL"/>
     <addaction name="fExpTypeAbs"/>
     <addaction name="fExpTypeTwo_Color_Abs"/>
+    <addaction name="fExpTypeAlignment"/>
    </widget>
    <widget class="QMenu" name="menuLive_Plots">
     <property name="title">
@@ -1175,6 +1176,7 @@
     </property>
     <addaction name="mLivePlotsDisableHistogramAutoscale"/>
     <addaction name="mLivePlotsDisableRawPlots"/>
+    <addaction name="mLivePlotsForceAutoscale"/>
    </widget>
    <addaction name="menuOther_Settings"/>
    <addaction name="menuLive_Series"/>
@@ -1316,6 +1318,19 @@
    </property>
    <property name="statusTip">
     <string/>
+   </property>
+  </action>
+  <action name="fExpTypeAlignment">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Alignment</string>
+   </property>
+  </action>
+  <action name="mLivePlotsForceAutoscale">
+   <property name="text">
+    <string>Force Histogram Autoscale</string>
    </property>
   </action>
  </widget>

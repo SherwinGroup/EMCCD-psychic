@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Tue Aug 18 10:20:01 2015
+# Created: Thu Oct 22 10:48:55 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -380,7 +380,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_36.setObjectName(_fromUtf8("horizontalLayout_36"))
         self.sbSpecGrating = QtGui.QSpinBox(self.groupBox)
         self.sbSpecGrating.setMinimum(1)
-        self.sbSpecGrating.setMaximum(2)
+        self.sbSpecGrating.setMaximum(3)
         self.sbSpecGrating.setObjectName(_fromUtf8("sbSpecGrating"))
         self.horizontalLayout_36.addWidget(self.sbSpecGrating)
         self.gridLayout_16.addWidget(self.groupBox, 2, 0, 1, 1)
@@ -507,6 +507,11 @@ class Ui_MainWindow(object):
         self.mSeriesReset = QtGui.QAction(MainWindow)
         self.mSeriesReset.setStatusTip(_fromUtf8(""))
         self.mSeriesReset.setObjectName(_fromUtf8("mSeriesReset"))
+        self.fExpTypeAlignment = QtGui.QAction(MainWindow)
+        self.fExpTypeAlignment.setCheckable(True)
+        self.fExpTypeAlignment.setObjectName(_fromUtf8("fExpTypeAlignment"))
+        self.mLivePlotsForceAutoscale = QtGui.QAction(MainWindow)
+        self.mLivePlotsForceAutoscale.setObjectName(_fromUtf8("mLivePlotsForceAutoscale"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -521,8 +526,10 @@ class Ui_MainWindow(object):
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
         self.menuExperiment_Type.addAction(self.fExpTypeTwo_Color_Abs)
+        self.menuExperiment_Type.addAction(self.fExpTypeAlignment)
         self.menuLive_Plots.addAction(self.mLivePlotsDisableHistogramAutoscale)
         self.menuLive_Plots.addAction(self.mLivePlotsDisableRawPlots)
+        self.menuLive_Plots.addAction(self.mLivePlotsForceAutoscale)
         self.menubar.addAction(self.menuOther_Settings.menuAction())
         self.menubar.addAction(self.menuLive_Series.menuAction())
         self.menubar.addAction(self.menuExperiment_Type.menuAction())
@@ -653,6 +660,8 @@ class Ui_MainWindow(object):
         self.mSeriesRemove.setText(_translate("MainWindow", "Remove Series", None))
         self.mSeriesReset.setText(_translate("MainWindow", "Set Current as First", None))
         self.mSeriesReset.setToolTip(_translate("MainWindow", "Set the current image as the first image in the series", None))
+        self.fExpTypeAlignment.setText(_translate("MainWindow", "Alignment", None))
+        self.mLivePlotsForceAutoscale.setText(_translate("MainWindow", "Force Histogram Autoscale", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc
