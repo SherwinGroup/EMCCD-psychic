@@ -1217,6 +1217,7 @@ class CCDWindow(QtGui.QMainWindow):
             pass
         saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
         saveDict['saveName'] = str(self.ui.tImageName.text())
+        saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
 
         with open('Settings.txt', 'w') as fh:
             json.dump(saveDict, fh, separators=(',', ': '),
@@ -1287,6 +1288,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tSettingsDirectory.setText(str(self.settings["saveDir"]))
         self.ui.tImageName.setText(str(savedDict['saveName']))
         self.ui.tBackgroundName.setText(str(savedDict['saveNameBG']))
+        self.ui.mFileDoCRR.setChecked(savedDict['crr'])
 
 
 
@@ -1337,7 +1339,9 @@ class CCDWindow(QtGui.QMainWindow):
             self.sbText.setMessage(obj[0], [1])
         
     def closeEvent(self, event):
+        self.saveSettings()
         print 'closing,', event.type()
+
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:
             ret = QtGui.QMessageBox.warning(

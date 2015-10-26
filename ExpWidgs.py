@@ -584,17 +584,53 @@ class BaseExpWidget(QtGui.QWidget):
         :return: Boolean of whether or not to accept.
         """
         loop = QtCore.QEventLoop()
-        self.sigKillEventLoop.connect(lambda v: loop.exit(v))
-        self.sigMakeGui.emit(
-            QtGui.QMessageBox.information, (
-            None,"Confirm",
-            """Save most recent scan?""",
-            QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard,
-            QtGui.QMessageBox.Save
-        )
-        )
-        ret = loop.exec_()
-        return ret == QtGui.QMessageBox.Save
+        self.sigKillEventLoop.connect(loop.exit)
+
+        # As mentioned in other places, you can't make gui elements
+        # in non-main thread, so you need to use a signal to tell
+        # the main thread to handle it. This function will make
+        # the necessary ui element, and emit it as a signal
+        # to be made elsewhere
+        def makr():
+            prompt = QtGui.QMessageBox(self)
+            prompt.setText("Save most recent scan?")
+            prompt.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard)
+            prompt.setDefaultButton(QtGui.QMessageBox.Save)
+            prompt.setModal(False)
+            prompt.setWindowModality(QtCore.Qt.NonModal)
+            prompt.show()
+            return prompt
+
+        # I want to get the box returned to this thread.
+        # The probably cleaner way would be to have a class
+        # attribute to hold it, but I just... I don't know
+        #
+        # I feel better being able to have these two functions
+        # be able to talk without having to pull in a
+        # class attribute which only serves this purpose.
+        # Unfortunately, python doesn't do pass by reference, so
+        #
+        p = []
+        self.sigMakeGui.emit(makr, p)
+
+        # Need to have a waiting loop to wait for the
+        # main thread to process the signal and make the
+        # dialog box
+        loop.exec_()
+
+        try:
+            p = p[0]
+        except IndexError:
+            log.critical("Something is wrong with getting the reference to the"
+                         "dialog box")
+            return False
+
+        # now I need to wait for a button to be clicked
+        p.buttonClicked.connect(loop.exit)
+        loop.exec_()
+
+
+        return p.buttonRole(p.clickedButton())==QtGui.QMessageBox.AcceptRole
         # return True
     def genEquipmentDict(self):
         """
@@ -860,7 +896,7 @@ class BaseExpWidget(QtGui.QWidget):
         else:
             self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())+1
 
-    def createGuiElement(self, fnc, args):
+    def createGuiElement(self, fnc, args=None):
         """
         You can't make a GUI element from a worker thread, only from the
         main gui thread. This means that if you want to make a GUI element
@@ -879,7 +915,13 @@ class BaseExpWidget(QtGui.QWidget):
               cause the loop to return that value
                 (Note: May cause issue with non-integer returns?)
         """
-        ret = fnc(*args)
+        if args is None:
+            ret = fnc()
+        else:
+            ret = fnc(*args)
+        if isinstance(args, list) and not args:
+            args.append(ret)
+
         self.sigKillEventLoop.emit(ret)
 
 

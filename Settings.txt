@@ -2,27 +2,27 @@
     "HSS": [
         20.200000762939453,
         21.200000762939453,
-        22.200000762939453,
-        23.200000762939453
+        22.200000762939453
     ],
     "VSS": [
         10.199999809265137,
         11.199999809265137,
-        12.199999809265137
+        12.199999809265137,
+        13.199999809265137
     ],
     "agilGPIBidx": 0,
     "askedChiller": false,
     "bcpyBG": [
-        4.75796082e-05,
-        6.15542952e-05
+        0,
+        0
     ],
     "bcpyCD": [
-        0.000175750178,
-        0.000201493021
+        0,
+        0
     ],
     "bcpyFP": [
-        0.000112128578,
-        0.000146329785
+        0,
+        0
     ],
     "bgNumber": 0,
     "changedImageFlags": [
@@ -43,6 +43,7 @@
         0,
         0
     ],
+    "crr": false,
     "curADChannel": 0,
     "curAcqMode": "Single Scan",
     "curHSS": 20.200000762939453,
@@ -57,35 +58,35 @@
     "eff_field": 1.0,
     "exposing": false,
     "exposure": 0.5,
-    "fel_lambda": 17.9,
-    "fel_power": 1.6,
+    "fel_lambda": 0.0,
+    "fel_power": 0.0,
     "fel_pulses": 0,
-    "fel_reprate": "1.07",
+    "fel_reprate": 0.75,
     "fieldInt": [],
     "fieldStrength": [],
-    "igNumber": 1,
+    "igNumber": 0,
     "imageSettings": [
         1,
         1,
         1,
         1600,
-        100,
-        250
+        1,
+        400
     ],
     "isImage": true,
     "isScopePaused": true,
-    "nir_lambda": 12525.0,
-    "nir_power": 100.0,
-    "numADChannels": 3,
-    "numHSS": 4,
-    "numVSS": 3,
+    "nir_lambda": 0.0,
+    "nir_power": 0.0,
+    "numADChannels": 4,
+    "numHSS": 3,
+    "numVSS": 4,
     "outputAmp": 0,
     "progress": 0,
     "pyData": null,
-    "sample_name": "Loren",
+    "sample_name": "",
     "sample_spot_size": 0.05,
-    "sample_temp": 14.4,
-    "saveDir": "C:\\Users\\dvalovcin\\Desktop\\Junkers",
+    "sample_temp": 0,
+    "saveDir": "",
     "saveName": "test",
     "saveNameBG": "testBG",
     "series": "",
@@ -95,11 +96,11 @@
         0,
         0
     ],
-    "slits": 10,
+    "slits": 0,
     "specGPIBidx": 0,
     "window_trans": 1.0,
     "xPixels": 1600,
     "yPixels": 400,
-    "y_max": 30,
-    "y_min": 20
+    "y_max": 400,
+    "y_min": 0
 }
