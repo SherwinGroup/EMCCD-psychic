@@ -11,12 +11,16 @@ import time
 import numpy as np
 import logging
 log = logging.getLogger("Andor")
-log.setLevel(logging.WARNING)
+log.setLevel(logging.DEBUG)
 handler1 = logging.StreamHandler()
-handler1.setLevel(logging.DEBUG)
+handler1.setLevel(logging.WARNING)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler1.setFormatter(formatter)
 log.addHandler(handler1)
+handler2 = logging.FileHandler("TheCameraLog.log")
+handler2.setLevel(logging.DEBUG)
+handler2.setFormatter(formatter)
+log.addHandler(handler2)
 
 
 class AndorCapabilities(Structure):
@@ -189,30 +193,39 @@ class AndorEMCCD(object):
         self.setShutterEx(0, 0)
 
     def setHSS(self, idx):
+        log.debug('Setting HSS {}'.format(idx))
         ret = self.dllSetHSSpeed(self.cameraSettings['outputAmp'],
                            idx)
         if ret == 20002:
             self.cameraSettings['curHSS'] = self.cameraSettings['HSS'][idx]
+        else:
+            log.warning("Setting HSS Failed: {}".format(ret))
         return ret
 
     def setVSS(self, idx):
+        log.debug('Setting VSS {}'.format(idx))
         ret = self.dllSetVSSpeed(idx)
         if ret == 20002:
             self.cameraSettings['curVSS'] = self.cameraSettings['VSS'][idx]
+        else:
+            log.warning("Setting VSS Failed: {}".format(ret))
         return ret
 
     def setAD(self, ad=0):
         """Set the current AD channel to the input value"""
+        log.debug('Setting AD {}'.format(ad))
         ret =  self.dllSetADChannel(ad)
         if ret == 20002:
             self.cameraSettings['curADChannel'] = ad
+        else:
+            log.warning("Setting AD Failed: {}".format(ret))
         return ret
 
     def setAcqMode(self, idx):
         if idx in (0, 6, 7, 8):
             # invalid by the CCD designation
             raise ValueError("Invalid acquisition mode. You shouldn't be here...")
-
+        log.debug('Setting acquisition {}'.format(idx))
         # dictionary to retrieve the mode title
         d = {1:'Single Scan', 2:'Accumulate', 3:'Kinetics',
              4:'Fast Kinetics', 5:'Run till abort',
@@ -220,9 +233,12 @@ class AndorEMCCD(object):
         ret = self.dllSetAcquisitionMode(idx)
         if ret == 20002:
             self.cameraSettings['curAcqMode'] = d[idx]
+        else:
+            log.warning("Setting acquisition Failed: {}".format(ret))
         return ret
 
     def setRead(self, idx):
+        log.debug('Setting Read {}'.format(idx))
         d = {0:"Full Vertical Binning",
              1:"Multi-Track",
              2:"Random-Track",
@@ -231,17 +247,23 @@ class AndorEMCCD(object):
         ret = self.dllSetReadMode(idx)
         if ret == 20002:
             self.cameraSettings['curReadMode'] = d[idx]
+        else:
+            log.warning("Setting Read Failed: {}".format(ret))
         return ret
 
     def setTrigger(self, idx):
+        log.debug('Setting Trigger {}'.format(idx))
         d = {0:"Internal",
              1:"External"}
         ret = self.dllSetTriggerMode(idx)
         if ret == 20002:
             self.cameraSettings['curTrig'] = d[idx]
+        else:
+            log.warning("Setting Trigger Failed: {}".format(ret))
         return ret
 
     def setImage(self, vals):
+        log.debug('Setting image {}'.format(vals))
         ret = self.dllSetImage(vals[0], vals[1],
                                 vals[2], vals[3],
                                 vals[4], vals[5])

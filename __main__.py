@@ -97,7 +97,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -1191,30 +1191,23 @@ class CCDWindow(QtGui.QMainWindow):
 
         # These ones aren't needed and may be
         # bad to keep around.
-        try:
-            del saveDict['settingsUI']
-        except KeyError:
-            pass
-        try:
-            del saveDict['GPIBlist']
-        except KeyError:
-            pass
-        try:
-            del saveDict['imageUI']
-        except KeyError:
-            pass
-        try:
-            del saveDict['takeContinuous']
-        except KeyError:
-            pass
-        try:
-            del saveDict['exposureTime']
-        except KeyError:
-            pass
-        try:
-            del saveDict['gain']
-        except KeyError:
-            pass
+
+        badKeys = ("settingsUI",
+                   "GPIBlist",
+                   "imageUI",
+                   "takeContinuous",
+                   "shouldScopeLoop",
+                   "settingsUI",
+                   "doSpecSweep",
+                   "exposing",
+                   "settingsUI"
+        )
+
+        for key in badKeys:
+            try:
+                del saveDict[key]
+            except KeyError:
+                pass
         saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
@@ -1267,6 +1260,10 @@ class CCDWindow(QtGui.QMainWindow):
             savedDict = json.load(fh)
         self.settings.update({k:v for k,v in savedDict.items() if k in self.settings})
 
+        expose = savedDict.pop('exposureTime')
+        gain = savedDict.pop('gain')
+
+
         self.CCD.cameraSettings.update(
             {k:v for k,v in savedDict.items() if k in self.CCD.cameraSettings})
 
@@ -1276,6 +1273,8 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.settings["changedSettingsFlags"] = [1] * \
                                                 len(self.settings["changedSettingsFlags"])
+        self.settings["changedImageFlags"] = [1] * \
+                                                len(self.settings["changedImageFlags"])
         # Force a camera update
         self.updateSettings()
 
@@ -1284,6 +1283,8 @@ class CCDWindow(QtGui.QMainWindow):
         # Might be a better way of doing this, but fekkit
         self.closeExp()
         self.openExp()
+        self.getCurExp().ui.tEMCCDExp.setText(str(expose))
+        self.getCurExp().ui.tEMCCDGain.setText(str(gain))
 
         self.ui.tSettingsDirectory.setText(str(self.settings["saveDir"]))
         self.ui.tImageName.setText(str(savedDict['saveName']))
