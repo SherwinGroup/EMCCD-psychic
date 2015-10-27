@@ -2,6 +2,7 @@ from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
 import scipy.integrate as spi
+from scipy.interpolate import interp1d
 import scipy.stats as spt # for calculating FEL pulse information
 import re
 import time
@@ -21,6 +22,30 @@ from InstsAndQt.customQt import TempThread
 
 import logging
 log = logging.getLogger("EMCCD")
+
+class CustomAxis(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        super(CustomAxis, self).__init__(*args, **kwargs)
+        self.dataSet = None
+        self.dataSetInterp = None
+
+    def tickStrings(self, values, scale, spacing):
+        if self.dataSet is None:
+            return super(CustomAxis, self).tickStrings(
+                values=values,
+                scale=scale,
+                spacing=spacing
+            )
+        else:
+            return ['{:.1f}'.format(float(self.dataSetInterp(i))) for i in values]
+
+    def setDataSet(self, data):
+        self.dataSet = data
+        self.dataSetInterp = interp1d(x=data,
+                                      y=np.arange(len(data)),
+                                      bounds_error=False,
+                                      fill_value = -1)
+
 
 
 class BaseExpWidget(QtGui.QWidget):
@@ -190,11 +215,34 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.gCCDBack.addItem(self.pBackHist)
 
         self.pSpec = self.ui.gCCDBin.plot(pen='k')
-        # plotitem = self.ui.gCCDBin.getPlotItem()
+
         plotitem = self.ui.gCCDBin.plotItem
         plotitem.setTitle('Spectrum')
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
+        # plotitem.setLabel('top', text='pixels')
+
+
+        plotitem.layout.removeItem(plotitem.getAxis('top'))
+        caxis = CustomAxis(orientation='top', parent=plotitem)
+        caxis.setLabel('Pixel')
+        caxis.linkToView(plotitem.vb)
+        plotitem.axes['top']['item'] = caxis
+        plotitem.layout.addItem(caxis, 1, 1)
+
+        # p2 = pg.ViewBox()
+        # pi = pg.PlotItem(axis={'top':caxis})
+        # p2.addItem(pi)
+        # pi.showAxis('top')
+        # # plotitem.showAxis('top')
+        # plotitem.scene().addItem(p2)
+        # plotitem.getAxis('top').linkToView(p2)
+        # # print p2.getAxis('top')
+        # p2.setXLink(plotitem)
+        # p2.setYLink(plotitem)
+        # # plotitem.getAxis('top').setLabel('pixel')
+
+
 
         # These are infinite lines for when taking a continuous
         # image. Issues arise if you try to make them in
@@ -874,6 +922,11 @@ class BaseExpWidget(QtGui.QWidget):
 
     def updateSpectrum(self, data = None):
         self.pSpec.setData(data[:,0], data[:,1])
+        self.ui.gCCDBin.plotItem.getAxis('top').setDataSet(data[:,0])
+        # self.ui.gCCDBin.plotItem.getAxis('top').setTicks([
+        #     [i for i in zip(data[::10,0], np.arange(len(data[::10,0])))],
+        #     []
+        # ])
 
     def parseNIRL(self):
         """
