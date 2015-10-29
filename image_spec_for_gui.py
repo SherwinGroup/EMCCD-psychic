@@ -192,7 +192,7 @@ class EMCCD_image(object):
         in the UI.
         '''
 
-        self.spectrum = self.clean_array[:,self.equipment_dict['y_min']:self.equipment_dict['y_max']].sum(axis=1)
+        self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
         wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'], 
                                       self.equipment_dict['grating'])
         self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T

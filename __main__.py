@@ -68,9 +68,9 @@ neLines = [
 ]
 
 
-class MessageDialog(object):
-    def __init__(self, *args, **kwargs):
-        pass
+# class MessageDialog(object):
+#     def __init__(self, *args, **kwargs):
+#         pass
 
 
 class CCDWindow(QtGui.QMainWindow):
@@ -102,7 +102,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()

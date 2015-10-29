@@ -327,26 +327,36 @@ class AndorEMCCD(object):
         x = int(round(
             (image[3]-image[2])/image[0]
         )) + 1
+
         y = int(round(
             (image[5]-image[4])/image[1]
         )) + 1
+        if 'Binning' in self.cameraSettings['curReadMode']:
+            y = 1
         # if image[0] != 1 or image[1] != 1:
         #     print "Debugging: Non-standard binning"
         #     print image
         #     print x,y
 
-        retdata = (c_int * (x * y))()
+        retdata = (c_int * (x * y))(-1)
 
-        self.dllGetAcquiredData(retdata, x * y )
+        retval = self.dllGetAcquiredData(retdata, x * y )
+        if retval != 20002:
+            return retval
+
+
 
         retnums = []
         for i in range(x*y):
             retnums.append(retdata[i])
 
+
+
         # Rehsape the data. There's also some concern of how exactly the array is returned in relation to
         # a full image.
-        retnums = np.reshape(retnums, (y, x)).T
-        retnums = np.flipud(retnums)
+        retnums = np.reshape(retnums, (y, x))
+        retnums = np.fliplr(retnums)
+
 
         return retnums
 

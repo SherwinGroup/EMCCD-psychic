@@ -19,6 +19,7 @@ pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
 from InstsAndQt.customQt import TempThread
+from InstsAndQt.customQt import *
 
 import logging
 log = logging.getLogger("EMCCD")
@@ -341,7 +342,12 @@ class BaseExpWidget(QtGui.QWidget):
                 self.elWaitForOsc.exit()
             except:
                 log.debug("Error exiting eventLoop waiting for pulses")
-        self.rawData = self.papa.CCD.getImage()
+        ret = self.papa.CCD.getImage()
+        if isinstance(ret, int):
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
+            return
+        self.rawData = ret
         postProcessing()
 
     def startProgressBar(self):
@@ -903,7 +909,7 @@ class BaseExpWidget(QtGui.QWidget):
 
     def updateSignalImage(self, data = None):
         data = np.array(data)
-        self.pSigImage.setImage(data)
+        self.pSigImage.setImage(data.T)
         if self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
             self.pSigImage.setLevels(self.pSigHist.getLevels())
         else:
@@ -916,7 +922,7 @@ class BaseExpWidget(QtGui.QWidget):
 
     def updateBackgroundImage(self, data = None):
         data = np.array(data)
-        self.pBackImage.setImage(data)
+        self.pBackImage.setImage(data.T)
         self.pBackHist.setLevels(data.min(), data.max())
 
 
