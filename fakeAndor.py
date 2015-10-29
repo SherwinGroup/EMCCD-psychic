@@ -26,6 +26,8 @@ class myCallable(object):
         log.debug("{}, {}".format(' '*10+self.st, args))
         self.func(args)
         ret = 20002
+        # if not np.random.randint(5):
+        #     ret = 20004
         if self.st == "GetTemperature":
             n = np.random.randint(20)
             if n == 1:
@@ -105,8 +107,10 @@ class fAndorEMCCD(object):
         y.value = 400
         
     def __getHSS(self, *args):
+        # print args
         x = args[0][-1]
         x.value = np.random.randint(100)
+        x.value = 0.2 + args[0][-2] + len(args[0])*5
     
     def __getNum(self, *args):
         x = args[0][-1]

@@ -2,6 +2,7 @@ from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
 import scipy.integrate as spi
+from scipy.interpolate import interp1d
 import scipy.stats as spt # for calculating FEL pulse information
 import re
 import time
@@ -18,9 +19,34 @@ pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
 from InstsAndQt.customQt import TempThread
+from InstsAndQt.customQt import *
 
 import logging
 log = logging.getLogger("EMCCD")
+
+class CustomAxis(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        super(CustomAxis, self).__init__(*args, **kwargs)
+        self.dataSet = None
+        self.dataSetInterp = None
+
+    def tickStrings(self, values, scale, spacing):
+        if self.dataSet is None:
+            return super(CustomAxis, self).tickStrings(
+                values=values,
+                scale=scale,
+                spacing=spacing
+            )
+        else:
+            return ['{:.1f}'.format(float(self.dataSetInterp(i))) for i in values]
+
+    def setDataSet(self, data):
+        self.dataSet = data
+        self.dataSetInterp = interp1d(x=data,
+                                      y=np.arange(len(data)),
+                                      bounds_error=False,
+                                      fill_value = -1)
+
 
 
 class BaseExpWidget(QtGui.QWidget):
@@ -190,11 +216,34 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.gCCDBack.addItem(self.pBackHist)
 
         self.pSpec = self.ui.gCCDBin.plot(pen='k')
-        # plotitem = self.ui.gCCDBin.getPlotItem()
+
         plotitem = self.ui.gCCDBin.plotItem
         plotitem.setTitle('Spectrum')
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
+        # plotitem.setLabel('top', text='pixels')
+
+
+        plotitem.layout.removeItem(plotitem.getAxis('top'))
+        caxis = CustomAxis(orientation='top', parent=plotitem)
+        caxis.setLabel('Pixel')
+        caxis.linkToView(plotitem.vb)
+        plotitem.axes['top']['item'] = caxis
+        plotitem.layout.addItem(caxis, 1, 1)
+
+        # p2 = pg.ViewBox()
+        # pi = pg.PlotItem(axis={'top':caxis})
+        # p2.addItem(pi)
+        # pi.showAxis('top')
+        # # plotitem.showAxis('top')
+        # plotitem.scene().addItem(p2)
+        # plotitem.getAxis('top').linkToView(p2)
+        # # print p2.getAxis('top')
+        # p2.setXLink(plotitem)
+        # p2.setYLink(plotitem)
+        # # plotitem.getAxis('top').setLabel('pixel')
+
+
 
         # These are infinite lines for when taking a continuous
         # image. Issues arise if you try to make them in
@@ -212,6 +261,11 @@ class BaseExpWidget(QtGui.QWidget):
     def __IMAGE_COLLECTION_METHODS(): pass
 
     def takeImage(self, isBackground = False):
+        try:
+            self.papa.saveSettings()
+        except Exception as e:
+            log.error("Error saving settings to file, {}".format(e))
+
         self.thDoExposure.target = self.doExposure
 
         # Tell the thread what function to call after it
@@ -259,8 +313,10 @@ class BaseExpWidget(QtGui.QWidget):
         # Update exposure/gain if necesssary
         if not np.isclose(float(self.ui.tEMCCDExp.value()), self.papa.CCD.cameraSettings["exposureTime"]):
             self.papa.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
+            self.ui.tEMCCDExp.setText(str(self.papa.CCD.cameraSettings["exposureTime"]))
         if not int(self.ui.tEMCCDGain.text()) == self.papa.CCD.cameraSettings["gain"]:
             self.papa.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+            self.ui.tEMCCDGain.setText(str(self.papa.CCD.cameraSettings["gain"]))
 
 
         self.papa.CCD.dllStartAcquisition()
@@ -286,7 +342,12 @@ class BaseExpWidget(QtGui.QWidget):
                 self.elWaitForOsc.exit()
             except:
                 log.debug("Error exiting eventLoop waiting for pulses")
-        self.rawData = self.papa.CCD.getImage()
+        ret = self.papa.CCD.getImage()
+        if isinstance(ret, int):
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
+            return
+        self.rawData = ret
         postProcessing()
 
     def startProgressBar(self):
@@ -537,6 +598,8 @@ class BaseExpWidget(QtGui.QWidget):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.toggleUIElements(True)
 
+
+
     def processBackground(self):
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
         self.toggleUIElements(True)
@@ -575,128 +638,53 @@ class BaseExpWidget(QtGui.QWidget):
         :return: Boolean of whether or not to accept.
         """
         loop = QtCore.QEventLoop()
-        self.sigKillEventLoop.connect(lambda v: loop.exit(v))
-        self.sigMakeGui.emit(
-            QtGui.QMessageBox.information, (
-            None,"Confirm",
-            """Save most recent scan?""",
-            QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard,
-            QtGui.QMessageBox.Save
-        )
-        )
-        ret = loop.exec_()
-        return ret == QtGui.QMessageBox.Save
-        # return True
+        self.sigKillEventLoop.connect(loop.exit)
 
+        # As mentioned in other places, you can't make gui elements
+        # in non-main thread, so you need to use a signal to tell
+        # the main thread to handle it. This function will make
+        # the necessary ui element, and emit it as a signal
+        # to be made elsewhere
+        def makr():
+            prompt = QtGui.QMessageBox(self)
+            prompt.setText("Save most recent scan?")
+            prompt.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard)
+            prompt.setDefaultButton(QtGui.QMessageBox.Save)
+            prompt.setModal(False)
+            prompt.setWindowModality(QtCore.Qt.NonModal)
+            prompt.show()
+            return prompt
 
-    def analyzeSeries(self):
-        #######################
-        # Handling of series tag to add things up live
+        # I want to get the box returned to this thread.
+        # The probably cleaner way would be to have a class
+        # attribute to hold it, but I just... I don't know
         #
-        # Want it to save only the latest series, but also
-        # the previous ones should be saved (hence why this is
-        # after the saving is being done)
-        #######################
-        groupBox = self.ui.groupBox_Series
+        # I feel better being able to have these two functions
+        # be able to talk without having to pull in a
+        # class attribute which only serves this purpose.
+        # Unfortunately, python doesn't do pass by reference, so
+        #
+        p = []
+        self.sigMakeGui.emit(makr, p)
 
-        if (self.prevDataEMCCD is not None and # Is there something to add to?
-                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
-                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
-                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
-                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
-            log.debug("Added two series together")
-            # Un-normalize by the number currently in series
-            self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
-
-            try:
-                self.prevDataEMCCD += self.curDataEMCCD
-            except Exception as e:
-                log.debug("Error adding series data, {}".format(e))
-            else:
-                self.papa.ui.mSeriesUndo.setEnabled(True)
-
-            self.prevDataEMCCD.make_spectrum()
-
-            # Save the summed, unnormalized spectrum
-            try:
-                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
-                self.papa.sigUpdateStatusBar.emit("Saved Series")
-            except Exception as e:
-                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
-                log.debug("Error saving series data, {}".format(e))
-
-            self.runSettings["seriesNo"] +=1
-            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
-            # but PLOT the normalized average
-            self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
-            self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
-
-            # Update the plots with this new data
-            self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
-            self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
-
-        elif str(self.ui.tCCDSeries.text()) != "":
-            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
-            self.prevDataEMCCD.file_no += "seriesed"
-            self.runSettings["seriesNo"] = 1
-            groupBox.setTitle("Series (1)")
-
-
-        else:
-            self.prevDataEMCCD = None
-            self.runSettings["seriesNo"] = 0
-            groupBox.setTitle("Series")
-            log.debug("Made a new series where I didn't think I'd be")
-
-    def undoSeries(self):
-        log.debug("Added two series together")
-        # Un-normalize by the number currently in series
-        self.prevDataEMCCD.clean_array *= self.runSettings["seriesNo"]
+        # Need to have a waiting loop to wait for the
+        # main thread to process the signal and make the
+        # dialog box
+        loop.exec_()
 
         try:
-            self.prevDataEMCCD -= self.curDataEMCCD
-        except Exception as e:
-            log.debug("Error undoing series data, {}".format(e))
-        else:
-            self.papa.ui.mSeriesUndo.setEnabled(False)
+            p = p[0]
+        except IndexError:
+            log.critical("Something is wrong with getting the reference to the"
+                         "dialog box")
+            return False
 
-        self.prevDataEMCCD.make_spectrum()
+        # now I need to wait for a button to be clicked
+        p.buttonClicked.connect(loop.exit)
+        loop.exec_()
 
-        # Save the summed, unnormalized spectrum
-        try:
-            self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
-            self.papa.sigUpdateStatusBar.emit("Saved Series")
-        except Exception as e:
-            self.papa.sigUpdateStatusBar.emit("Error Saving Series")
-            log.debug("Error saving series data, {}".format(e))
 
-        self.runSettings["seriesNo"] -=1
-        self.ui.groupBox_Series.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
-        # but PLOT the normalized average
-        self.prevDataEMCCD.spectrum[:,1]/=self.runSettings["seriesNo"]
-        self.prevDataEMCCD.clean_array/=self.runSettings["seriesNo"]
-
-        # Update the plots with this new data
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
-        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
-
-    def confirmImage(self):
-        """
-        Prompts the user to ensure the most recent image is acceptable.
-        :return: Boolean of whether or not to accept.
-        """
-        loop = QtCore.QEventLoop()
-        self.sigKillEventLoop.connect(lambda v: loop.exit(v))
-        self.sigMakeGui.emit(
-            QtGui.QMessageBox.information, (
-            None,"Confirm",
-            """Save most recent scan?""",
-            QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard,
-            QtGui.QMessageBox.Save
-        )
-        )
-        ret = loop.exec_()
-        return ret == QtGui.QMessageBox.Save
+        return p.buttonRole(p.clickedButton())==QtGui.QMessageBox.AcceptRole
         # return True
     def genEquipmentDict(self):
         """
@@ -723,7 +711,6 @@ class BaseExpWidget(QtGui.QWidget):
             s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
             s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
                 str(self.ui.tCCDFELPulses.text()).strip() else 0
-
 
             # We've started to do really long exposures
             # ( 10 min ~ 300-400 FEL pulses)
@@ -779,7 +766,6 @@ class BaseExpWidget(QtGui.QWidget):
 
         s["series"] = st
         return s
-
 
 
     @staticmethod
@@ -923,7 +909,7 @@ class BaseExpWidget(QtGui.QWidget):
 
     def updateSignalImage(self, data = None):
         data = np.array(data)
-        self.pSigImage.setImage(data)
+        self.pSigImage.setImage(data.T)
         if self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
             self.pSigImage.setLevels(self.pSigHist.getLevels())
         else:
@@ -936,12 +922,17 @@ class BaseExpWidget(QtGui.QWidget):
 
     def updateBackgroundImage(self, data = None):
         data = np.array(data)
-        self.pBackImage.setImage(data)
+        self.pBackImage.setImage(data.T)
         self.pBackHist.setLevels(data.min(), data.max())
 
 
     def updateSpectrum(self, data = None):
         self.pSpec.setData(data[:,0], data[:,1])
+        self.ui.gCCDBin.plotItem.getAxis('top').setDataSet(data[:,0])
+        # self.ui.gCCDBin.plotItem.getAxis('top').setTicks([
+        #     [i for i in zip(data[::10,0], np.arange(len(data[::10,0])))],
+        #     []
+        # ])
 
     def parseNIRL(self):
         """
@@ -960,11 +951,11 @@ class BaseExpWidget(QtGui.QWidget):
         allow the user to update the image number counters
         """
         if isIm:
-            self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())
+            self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())+1
         else:
-            self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())
+            self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())+1
 
-    def createGuiElement(self, fnc, args):
+    def createGuiElement(self, fnc, args=None):
         """
         You can't make a GUI element from a worker thread, only from the
         main gui thread. This means that if you want to make a GUI element
@@ -983,7 +974,13 @@ class BaseExpWidget(QtGui.QWidget):
               cause the loop to return that value
                 (Note: May cause issue with non-integer returns?)
         """
-        ret = fnc(*args)
+        if args is None:
+            ret = fnc()
+        else:
+            ret = fnc(*args)
+        if isinstance(args, list) and not args:
+            args.append(ret)
+
         self.sigKillEventLoop.emit(ret)
 
 

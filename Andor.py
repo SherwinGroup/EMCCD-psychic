@@ -11,12 +11,16 @@ import time
 import numpy as np
 import logging
 log = logging.getLogger("Andor")
-log.setLevel(logging.WARNING)
+log.setLevel(logging.DEBUG)
 handler1 = logging.StreamHandler()
-handler1.setLevel(logging.DEBUG)
+handler1.setLevel(logging.WARNING)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler1.setFormatter(formatter)
 log.addHandler(handler1)
+handler2 = logging.FileHandler("TheCameraLog.log")
+handler2.setLevel(logging.DEBUG)
+handler2.setFormatter(formatter)
+log.addHandler(handler2)
 
 
 class AndorCapabilities(Structure):
@@ -42,6 +46,35 @@ class AndorEMCCD(object):
     def __init__(self, wantFake = False):
 
         self.dll = None
+        # Flag to keep track of whether the camera is
+        # real or not
+        self.amFake = False
+
+        self.cameraSettings = {
+            'xPixels': None,
+            'yPixels': None,
+            'numADChannels': None,
+            'curADChannel': None,
+            'outputAmp': None,
+            'numHSS': None,
+            'curHSS': None,
+            'HSS': [],
+            'numVSS': None,
+            'curVSS': None,
+            'VSS': [],
+            'curAcqMode': None,
+            'curReadMode': None,
+            'curTrig': None,
+            'imageSettings': [],
+            'exposureTime': None,
+            'gain': None,
+            'shutter': None,
+            'curShutterInt': None,
+            'curShutterEx': None,
+        }
+
+
+
         self.registerFunctions(wantFake = wantFake)
         log.debug("About to initialize EMCCD")
         self.dllInitializeRet = None
@@ -57,10 +90,11 @@ class AndorEMCCD(object):
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
         self.tempRetCode = '' # code to
-        self.cameraSettings = dict() # A dictionary to hold various parameters of the camera
+        # self.cameraSettings = dict() # A dictionary to hold various parameters of the camera
 
         self.data = None
         self.capabilities = AndorCapabilities(sizeof(c_ulong)*12,0,0,0,0,0,0,0,0,0,0,0)
+
 
 
     def gotoTemperature(self, *args):
@@ -159,30 +193,39 @@ class AndorEMCCD(object):
         self.setShutterEx(0, 0)
 
     def setHSS(self, idx):
+        log.debug('Setting HSS {}'.format(idx))
         ret = self.dllSetHSSpeed(self.cameraSettings['outputAmp'],
                            idx)
         if ret == 20002:
             self.cameraSettings['curHSS'] = self.cameraSettings['HSS'][idx]
+        else:
+            log.warning("Setting HSS Failed: {}".format(ret))
         return ret
 
     def setVSS(self, idx):
+        log.debug('Setting VSS {}'.format(idx))
         ret = self.dllSetVSSpeed(idx)
         if ret == 20002:
             self.cameraSettings['curVSS'] = self.cameraSettings['VSS'][idx]
+        else:
+            log.warning("Setting VSS Failed: {}".format(ret))
         return ret
 
     def setAD(self, ad=0):
         """Set the current AD channel to the input value"""
+        log.debug('Setting AD {}'.format(ad))
         ret =  self.dllSetADChannel(ad)
         if ret == 20002:
             self.cameraSettings['curADChannel'] = ad
+        else:
+            log.warning("Setting AD Failed: {}".format(ret))
         return ret
 
     def setAcqMode(self, idx):
         if idx in (0, 6, 7, 8):
             # invalid by the CCD designation
             raise ValueError("Invalid acquisition mode. You shouldn't be here...")
-
+        log.debug('Setting acquisition {}'.format(idx))
         # dictionary to retrieve the mode title
         d = {1:'Single Scan', 2:'Accumulate', 3:'Kinetics',
              4:'Fast Kinetics', 5:'Run till abort',
@@ -190,9 +233,12 @@ class AndorEMCCD(object):
         ret = self.dllSetAcquisitionMode(idx)
         if ret == 20002:
             self.cameraSettings['curAcqMode'] = d[idx]
+        else:
+            log.warning("Setting acquisition Failed: {}".format(ret))
         return ret
 
     def setRead(self, idx):
+        log.debug('Setting Read {}'.format(idx))
         d = {0:"Full Vertical Binning",
              1:"Multi-Track",
              2:"Random-Track",
@@ -201,17 +247,23 @@ class AndorEMCCD(object):
         ret = self.dllSetReadMode(idx)
         if ret == 20002:
             self.cameraSettings['curReadMode'] = d[idx]
+        else:
+            log.warning("Setting Read Failed: {}".format(ret))
         return ret
 
     def setTrigger(self, idx):
+        log.debug('Setting Trigger {}'.format(idx))
         d = {0:"Internal",
              1:"External"}
         ret = self.dllSetTriggerMode(idx)
         if ret == 20002:
             self.cameraSettings['curTrig'] = d[idx]
+        else:
+            log.warning("Setting Trigger Failed: {}".format(ret))
         return ret
 
     def setImage(self, vals):
+        log.debug('Setting image {}'.format(vals))
         ret = self.dllSetImage(vals[0], vals[1],
                                 vals[2], vals[3],
                                 vals[4], vals[5])
@@ -275,22 +327,36 @@ class AndorEMCCD(object):
         x = int(round(
             (image[3]-image[2])/image[0]
         )) + 1
+
         y = int(round(
-            (image[5]-image[4]/image[1])
+            (image[5]-image[4])/image[1]
         )) + 1
+        if 'Binning' in self.cameraSettings['curReadMode']:
+            y = 1
+        # if image[0] != 1 or image[1] != 1:
+        #     print "Debugging: Non-standard binning"
+        #     print image
+        #     print x,y
 
-        retdata = (c_int * (x * y))()
+        retdata = (c_int * (x * y))(-1)
 
-        self.dllGetAcquiredData(retdata, x * y )
+        retval = self.dllGetAcquiredData(retdata, x * y )
+        if retval != 20002:
+            return retval
+
+
 
         retnums = []
         for i in range(x*y):
             retnums.append(retdata[i])
 
+
+
         # Rehsape the data. There's also some concern of how exactly the array is returned in relation to
         # a full image.
-        retnums = np.reshape(retnums, (y, x)).T
-        retnums = np.flipud(retnums)
+        retnums = np.reshape(retnums, (y, x))
+        retnums = np.fliplr(retnums)
+
 
         return retnums
 
@@ -330,6 +396,7 @@ class AndorEMCCD(object):
         if wantFake:
             from fakeAndor import fAndorEMCCD
             dll = fAndorEMCCD()
+            self.amFake = True
         else:
             try:
                 dll = CDLL(name) #Change this to the appropriate name
@@ -346,6 +413,7 @@ class AndorEMCCD(object):
                     # from fakeAndor import fAndorEMCCD
                     import fakeAndor as FA
                     dll = FA.fAndorEMCCD()
+                    self.amFake = True
                     dll.Initialize = FA.myCallable(lambda x: None, 'InitializeMissingDLL')
         
         self.dll = dll # For if it's ever needed to call things directly

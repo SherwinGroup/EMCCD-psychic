@@ -40,9 +40,9 @@ class OscWid(QtGui.QWidget):
 
     def __init__(self, papa = None):
         super(OscWid, self).__init__()
+        self.papa = papa # For keeping track of things relevant to the parent widget
         self.initSettings()
         self.initUI()
-        self.papa = papa # For keeping track of things relevant to the parent widget
 
         # self.pyDataSig.connect(self.updateOscilloscopeGraph)
         self.updateOscDataSig.connect(self.updateOscilloscopeGraph)
@@ -87,9 +87,9 @@ class OscWid(QtGui.QWidget):
         s["fieldStrength"] = []
         s["fieldInt"] = []
         # lists for holding the boundaries of the linear regions
-        s['bcpyBG'] = [0, 0]
-        s['bcpyFP'] = [0, 0]
-        s['bcpyCD'] = [0, 0]
+        s['bcpyBG'] = self.papa.settings['bcpyBG']
+        s['bcpyFP'] = self.papa.settings['bcpyFP']
+        s['bcpyCD'] = self.papa.settings['bcpyCD']
         s['pyData'] = None
 
         s["pyBG"] = 0
@@ -160,9 +160,9 @@ class OscWid(QtGui.QWidget):
         sgCol = pg.mkBrush(QtGui.QColor(0, 255, 0, 50))
 
         #Background region for the pyro plot
-        self.boxcarRegions[0] = pg.LinearRegionItem(self.settings['bcpyBG'], brush = bgCol)
-        self.boxcarRegions[1] = pg.LinearRegionItem(self.settings['bcpyFP'], brush = fpCol)
-        self.boxcarRegions[2] = pg.LinearRegionItem(self.settings['bcpyCD'], brush = sgCol)
+        self.boxcarRegions[0] = pg.LinearRegionItem(self.papa.settings['bcpyBG'], brush = bgCol)
+        self.boxcarRegions[1] = pg.LinearRegionItem(self.papa.settings['bcpyFP'], brush = fpCol)
+        self.boxcarRegions[2] = pg.LinearRegionItem(self.papa.settings['bcpyCD'], brush = sgCol)
 
         #Connect it all to something that will update values when these all change
         for i in self.boxcarRegions:
@@ -189,7 +189,7 @@ class OscWid(QtGui.QWidget):
         }
         for i in range(len(self.boxcarRegions)):
             self.boxcarRegions[i].setRegion(tuple((point, point)))
-            self.settings[d[i]] = list((point, point))
+            self.papa.settings[d[i]] = list((point, point))
 
     def updateLinearRegionValues(self):
         sender = self.sender()
@@ -214,7 +214,7 @@ class OscWid(QtGui.QWidget):
              1: "bcpyFP",
              2: "bcpyCD"
         }
-        self.settings[d[i]] = list(sender.getRegion())
+        self.papa.settings[d[i]] = list(sender.getRegion())
 
     def updateLinearRegionsFromText(self):
         sender = self.sender()
@@ -236,7 +236,7 @@ class OscWid(QtGui.QWidget):
              1: "bcpyFP",
              2: "bcpyCD"
         }
-        self.settings[d[i]] = list(curVals)
+        self.papa.settings[d[i]] = list(curVals)
 
     @staticmethod
     def __POPPING_OUT_CONTROLS(): pass
