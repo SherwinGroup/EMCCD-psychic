@@ -1164,7 +1164,15 @@
     <property name="title">
      <string>Experiment Type</string>
     </property>
-    <addaction name="fExpTypeHSG"/>
+    <widget class="QMenu" name="menuHSG_FVB">
+     <property name="title">
+      <string>HSG</string>
+     </property>
+     <addaction name="fExpTypeHSG_FVB"/>
+     <addaction name="fExpTypeHSG_Image"/>
+     <addaction name="fExpTypeHSG_PhotonCounting"/>
+    </widget>
+    <addaction name="menuHSG_FVB"/>
     <addaction name="fExpTypePL"/>
     <addaction name="fExpTypeAbs"/>
     <addaction name="fExpTypeTwo_Color_Abs"/>
@@ -1248,15 +1256,15 @@
     <string>Undo Last</string>
    </property>
   </action>
-  <action name="fExpTypeHSG">
+  <action name="fExpTypeHSGImage">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
-    <string>HSG</string>
+    <string>HSG Image</string>
    </property>
   </action>
   <action name="fExpTypePL">
@@ -1331,6 +1339,33 @@
   <action name="mLivePlotsForceAutoscale">
    <property name="text">
     <string>Force Histogram Autoscale</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_FVB">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FVB</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_Image">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Image</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_PhotonCounting">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Photon Counting</string>
    </property>
   </action>
  </widget>

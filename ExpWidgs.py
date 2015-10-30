@@ -58,6 +58,10 @@ class BaseExpWidget(QtGui.QWidget):
     # What is the class in which data will be stored?
     DataClass = EMCCD_image
 
+    # name to be used for the tab title
+    name = 'Base Tab'
+
+
     sigStartTimer = QtCore.pyqtSignal()
 
 
@@ -218,7 +222,6 @@ class BaseExpWidget(QtGui.QWidget):
         self.pSpec = self.ui.gCCDBin.plot(pen='k')
 
         plotitem = self.ui.gCCDBin.plotItem
-        plotitem.setTitle('Spectrum')
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
         # plotitem.setLabel('top', text='pixels')
@@ -256,6 +259,23 @@ class BaseExpWidget(QtGui.QWidget):
                                      pen=pg.mkPen(width=3, color='g'))
         self.ilTwop2 = pg.InfiniteLine(760, movable=True,
                                      pen=pg.mkPen(width=3, color='g'))
+
+    def experimentOpen(self):
+        """
+        This function will be called by the CCD window when
+        the experiment is opened, after the experimental
+        settings are populated
+        :return:
+        """
+        pass
+
+    def experimentClose(self):
+        """
+        This will be called when the experiment is closed
+        ( when being changed to another experiment)
+        :return:
+        """
+        pass
 
     @staticmethod
     def __IMAGE_COLLECTION_METHODS(): pass
@@ -549,8 +569,8 @@ class BaseExpWidget(QtGui.QWidget):
         try:
             self.curDataEMCCD = self.curDataEMCCD - self.curBackEMCCD
             self.curDataEMCCD.equipment_dict["background_darkcount_std"] = np.std(
-                self.curBackEMCCD.clean_array[:, self.curDataEMCCD.equipment_dict["y_min"]:
-                                            self.curDataEMCCD.equipment_dict["y_max"]]
+                self.curBackEMCCD.clean_array[self.curDataEMCCD.equipment_dict["y_min"]:
+                                            self.curDataEMCCD.equipment_dict["y_max"], :]
             )
         except AttributeError as e:
             log.debug("Attribute error: {}".format(e))
@@ -558,20 +578,24 @@ class BaseExpWidget(QtGui.QWidget):
                  # background first
         except Exception as e:
             log.warning("Error subtracting background {}".format(e))
-
+        log.debug("Making CCD Spectra")
         self.curDataEMCCD.make_spectrum()
+        log.debug("Subtracting dark counts")
         self.curDataEMCCD.inspect_dark_regions()
 
+        log.debug("Emitting image updates")
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
 
         # Do we want to keep this image?
         if not self.confirmImage():
+            log.debug("Image rejected")
             self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-            self.toggleUIElements(True)
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
             return
 
         try:
+            log.debug("Saving CCD Image")
             self.curDataEMCCD.save_images(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDImageNum.value()+1))
         except Exception as e:
@@ -580,6 +604,7 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
         try:
+            log.debug("Saving CCD Spectra")
             self.curDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Spectrum: {}".format(self.ui.tCCDImageNum.value()+1))
             # incrememnt the counter, but certainly after we're done with it
@@ -588,21 +613,26 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.sigUpdateStatusBar.emit("Error saving Spectrum")
             log.warning("Error saving Data Spectrum, {}".format(e))
 
+        """"
         if self.papa.ui.mSeriesSum.isChecked() and str(self.ui.tCCDSeries.text())!="":
+            log.debug("Image a part of series")
             self.papa.updateElementSig.emit(self.ui.lCCDProg, "Adding Series...")
             self.analyzeSeries()
         else:
             self.prevDataEMCCD = None
             self.runSettings["seriesNo"] = 0
             self.ui.groupBox_Series.setTitle("Series")
+        """
+        self.analyzeSeries()
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-        self.toggleUIElements(True)
+        self.sigMakeGui.emit(self.toggleUIElements, (True, ))
 
 
 
     def processBackground(self):
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
         self.toggleUIElements(True)
+        # return
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curBackEMCCD = self.DataClass(self.rawData,
@@ -626,8 +656,8 @@ class BaseExpWidget(QtGui.QWidget):
             self.curBackEMCCD.clean_array = self.curBackEMCCD.raw_array
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing up...")
 
-        self.curBackEMCCD.make_spectrum()
-        self.curBackEMCCD.inspect_dark_regions()
+        # self.curBackEMCCD.make_spectrum()
+        # self.curBackEMCCD.inspect_dark_regions()
 
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.curBackEMCCD.clean_array)
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
@@ -779,15 +809,27 @@ class BaseExpWidget(QtGui.QWidget):
         # the previous ones should be saved (hence why this is
         # after the saving is being done)
         #######################
+        if not self.papa.ui.mSeriesSum.isChecked() or \
+            str(self.ui.tCCDSeries.text())=="":
+            # Undo if we don't have the series tag checked
+            # or the label is empty
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            self.ui.groupBox_Series.setTitle("Series")
+            return
+
+
+
         groupBox = self.ui.groupBox_Series
+
 
         if (self.prevDataEMCCD is not None and # Is there something to add to?
                     self.prevDataEMCCD.equipment_dict["series"] == # With the same
                     self.curDataEMCCD.equipment_dict["series"] and # series tag?
                     self.prevDataEMCCD.equipment_dict["spec_step"] == # With the same
                     self.curDataEMCCD.equipment_dict["spec_step"] and # spectrum step?
-                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
-                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+                    self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                    self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
             log.debug("Added two series together")
             # Un-normalize by the number currently in series
             self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
@@ -923,7 +965,9 @@ class BaseExpWidget(QtGui.QWidget):
     def updateBackgroundImage(self, data = None):
         data = np.array(data)
         self.pBackImage.setImage(data.T)
+        self.pBackImage.setLevels((data.min(), data.max()))
         self.pBackHist.setLevels(data.min(), data.max())
+
 
 
     def updateSpectrum(self, data = None):
@@ -984,13 +1028,16 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigKillEventLoop.emit(ret)
 
 
-class HSGWid(BaseExpWidget):
+class BaseHSGWid(BaseExpWidget):
     hasNIR = True
     hasFEL = True
 
     DataClass = HSG_image
-    def __init__(self, parent = None):
-        super(HSGWid, self).__init__(parent, Ui_HSG)
+    name = 'HSG'
+    def __init__(self, parent = None, UI = None):
+        if UI is None:
+            UI = Ui_HSG
+        super(BaseHSGWid, self).__init__(parent, UI)
         self.initUI()
 
 
@@ -1030,12 +1077,71 @@ class HSGWid(BaseExpWidget):
         except Exception as e:
             log.warning("Could not update SB line from inputted value, {}".format(e))
 
+class HSGImageWid(BaseHSGWid):
+    pass
+
+class HSGFVBWid(BaseHSGWid):
+    DataClass = HSG_FVB_image
+    def __init__(self, parent = None, UI = None):
+        super(HSGFVBWid, self).__init__(parent, UI)
+        # self.seriesed_data = self.DataClass()
+
+    def analyzeSeries(self):
+        if not self.papa.ui.mSeriesSum.isChecked() or \
+            str(self.ui.tCCDSeries.text())=="":
+            # Undo if we don't have the series tag checked
+            # or the label is empty
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            self.ui.groupBox_Series.setTitle("Series")
+            return
+        groupBox = self.ui.groupBox_Series
+
+        if (self.prevDataEMCCD is not None and # Is there something to add to?
+                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
+                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                    self.prevDataEMCCD.equipment_dict["spec_step"] == # With the same
+                    self.curDataEMCCD.equipment_dict["spec_step"] and # spectrum step?
+                    self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                    self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+
+            self.prevDataEMCCD.addSpectrum(self.curDataEMCCD)
+            self.prevDataEMCCD.make_spectrum()
+            try:
+                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+            except IOError as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+                log.debug("Error saving series data, {}".format(e))
+            try:
+                self.prevDataEMCCD.save_images(self.papa.settings["saveDir"])
+            except IOError as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Image")
+                log.debug("Error saving Image data, {}".format(e))
+            self.runSettings["seriesNo"] += 1
+            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+        elif str(self.ui.tCCDSeries.text()) != "":
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.prevDataEMCCD.initializeSeries()
+            self.runSettings["seriesNo"] = 1
+            groupBox.setTitle("Series (1)")
+
+
+        # Update the plots with this new data
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.raw_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+    def experimentOpen(self):
+        print "oepend teh hsgfbv"
+
+
+class HSGPCWid(BaseHSGWid):
+    pass
 
 class AbsWid(BaseExpWidget):
     hasNIR = False
     hasFEL = False
 
     DataClass = Abs_image
+    name = 'Absorbance'
     def __init__(self, parent = None, UI = None):
         # Want a UI parameter because this class
         # gets extended for two color (FEL/LED)
@@ -1207,17 +1313,17 @@ class AbsWid(BaseExpWidget):
 
 class TwoColorAbsWid(AbsWid):
     hasFEL = True
+    name = 'Two Color Abs'
 
     def __init__(self, parent = None):
         super(TwoColorAbsWid, self).__init__(parent, Ui_TwoColorAbs)
-
-
 
 class PLWid(BaseExpWidget):
     hasNIR = True
     hasFEL = False
 
     DataClass = PL_image
+    name = 'PL'
     def __init__(self, parent = None):
         super(PLWid, self).__init__(parent, Ui_PL)
 
@@ -1225,6 +1331,7 @@ class AlignWid(BaseExpWidget):
     hasNIR = True
     hasFEL = False
     DataClass = EMCCD_image
+    name = 'Vertical Alignment'
     def __init__(self, parent=None):
         super(AlignWid, self).__init__(parent, Ui_Alignment)
         self.ilOne = pg.InfiniteLine(pos=100, movable=True, pen='r')

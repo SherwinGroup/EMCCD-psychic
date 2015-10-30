@@ -21,7 +21,7 @@ log = logging.getLogger("EMCCD")
 class EMCCD_image(object):
     origin_import = '\nWavelength,Signal\nnm,arb. u.'
     
-    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         """
         This init is to work with the most basic images with no specialiation
         for HSG or PL or absorbance data.  Feels like we should have something
@@ -50,9 +50,9 @@ class EMCCD_image(object):
         self.file_no = file_no
         self.description = description
         self.equipment_dict = equipment_dict
-        if self.equipment_dict['y_max'] - self.equipment_dict['y_min'] > int(self.raw_shape[1]):
+        if self.equipment_dict and self.equipment_dict.get('y_max', 0) - self.equipment_dict.get('y_min', 0) > int(self.raw_shape[0]):
             log.warning("y_min and y_max were set incorrectly")
-            self.equipment_dict['y_max'] = int(self.raw_shape[1]) - 1
+            self.equipment_dict['y_max'] = int(self.raw_shape[0])
             self.equipment_dict['y_min'] = 0
         self.clean_array = None
         self.spectrum = None
@@ -203,12 +203,15 @@ class EMCCD_image(object):
         the mean is set to zero.  It will also measure the standard deviation 
         of the noise for use later.
         '''
-        dark_region = self.clean_array[:,0] # This is a total kludge
+        dark_region = self.clean_array[0,:] # This is a total kludge
         self.dark_mean = np.mean(dark_region)
         self.std_dev = np.std(dark_region)
         # print "Base line is ", self.dark_mean
         # print "Standard deviation is ", self.std_dev
         height = self.equipment_dict['y_max'] - self.equipment_dict['y_min']
+        if height == self.clean_array.shape[0]:
+            log.warn("Integrating full image, cannot do dark count subtraction!")
+            return
         self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
         self.addenda[0] += self.dark_mean*height
         self.clean_array -= self.dark_mean
@@ -292,10 +295,10 @@ class EMCCD_image(object):
             name = type(self).__name__.lower()
             if "hsg" in name:
                 filename = "hsg_"
-                print "hsg"
+                if "fvb" in name:
+                    filename += 'fvb_'
             elif "pl" in name:
                 filename = "pl_"
-                print "pl"
             elif "abs" in name:
                 filename = "absRaw_"
             else:
@@ -317,7 +320,7 @@ class HSG_image(EMCCD_image):
     has to do with what the header in the file is at this point.  
     '''
     
-    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         """
         Currently unchanged from the base class.
         """
@@ -372,6 +375,84 @@ class HSG_image(EMCCD_image):
 
         super(HSG_image, self).save_images(folder_str=folder_str)
         return
+
+class HSG_FVB_image(HSG_image):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
+        super(HSG_FVB_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
+        self.isSeries = False
+
+    def cosmic_ray_removal(self, mygain=10, myreadnoise=0.2, mysigclip=5.0, mysigfrac=0.01, myobjlim=3.0, myverbose=True):
+        log.warn("Warning: HSG FVB Cosmic removal not implemented")
+        self.clean_array = self.raw_array
+
+    def make_spectrum(self):
+        '''
+        Integrates over vertical axis of the cleaned image
+
+        I'm not exactly sure y_min and y_max are counting from the same side as
+        in the UI.
+        '''
+        if not self.isSeries:
+            self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
+
+        else:
+            self.spectrum = self.raw_array.sum(axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
+
+
+    def isEmpty(self):
+        """
+        returns whether the raw_array is empty
+        """
+        return bool(self.raw_array.size)
+
+    def updateSaveSettings(self, other):
+        """
+        Given an other EMCCD_image, this will populate this objects
+        save settings (img no, filename, etc)
+        """
+        self.filename = other.file_name
+        self.file_no = other.file_no
+        self.description = other.description
+        self.equipment_dict.update(other.equipment_dict)
+
+    def addSpectrum(self, other):
+        if isinstance(other, EMCCD_image):
+            newSpec  = np.array(other.spectrum[:,1])
+            pulse = other.equipment_dict["fel_pulses"]
+            pulse = 1 if pulse == 0 else pulse
+            newSpec /= pulse
+            self.equipment_dict["fieldStrength"].append(other.equipment_dict["fieldStrength"])
+            self.equipment_dict["fieldInt"].append(other.equipment_dict["fieldInt"])
+            self.equipment_dict["fel_pulses"].append(other.equipment_dict["fel_pulses"])
+            self.raw_array = np.row_stack((self.raw_array, newSpec))
+
+        elif isinstance(other, np.ndarray):
+            self.raw_array = np.row_stack((self.raw_array, other))
+
+    def initializeSeries(self):
+        """
+        To be called when the class will hold a collection
+        of the FVB spectra. Sets up self.spectra and
+        makes equipment dict ready to append new values
+        """
+        self.isSeries = True
+        self.clean_array = None
+        pulse = self.equipment_dict["fel_pulses"]
+        pulse = 1 if pulse == 0 else pulse
+        self.raw_array = self.spectrum[:,1].reshape((1, 1600))/pulse
+        self.file_no += "seriesed"
+        self.equipment_dict["fieldStrength"] = [self.equipment_dict["fieldStrength"]]
+        self.equipment_dict["fieldInt"] = [self.equipment_dict["fieldInt"]]
+        self.equipment_dict["fel_pulses"] = [self.equipment_dict["fel_pulses"]]
+
+
+
 
 
 class PL_image(EMCCD_image):
@@ -468,7 +549,7 @@ class PL_image(EMCCD_image):
     
 class Abs_image(EMCCD_image):
     origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
-    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None
         self.equipment_dict["reference_file"] = ""

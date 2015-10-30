@@ -304,23 +304,35 @@ class CCDWindow(QtGui.QMainWindow):
         # Creating all of the widgets used for different experiment types
         ###################
         self.expUIs = dict()
-        self.expUIs["HSG"] = HSGWid(self)
-        self.expUIs["HSG"].setParent(None)
-        self.expUIs["Abs"] = AbsWid(self)
-        self.expUIs["Abs"].setParent(None)
-        self.expUIs["PL"] = PLWid(self)
-        self.expUIs["PL"].setParent(None)
-        self.expUIs["Two Color Abs"] = TwoColorAbsWid(self)
-        self.expUIs["Two Color Abs"].setParent(None)
-        self.expUIs["Alignment"] = AlignWid(self)
-        self.expUIs["Alignment"].setParent(None)
+
+
+        actionToWidgets = [(self.ui.fExpTypeAbs, AbsWid),
+                           (self.ui.fExpTypeAlignment, AlignWid),
+                           (self.ui.fExpTypeHSG_FVB, HSGFVBWid),
+                           (self.ui.fExpTypeHSG_Image, HSGImageWid),
+                           (self.ui.fExpTypeHSG_PhotonCounting, HSGPCWid),
+                           (self.ui.fExpTypePL, PLWid),
+                           (self.ui.fExpTypeTwo_Color_Abs, TwoColorAbsWid)
+                           ]
+
+        # Keep track of the qactions to iterate over
+        # when changing experiments
+        self.expMenuActions = []
+
+        # Create all the widgets and store them in a dict
+        # Keys are the qactions, because those are the
+        # things that will trigger the changes
+        for act, wid in actionToWidgets:
+            self.expUIs[act] = wid(self)
+            self.expUIs[act].setParent(None)
+            self.expMenuActions.append(act)
+
         # Connect the changes
-        [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
 
         self.oscWidget = None
         self.curExp = None # Keep a reference if you ever want it
-        # self.openHSG()
-        self.openExp("HSG")
+        self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
 
         # Updating menus in the settings/CCD settings portion
@@ -394,7 +406,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bSpecSetGr.clicked.connect(self.updateSpecGrating)
 
 
-                                    
+
         ####################
         # Connect more things
         ###################
@@ -422,11 +434,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
 
-        self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
-        self.ui.mSeriesRemove.triggered.connect(self.getCurExp().removeCurrentSeries)
-        self.ui.mSeriesReset.triggered.connect(self.getCurExp().setCurrentSeries)
+        self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
+        self.ui.mSeriesRemove.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
+        self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
 
-        self.ui.mLivePlotsForceAutoscale.triggered.connect(self.getCurExp().autoscaleSignalHistogram)
+        self.ui.mLivePlotsForceAutoscale.triggered.connect(lambda x: self.getCurExp().autoscaleSignalHistogram())
 
         self.ui.mFileFastExit.triggered.connect(self.close)
 
@@ -479,40 +491,26 @@ class CCDWindow(QtGui.QMainWindow):
 
 
         #disconnect the actions, change to the proper toggle, and reconenct them
-        expActions = self.ui.menuExperiment_Type.actions()
-        [i.toggled.disconnect() for i in self.ui.menuExperiment_Type.actions()]
+        expActions = self.expMenuActions
+        [i.toggled.disconnect() for i in self.expMenuActions]
         # Keep track so we can close it.
-        oldExp = str([i for i in expActions if i is not sent and i.isChecked()][0].text())
-        [i.setChecked(False) for i in expActions if i is not sent]
-        [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
+        oldExp = [i for i in expActions if i is not sent and i.isChecked()][0]
+        oldExp.setChecked(False)
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
 
+        # Get the currently open tab to reopen it after they get
+        # jumbled from closing things
         curTabIdx = self.ui.tabWidget.currentIndex()
-        newExp = str(sent.text())
-        # if oldExp == "HSG":
-        #     self.closeHSG()
-        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
-            # hasFEL = self.getCurExp().hasFEL
-            self.closeExp(oldExp)
-            # if hasFEL:
-            #     self.closeHSG()
-        else:
-            log.error("Unknown old experiment, {}".format(oldExp))
 
-        # if newExp == "HSG":
-        #     self.openHSG()
-        if newExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
-            self.openExp(newExp)
-            # if self.getCurExp().hasFEL:
-            #     self.openHSG()
-        else:
-            log.error("Unknown experiment chosen, {}".format(newExp))
+        self.closeExp(oldExp)
 
+        self.openExp(sent)
 
         self.ui.tabWidget.setCurrentIndex(curTabIdx)
 
     def openExp(self, exp = "HSG"):
         self.expUIs[exp].setParent(self)
-        self.ui.tabWidget.insertTab(1, self.expUIs[exp], exp)
+        self.ui.tabWidget.insertTab(1, self.expUIs[exp], self.expUIs[exp].name)
         self.curExp = self.expUIs[exp]
 
         # Need to set the texts so that they're constant between them all.
@@ -537,24 +535,27 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
             self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
-            self.openHSG() # Opens up the oscilloscope
+            self.openFELEquipment() # Opens up the oscilloscope
+
+        self.curExp.experimentOpen()
 
 
 
     def closeExp(self, exp = "HSG"):
+        self.curExp.experimentClose()
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.expUIs[exp])
         )
         self.expUIs[exp].setParent(None)
         if self.curExp.hasFEL:
-            self.closeHSG()
+            self.closeFELEquipment()
         self.curExp = None
 
-    def openHSG(self):
+    def openFELEquipment(self):
         self.oscWidget = OscWid(self)
         self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
 
-    def closeHSG(self):
+    def closeFELEquipment(self):
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.oscWidget)
         )
@@ -1216,6 +1217,7 @@ class CCDWindow(QtGui.QMainWindow):
         saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
+        saveDict['curExp'] = [str(ii.text()) for ii in self.expMenuActions if ii.isChecked()][0]
 
         with open('Settings.txt', 'w') as fh:
             json.dump(saveDict, fh, separators=(',', ': '),
@@ -1286,8 +1288,17 @@ class CCDWindow(QtGui.QMainWindow):
         # reopen the experiment tab, which should
         # repopulate the experimental parameters.
         # Might be a better way of doing this, but fekkit
-        self.closeExp()
-        self.openExp()
+        curExp = self.getCurExp()
+        curExpAct = [k for k,v in self.expUIs.items() if v is curExp][0]
+        self.closeExp(curExpAct)
+
+        [i.toggled.disconnect() for i in self.expMenuActions]
+        [ii.setChecked(False) for ii in self.expMenuActions]
+        curExpAct = [ ii for ii in self.expMenuActions if str(ii.text()) == savedDict.get('curExp', self.expMenuActions[0])][0]
+        curExpAct.setChecked(True)
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
+
+        self.openExp(curExpAct)
         self.getCurExp().ui.tEMCCDExp.setText(str(expose))
         self.getCurExp().ui.tEMCCDGain.setText(str(gain))
 

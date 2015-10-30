@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Thu Oct 22 10:48:55 2015
+# Created: Thu Oct 29 17:13:37 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -451,6 +451,8 @@ class Ui_MainWindow(object):
         self.menuLive_Series.setObjectName(_fromUtf8("menuLive_Series"))
         self.menuExperiment_Type = QtGui.QMenu(self.menubar)
         self.menuExperiment_Type.setObjectName(_fromUtf8("menuExperiment_Type"))
+        self.menuHSG_FVB = QtGui.QMenu(self.menuExperiment_Type)
+        self.menuHSG_FVB.setObjectName(_fromUtf8("menuHSG_FVB"))
         self.menuLive_Plots = QtGui.QMenu(self.menubar)
         self.menuLive_Plots.setObjectName(_fromUtf8("menuLive_Plots"))
         MainWindow.setMenuBar(self.menubar)
@@ -481,10 +483,10 @@ class Ui_MainWindow(object):
         self.mSeriesUndo = QtGui.QAction(MainWindow)
         self.mSeriesUndo.setEnabled(False)
         self.mSeriesUndo.setObjectName(_fromUtf8("mSeriesUndo"))
-        self.fExpTypeHSG = QtGui.QAction(MainWindow)
-        self.fExpTypeHSG.setCheckable(True)
-        self.fExpTypeHSG.setChecked(True)
-        self.fExpTypeHSG.setObjectName(_fromUtf8("fExpTypeHSG"))
+        self.fExpTypeHSGImage = QtGui.QAction(MainWindow)
+        self.fExpTypeHSGImage.setCheckable(True)
+        self.fExpTypeHSGImage.setChecked(False)
+        self.fExpTypeHSGImage.setObjectName(_fromUtf8("fExpTypeHSGImage"))
         self.fExpTypePL = QtGui.QAction(MainWindow)
         self.fExpTypePL.setCheckable(True)
         self.fExpTypePL.setObjectName(_fromUtf8("fExpTypePL"))
@@ -512,6 +514,16 @@ class Ui_MainWindow(object):
         self.fExpTypeAlignment.setObjectName(_fromUtf8("fExpTypeAlignment"))
         self.mLivePlotsForceAutoscale = QtGui.QAction(MainWindow)
         self.mLivePlotsForceAutoscale.setObjectName(_fromUtf8("mLivePlotsForceAutoscale"))
+        self.fExpTypeHSG_FVB = QtGui.QAction(MainWindow)
+        self.fExpTypeHSG_FVB.setCheckable(True)
+        self.fExpTypeHSG_FVB.setObjectName(_fromUtf8("fExpTypeHSG_FVB"))
+        self.fExpTypeHSG_Image = QtGui.QAction(MainWindow)
+        self.fExpTypeHSG_Image.setCheckable(True)
+        self.fExpTypeHSG_Image.setChecked(True)
+        self.fExpTypeHSG_Image.setObjectName(_fromUtf8("fExpTypeHSG_Image"))
+        self.fExpTypeHSG_PhotonCounting = QtGui.QAction(MainWindow)
+        self.fExpTypeHSG_PhotonCounting.setCheckable(True)
+        self.fExpTypeHSG_PhotonCounting.setObjectName(_fromUtf8("fExpTypeHSG_PhotonCounting"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -522,7 +534,10 @@ class Ui_MainWindow(object):
         self.menuLive_Series.addAction(self.mSeriesUndo)
         self.menuLive_Series.addAction(self.mSeriesRemove)
         self.menuLive_Series.addAction(self.mSeriesReset)
-        self.menuExperiment_Type.addAction(self.fExpTypeHSG)
+        self.menuHSG_FVB.addAction(self.fExpTypeHSG_FVB)
+        self.menuHSG_FVB.addAction(self.fExpTypeHSG_Image)
+        self.menuHSG_FVB.addAction(self.fExpTypeHSG_PhotonCounting)
+        self.menuExperiment_Type.addAction(self.menuHSG_FVB.menuAction())
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
         self.menuExperiment_Type.addAction(self.fExpTypeTwo_Color_Abs)
@@ -641,6 +656,7 @@ class Ui_MainWindow(object):
         self.menuOther_Settings.setTitle(_translate("MainWindow", "Other Settings", None))
         self.menuLive_Series.setTitle(_translate("MainWindow", "Live Series", None))
         self.menuExperiment_Type.setTitle(_translate("MainWindow", "Experiment Type", None))
+        self.menuHSG_FVB.setTitle(_translate("MainWindow", "HSG FVB", None))
         self.menuLive_Plots.setTitle(_translate("MainWindow", "Live Plots", None))
         self.mFileDoCRR.setText(_translate("MainWindow", "Do cosmic ray removal", None))
         self.mFileBreakTemp.setText(_translate("MainWindow", "Break temperature loop", None))
@@ -650,7 +666,7 @@ class Ui_MainWindow(object):
         self.mFileSumSpectraUndo.setText(_translate("MainWindow", "Undo Last", None))
         self.mSeriesSum.setText(_translate("MainWindow", "Do Series", None))
         self.mSeriesUndo.setText(_translate("MainWindow", "Undo Last", None))
-        self.fExpTypeHSG.setText(_translate("MainWindow", "HSG", None))
+        self.fExpTypeHSGImage.setText(_translate("MainWindow", "HSG Image", None))
         self.fExpTypePL.setText(_translate("MainWindow", "PL", None))
         self.fExpTypeAbs.setText(_translate("MainWindow", "Abs", None))
         self.mFileFastExit.setText(_translate("MainWindow", "Exit without shutdown", None))
@@ -662,6 +678,9 @@ class Ui_MainWindow(object):
         self.mSeriesReset.setToolTip(_translate("MainWindow", "Set the current image as the first image in the series", None))
         self.fExpTypeAlignment.setText(_translate("MainWindow", "Alignment", None))
         self.mLivePlotsForceAutoscale.setText(_translate("MainWindow", "Force Histogram Autoscale", None))
+        self.fExpTypeHSG_FVB.setText(_translate("MainWindow", "FVB", None))
+        self.fExpTypeHSG_Image.setText(_translate("MainWindow", "Image", None))
+        self.fExpTypeHSG_PhotonCounting.setText(_translate("MainWindow", "Photon Counting", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc
