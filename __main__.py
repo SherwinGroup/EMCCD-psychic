@@ -102,7 +102,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = False)
+            self.CCD = AndorEMCCD(wantFake = True)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -442,17 +442,20 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.ui.mFileFastExit.triggered.connect(self.close)
 
-        self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
+        # self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
+        self.sweep = self.ui.mFileDoSpecSweep
         self.sweep.setCheckable(True)
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
-        self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
+        # self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
+        self.neCal = self.ui.mFileScanNeLines
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
         self.neCal.setEnabled(False)
 
-        self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
-        self.console.triggered.connect(self.openDebugConsole)
+        self.ui.mFileOpenDebugConsole.triggered.connect(self.openDebugConsole)
+
+        
 
         ###############################
         #

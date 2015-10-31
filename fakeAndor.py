@@ -16,11 +16,14 @@ class myCallable(object):
     ''' Need a class which is callable, but also
         need it to have the argtypes and restype 
         parameters to match the calls made setting up the CCD. '''
-    def __init__(self, func=None, st = ''):
+    def __init__(self, func=None, st = '', retWeights = ()):
         self.argtypes = []
         self.restype = None
         self.st = st
         self.func = func
+        # ((retchance1, retchance2, retchance3... ),
+        #  (retval1,    retval2,    retval3))
+        self.retWeights = retWeights
         
     def __call__(self, *args):
         log.debug("{}, {}".format(' '*10+self.st, args))
@@ -28,6 +31,15 @@ class myCallable(object):
         ret = 20002
         # if not np.random.randint(5):
         #     ret = 20004
+        if self.retWeights:
+            ranges = np.cumsum(self.retWeights[0])
+            rando = np.random.randint(ranges[-1])
+            return self.retWeights[1][
+                # Grab the first one where
+                # it crosses over
+                np.argwhere(rando<ranges)[0]
+            ]
+        """
         if self.st == "GetTemperature":
             n = np.random.randint(20)
             if n == 1:
@@ -38,14 +50,16 @@ class myCallable(object):
             ret = -1
         elif self.st == 'InitializeMissingDLL':
             ret = -2
+        """
 
         return ret
 
 class fAndorEMCCD(object):
     def __init__(self):
+        self.AbortAcquisition = myCallable(self.__voidReturn, 'AbortAcquisition')
+        self.CancelWait = myCallable(self.__voidReturn, 'CancelWait')
         self.CoolerON = myCallable(self.__voidReturn, 'CoolerON')
         self.CoolerOFF = myCallable(self.__voidReturn, 'CoolerOFF')
-        self.CancelWait = myCallable(self.__voidReturn, 'CancelWait')
         self.GetAcquiredData = myCallable(self.__getData, 'GetAcquiredData')
         self.GetCapabilities = myCallable(self.__voidReturn, 'GetCapabilities')
         self.GetDetector = myCallable(self.__getDet, 'GetDetector')
@@ -55,9 +69,9 @@ class fAndorEMCCD(object):
         self.GetNumberHSSpeeds = myCallable(self.__getNum, 'GetNumberHSSpeeds')
         self.GetNumberVSSpeeds = myCallable(self.__getNum, 'GetNumberVSSpeeds')
         self.GetStatus = myCallable(self.__getNum, 'GetStatus')
-        self.GetTemperature = myCallable(self.__getNum, 'GetTemperature')
+        self.GetTemperature = myCallable(self.__getNum, 'GetTemperature', ((1, 20), (20036, 20037)))
         self.GetVSSpeed = myCallable(self.__getHSS, 'GetVSSpeed')
-        self.Initialize = myCallable(self.__voidReturn, 'Initialize')
+        self.Initialize = myCallable(self.__voidReturn, 'Initialize', ((1, ), (-1,)))
         self.PrepareAcquisition = myCallable(self.__voidReturn, 'PrepAcq')
         self.SetAcquisitionMode = myCallable(self.__voidReturn, 'SetAcqMode')
         self.SetADChannel = myCallable(self.__voidReturn, 'SetADChannel')
@@ -115,9 +129,11 @@ class fAndorEMCCD(object):
     def __getNum(self, *args):
         x = args[0][-1]
         x.value = np.random.randint(3, 5)
-
+    def __cancelWait(self, *args):
+        self.WaitForAcquisition.retWeights = ((1,), (20024,))
     def __wait(self, *args):
         # Wait a random amount of time to simulate it
+        self.WaitForAcquisition.retWeights = ((1,), (20002,))
         print "Sleeping for: {}".format(self.exposure)
         time.sleep(self.exposure)
 

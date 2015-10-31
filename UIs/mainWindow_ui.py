@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Thu Oct 29 17:13:37 2015
+# Created: Fri Oct 30 17:45:53 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -524,12 +524,21 @@ class Ui_MainWindow(object):
         self.fExpTypeHSG_PhotonCounting = QtGui.QAction(MainWindow)
         self.fExpTypeHSG_PhotonCounting.setCheckable(True)
         self.fExpTypeHSG_PhotonCounting.setObjectName(_fromUtf8("fExpTypeHSG_PhotonCounting"))
+        self.mFileDoSpecSweep = QtGui.QAction(MainWindow)
+        self.mFileDoSpecSweep.setObjectName(_fromUtf8("mFileDoSpecSweep"))
+        self.mFileScanNeLines = QtGui.QAction(MainWindow)
+        self.mFileScanNeLines.setObjectName(_fromUtf8("mFileScanNeLines"))
+        self.mFileOpenDebugConsole = QtGui.QAction(MainWindow)
+        self.mFileOpenDebugConsole.setObjectName(_fromUtf8("mFileOpenDebugConsole"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
         self.menuOther_Settings.addAction(self.mFileEnableAll)
+        self.menuOther_Settings.addAction(self.mFileDoSpecSweep)
+        self.menuOther_Settings.addAction(self.mFileScanNeLines)
         self.menuOther_Settings.addSeparator()
         self.menuOther_Settings.addAction(self.mFileFastExit)
+        self.menuOther_Settings.addAction(self.mFileOpenDebugConsole)
         self.menuLive_Series.addAction(self.mSeriesSum)
         self.menuLive_Series.addAction(self.mSeriesUndo)
         self.menuLive_Series.addAction(self.mSeriesRemove)
@@ -656,7 +665,7 @@ class Ui_MainWindow(object):
         self.menuOther_Settings.setTitle(_translate("MainWindow", "Other Settings", None))
         self.menuLive_Series.setTitle(_translate("MainWindow", "Live Series", None))
         self.menuExperiment_Type.setTitle(_translate("MainWindow", "Experiment Type", None))
-        self.menuHSG_FVB.setTitle(_translate("MainWindow", "HSG FVB", None))
+        self.menuHSG_FVB.setTitle(_translate("MainWindow", "HSG", None))
         self.menuLive_Plots.setTitle(_translate("MainWindow", "Live Plots", None))
         self.mFileDoCRR.setText(_translate("MainWindow", "Do cosmic ray removal", None))
         self.mFileBreakTemp.setText(_translate("MainWindow", "Break temperature loop", None))
@@ -681,6 +690,9 @@ class Ui_MainWindow(object):
         self.fExpTypeHSG_FVB.setText(_translate("MainWindow", "FVB", None))
         self.fExpTypeHSG_Image.setText(_translate("MainWindow", "Image", None))
         self.fExpTypeHSG_PhotonCounting.setText(_translate("MainWindow", "Photon Counting", None))
+        self.mFileDoSpecSweep.setText(_translate("MainWindow", "Do Spec Sweep", None))
+        self.mFileScanNeLines.setText(_translate("MainWindow", "Scan Ne Lines", None))
+        self.mFileOpenDebugConsole.setText(_translate("MainWindow", "Open Debug Console", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc

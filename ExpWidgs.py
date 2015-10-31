@@ -301,6 +301,27 @@ class BaseExpWidget(QtGui.QWidget):
             self.thDoExposure.args = self.processImage
             if isBackground:
                 self.thDoExposure.args = self.processBackground
+
+
+
+        # Update exposure/gain if necesssary. Include appropriate
+        # parsing of camera response to ensure things have been accepted
+        if not np.isclose(float(self.ui.tEMCCDExp.value()), self.papa.CCD.cameraSettings["exposureTime"]):
+            ret = self.papa.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
+            self.ui.tEMCCDExp.setText(str(self.papa.CCD.cameraSettings["exposureTime"]))
+            if ret != 20002:
+                log.error("Error setting exposure time! {}".format(self.papa.CCD.parseRetCode(ret)))
+                MessageDialog(self, "Error setting exposure time! {}".format(self.papa.CCD.parseRetCode(ret)))
+                return
+        if not int(self.ui.tEMCCDGain.text()) == self.papa.CCD.cameraSettings["gain"]:
+            ret = self.papa.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+            self.ui.tEMCCDGain.setText(str(self.papa.CCD.cameraSettings["gain"]))
+            if ret != 20002:
+                log.error("Error setting gain value! {}".format(self.papa.CCD.parseRetCode(ret)))
+                MessageDialog(self, "Error setting gain value! {}".format(self.papa.CCD.parseRetCode(ret)))
+                return
+
+
         # Turn off UI elements to prevent conflicts
         # For some reson, if you do this in the thread,
         # Qt complains about starting timers in threads.
@@ -330,13 +351,6 @@ class BaseExpWidget(QtGui.QWidget):
         """
 
         self.runSettings["progress"] = 0
-        # Update exposure/gain if necesssary
-        if not np.isclose(float(self.ui.tEMCCDExp.value()), self.papa.CCD.cameraSettings["exposureTime"]):
-            self.papa.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
-            self.ui.tEMCCDExp.setText(str(self.papa.CCD.cameraSettings["exposureTime"]))
-        if not int(self.ui.tEMCCDGain.text()) == self.papa.CCD.cameraSettings["gain"]:
-            self.papa.CCD.setGain(int(self.ui.tEMCCDGain.text()))
-            self.ui.tEMCCDGain.setText(str(self.papa.CCD.cameraSettings["gain"]))
 
 
         self.papa.CCD.dllStartAcquisition()
@@ -355,14 +369,23 @@ class BaseExpWidget(QtGui.QWidget):
             self.thCalcFields.start()
         if not self.papa.ui.mFileTakeContinuous.isChecked():
             self.sigStartTimer.emit()
-        self.papa.CCD.dllWaitForAcquisition()
+        ret = self.papa.CCD.dllWaitForAcquisition()
         self.runSettings["exposing"] = False
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
                 self.elWaitForOsc.exit()
             except:
                 log.debug("Error exiting eventLoop waiting for pulses")
+        if ret != 20002:
+            log.debug("Acquisition not completed")
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            return
+
+
         ret = self.papa.CCD.getImage()
+        # getImage will return the camera return value if it is not
+        # 20002, otherwise it will return a np.array of the data
+        # Thus, if the return is an int, it must have failed the return
         if isinstance(ret, int):
             self.sigMakeGui.emit(self.toggleUIElements, (True, ))
             self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
@@ -561,7 +584,7 @@ class BaseExpWidget(QtGui.QWidget):
                                             str(self.ui.tCCDComments.toPlainText()),
                                             self.genEquipmentDict())
 
-        if self.papa.settings["doCRR"]:
+        if self.papa.ui.mFileDoCRR.isChecked():
             self.curDataEMCCD.cosmic_ray_removal()
         else:
             self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
@@ -650,7 +673,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.sigUpdateStatusBar.emit("Error saving image")
             log.warning("Error saving Data image, {}".format(e))
 
-        if self.papa.settings["doCRR"]:
+        if self.papa.ui.mFileDoCRR.isChecked():
             self.curBackEMCCD.cosmic_ray_removal()
         else:
             self.curBackEMCCD.clean_array = self.curBackEMCCD.raw_array
@@ -735,6 +758,7 @@ class BaseExpWidget(QtGui.QWidget):
         s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
         s["sample_name"] = str(self.ui.tSampleName.text())
         s["spec_step"] = str(self.ui.tSpectrumStep.text())
+        s["ccd_image_settings"] = self.papa.CCD.cameraSettings["imageSettings"]
         if self.hasFEL:
             s["fel_power"] = str(self.ui.tCCDFELP.text())
             s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
@@ -947,6 +971,8 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.bCCDBack.setEnabled(enabled)
         self.ui.bCCDImage.setEnabled(enabled)
         self.papa.ui.gbSettings.setEnabled(enabled)
+        self.ui.tEMCCDExp.setEnabled(enabled)
+        self.ui.tEMCCDGain.setEnabled(enabled)
 
 
     def updateSignalImage(self, data = None):
@@ -1107,6 +1133,7 @@ class HSGFVBWid(BaseHSGWid):
 
             self.prevDataEMCCD.addSpectrum(self.curDataEMCCD)
             self.prevDataEMCCD.make_spectrum()
+
             try:
                 self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
             except IOError as e:
@@ -1117,6 +1144,8 @@ class HSGFVBWid(BaseHSGWid):
             except IOError as e:
                 self.papa.sigUpdateStatusBar.emit("Error Saving Image")
                 log.debug("Error saving Image data, {}".format(e))
+
+
             self.runSettings["seriesNo"] += 1
             groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
         elif str(self.ui.tCCDSeries.text()) != "":
@@ -1129,8 +1158,56 @@ class HSGFVBWid(BaseHSGWid):
         # Update the plots with this new data
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.raw_array)
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+    def doCosmicRemoval(self, b):
+        if not b: return
+        self.papa.ui.mFileDoCRR.setChecked(False)
+        if self.prevDataEMCCD is None:
+            log.error("Unable to remove cosmics without a series")
+            return
+        if self.prevDataEMCCD.raw_array.shape[0] <= 1:
+            log.error("Unable to remove cosmics with only one exposure")
+            return
+        if self.prevDataEMCCD.raw_array.shape[0] <= 3:
+            log.warn("CRR is not tested with less than 4 exposures")
+
+        offset = 0
+        medianRatio = 1.
+        noiseCoeff = 5.
+
+        self.prevDataEMCCD.cosmic_ray_removal(
+            offset = offset,
+            medianRatio = medianRatio,
+            noiseCoeff = noiseCoeff
+        )
+
+        self.prevDataEMCCD.make_spectrum()
+        """
+        DEBUGGING:
+        DO NOT SAVE THEM AFTER DOING CRR
+        try:
+            self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+        except IOError as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+            log.debug("Error saving series data, {}".format(e))
+        try:
+            self.prevDataEMCCD.save_images(self.papa.settings["saveDir"])
+        except IOError as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Image")
+            log.debug("Error saving Image data, {}".format(e))
+        """
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+
     def experimentOpen(self):
-        print "oepend teh hsgfbv"
+        self.parentDoCRR = self.papa.ui.mFileDoCRR.isChecked()
+        self.papa.ui.mFileDoCRR.setChecked(False)
+        self.papa.ui.mFileDoCRR.triggered[bool].connect(self.doCosmicRemoval)
+
+
+    def experimentClose(self):
+        self.papa.ui.mFileDoCRR.setChecked(self.parentDoCRR)
 
 
 class HSGPCWid(BaseHSGWid):

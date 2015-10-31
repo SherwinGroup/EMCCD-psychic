@@ -1148,8 +1148,11 @@
     <addaction name="mFileBreakTemp"/>
     <addaction name="mFileTakeContinuous"/>
     <addaction name="mFileEnableAll"/>
+    <addaction name="mFileDoSpecSweep"/>
+    <addaction name="mFileScanNeLines"/>
     <addaction name="separator"/>
     <addaction name="mFileFastExit"/>
+    <addaction name="mFileOpenDebugConsole"/>
    </widget>
    <widget class="QMenu" name="menuLive_Series">
     <property name="title">
@@ -1366,6 +1369,21 @@
    </property>
    <property name="text">
     <string>Photon Counting</string>
+   </property>
+  </action>
+  <action name="mFileDoSpecSweep">
+   <property name="text">
+    <string>Do Spec Sweep</string>
+   </property>
+  </action>
+  <action name="mFileScanNeLines">
+   <property name="text">
+    <string>Scan Ne Lines</string>
+   </property>
+  </action>
+  <action name="mFileOpenDebugConsole">
+   <property name="text">
+    <string>Open Debug Console</string>
    </property>
   </action>
  </widget>

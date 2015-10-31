@@ -14,6 +14,8 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import cosmics_hsg as cosmics
+import scipy.ndimage as ndimage
+import pyqtgraph as pg
 
 import logging
 log = logging.getLogger("EMCCD")
@@ -381,9 +383,120 @@ class HSG_FVB_image(HSG_image):
         super(HSG_FVB_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.isSeries = False
 
-    def cosmic_ray_removal(self, mygain=10, myreadnoise=0.2, mysigclip=5.0, mysigfrac=0.01, myobjlim=3.0, myverbose=True):
-        log.warn("Warning: HSG FVB Cosmic removal not implemented")
-        self.clean_array = self.raw_array
+    def cosmic_ray_removal(self, offset = 0, medianRatio = 1, noiseCoeff = 5):
+        """
+        Remove cosmic rays from the raw_array when it is a sequence
+        of consecutive exposures.
+        :param offset: baseline to add to raw_array.
+               Not used, but here if it's needed in the future
+        :param medianRatio: Multiplier to the median when deciding a cutoff
+        :param noiseCoeff: Multiplier to the noise on the median
+                    May need changing for noisy data
+        :return:
+        """
+        # log.warn("Warning: HSG FVB Cosmic removal not implemented")
+        # self.clean_array = self.raw_array
+
+        d = np.array(self.raw_array)
+        print d.shape
+
+        med = ndimage.filters.median_filter(d, size=(d.shape[0], 1), mode='wrap')
+        print med.shape
+        meanMedian  = med.mean(axis=0)
+        print meanMedian.shape
+        # Construct a cutoff for each pixel. It was kind of guess and
+        # check
+        cutoff = meanMedian * medianRatio + noiseCoeff * np.std(meanMedian[:100])
+        print cutoff.shape
+
+
+
+
+
+        winlist = []
+
+        win = pg.GraphicsLayoutWidget()
+        win.setWindowTitle("Raw Image")
+        p1 = win.addPlot()
+
+        img = pg.ImageItem()
+        img.setImage(d.copy().T)
+        p1.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        win.addItem(hist)
+
+        win.nextRow()
+        p2 = win.addPlot(colspan=2)
+        p2.plot(np.sum(d, axis=1))
+        win.show()
+        winlist.append(win)
+
+        win2 = pg.GraphicsLayoutWidget()
+        win2.setWindowTitle("Median Image")
+        p1 = win2.addPlot()
+
+        img = pg.ImageItem()
+        img.setImage(med.T)
+        p1.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        win2.addItem(hist)
+
+        win2.nextRow()
+        p2 = win2.addPlot(colspan=2)
+
+        p2.plot(np.sum(med, axis=1)/4)
+        win2.show()
+        winlist.append(win2)
+
+
+
+
+        win2 = pg.GraphicsLayoutWidget()
+        win2.setWindowTitle("d-m")
+        p1 = win2.addPlot()
+
+        img = pg.ImageItem()
+        img.setImage((d - med).T)
+        p1.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        win2.addItem(hist)
+
+        win2.nextRow()
+        p2 = win2.addPlot(colspan=2)
+
+        p2.plot((d - med)[0,:], pen='w')
+        p2.plot((d - med)[1,:], pen='g')
+        p2.plot((d - med)[2,:], pen='r')
+        p2.plot((d - med)[3,:], pen='y')
+        p2.plot(cutoff, pen='c')
+        win2.show()
+        winlist.append(win2)
+
+
+
+
+
+
+
+        self.winlist = winlist
+        # Find the bad pixel positions
+        # Note the [:, None] - needed to cast the correct shapes
+        badPixs = np.argwhere((d - med)>(cutoff))
+        for pix in badPixs:
+            # get the other pixels in the row which aren't the cosmic
+            p = d[pix[0], [i for i in range(d.shape[1]) if not i==pix[1]]]
+            # Replace the cosmic by the average of the others
+            # Could get hairy if more than one cosmic per row.
+            # Maybe when doing many exposures?
+            d[pix[0], pix[1]] = np.mean(p)
+        self.clean_array = np.array(d)
+
 
     def make_spectrum(self):
         '''
