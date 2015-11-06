@@ -671,7 +671,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving image")
-            log.warning("Error saving Data image, {}".format(e))
+            log.exception("Error saving background image, {}".format(e))
 
         if self.papa.ui.mFileDoCRR.isChecked():
             self.curBackEMCCD.cosmic_ray_removal()
@@ -1143,7 +1143,7 @@ class HSGFVBWid(BaseHSGWid):
                 self.prevDataEMCCD.save_images(self.papa.settings["saveDir"])
             except IOError as e:
                 self.papa.sigUpdateStatusBar.emit("Error Saving Image")
-                log.debug("Error saving Image data, {}".format(e))
+                log.warning("Error saving FVB series image, {}".format(e))
 
 
             self.runSettings["seriesNo"] += 1

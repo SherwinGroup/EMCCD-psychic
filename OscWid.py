@@ -368,7 +368,7 @@ class OscWid(QtGui.QWidget):
                 if (
                     # (pyFP > pyBG * self.ui.tOscFPRatio.value())
                     #     and
-                    (pyCD > pyBG * self.ui.tOscCDRatio.value())
+                    (pyCD-pyBG > np.abs(pyBG) * self.ui.tOscCDRatio.value())
                 ):
                     self.settings["FELPulses"] += 1
                     self.papa.updateElementSig.emit(self.ui.tOscPulses, self.settings["FELPulses"])
@@ -402,6 +402,9 @@ class OscWid(QtGui.QWidget):
         pyBG = spi.simps(pyD[pyBGidx[0]:pyBGidx[1],1], pyD[pyBGidx[0]:pyBGidx[1], 0])
         pyBG /= np.diff(pyBGidx)[0]
 
+        pyBG = np.mean(pyD[pyBGidx[0]:pyBGidx[1], 1])
+
+
         if str(self.ui.cPyroMode.currentText()) == "Instant":
             # if the pyro is in instantaneous ("fast" mode), integrate the data
             # ourselves
@@ -425,7 +428,6 @@ class OscWid(QtGui.QWidget):
             pyCD = pyD[pyCDidx[0], 1]
             pyCD = np.mean(pyD[pyCDidx[0]:pyCDidx[1], 1])
             self.settings['CDtoFPRatio'] = (pyCD-pyFP)/(pyCD - pyBG)
-
 
         return pyBG, pyFP, pyCD
 

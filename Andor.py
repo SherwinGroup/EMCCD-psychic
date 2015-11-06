@@ -204,6 +204,7 @@ class AndorEMCCD(object):
 
     def setVSS(self, idx):
         log.debug('Setting VSS {}'.format(idx))
+        self.getVSS()
         ret = self.dllSetVSSpeed(idx)
         if ret == 20002:
             self.cameraSettings['curVSS'] = self.cameraSettings['VSS'][idx]

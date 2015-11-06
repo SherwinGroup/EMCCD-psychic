@@ -504,14 +504,17 @@ class CCDWindow(QtGui.QMainWindow):
         # Get the currently open tab to reopen it after they get
         # jumbled from closing things
         curTabIdx = self.ui.tabWidget.currentIndex()
+        # Don't want to be closing/opening the scope if the new
+        # experiment also uses it
+        openScope = self.expUIs[sent].hasFEL and not self.expUIs[oldExp].hasFEL
+        closeScope = not self.expUIs[sent].hasFEL and self.expUIs[oldExp].hasFEL
+        self.closeExp(oldExp, closeScope = closeScope)
 
-        self.closeExp(oldExp)
-
-        self.openExp(sent)
+        self.openExp(sent, openScope = openScope)
 
         self.ui.tabWidget.setCurrentIndex(curTabIdx)
 
-    def openExp(self, exp = "HSG"):
+    def openExp(self, exp = "HSG", openScope = None):
         self.expUIs[exp].setParent(self)
         self.ui.tabWidget.insertTab(1, self.expUIs[exp], self.expUIs[exp].name)
         self.curExp = self.expUIs[exp]
@@ -538,19 +541,28 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
             self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
+        if openScope is None:
+            print "Not told what to do"
+            print "Open scope?", self.expUIs[exp].hasFEL
+            openScope = self.expUIs[exp].hasFEL
+        if openScope:
             self.openFELEquipment() # Opens up the oscilloscope
 
         self.curExp.experimentOpen()
 
 
 
-    def closeExp(self, exp = "HSG"):
+    def closeExp(self, exp = "HSG", closeScope = None):
         self.curExp.experimentClose()
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.expUIs[exp])
         )
         self.expUIs[exp].setParent(None)
-        if self.curExp.hasFEL:
+        if closeScope is None:
+            print "Not told what to do"
+            print "Close scope?", self.expUIs[exp].hasFEL
+            closeScope = self.curExp.hasFEL
+        if closeScope:
             self.closeFELEquipment()
         self.curExp = None
 
@@ -1209,7 +1221,7 @@ class CCDWindow(QtGui.QMainWindow):
                    "settingsUI",
                    "doSpecSweep",
                    "exposing",
-                   "settingsUI"
+                   "settingsUI",
         )
 
         for key in badKeys:
@@ -1222,6 +1234,7 @@ class CCDWindow(QtGui.QMainWindow):
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
         saveDict['curExp'] = [str(ii.text()) for ii in self.expMenuActions if ii.isChecked()][0]
 
+        # print "saving curvss", saveDict["curVSS"]
         with open('Settings.txt', 'w') as fh:
             json.dump(saveDict, fh, separators=(',', ': '),
                       sort_keys=True, indent=4, default=lambda x: 'NotSerial')

@@ -223,7 +223,7 @@ class Ui_Oscilloscope(object):
         self.groupBox_52.setTitle(_translate("Oscilloscope", "FP Ratio", None))
         self.tOscFPRatio.setText(_translate("Oscilloscope", "1", None))
         self.groupBox_53.setTitle(_translate("Oscilloscope", "CD Ratio", None))
-        self.tOscCDRatio.setText(_translate("Oscilloscope", "2", None))
+        self.tOscCDRatio.setText(_translate("Oscilloscope", "5", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_2), _translate("Oscilloscope", "Pulse Counting Settings", None))
         self.bOPause.setText(_translate("Oscilloscope", "Pause", None))
         self.groupBox_31.setTitle(_translate("Oscilloscope", "GPIB", None))
