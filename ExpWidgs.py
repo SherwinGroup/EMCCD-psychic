@@ -107,6 +107,7 @@ class BaseExpWidget(QtGui.QWidget):
         self.curDataEMCCD = None
         self.curBackEMCCD = None
         self.prevDataEMCCD = None
+        self.prevBackEMCCD = None
 
         # The progress bar has timers, which can't be started
         # from another thread. This signal can be used

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\Oscilloscope.ui'
 #
-# Created: Fri Sep 25 13:24:53 2015
+# Created: Fri Nov 06 15:13:56 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -204,6 +204,7 @@ class Ui_Oscilloscope(object):
         self.retranslateUi(Oscilloscope)
         self.tabWidget_2.setCurrentIndex(0)
         self.cPyroMode.setCurrentIndex(1)
+        self.cOChannel.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(Oscilloscope)
 
     def retranslateUi(self, Oscilloscope):

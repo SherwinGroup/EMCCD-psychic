@@ -349,7 +349,7 @@
           <item>
            <widget class="QFNumberEdit" name="tOscCDRatio">
             <property name="text">
-             <string>2</string>
+             <string>5</string>
             </property>
            </widget>
           </item>
@@ -442,6 +442,9 @@
         </property>
         <item>
          <widget class="QComboBox" name="cOChannel">
+          <property name="currentIndex">
+           <number>2</number>
+          </property>
           <item>
            <property name="text">
             <string>1</string>
