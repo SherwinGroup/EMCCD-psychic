@@ -575,7 +575,7 @@
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
-       <widget class="GraphicsLayoutWidget" name="gCCDImage">
+       <widget class="ImageViewWithPlotItemContainer" name="gCCDImage">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
           <horstretch>1</horstretch>
@@ -583,7 +583,7 @@
          </sizepolicy>
         </property>
        </widget>
-       <widget class="GraphicsLayoutWidget" name="gCCDBack">
+       <widget class="ImageViewWithPlotItemContainer" name="gCCDBack">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
           <horstretch>1</horstretch>
@@ -649,9 +649,9 @@
    <header>pyqtgraph</header>
   </customwidget>
   <customwidget>
-   <class>GraphicsLayoutWidget</class>
+   <class>ImageViewWithPlotItemContainer</class>
    <extends>QGraphicsView</extends>
-   <header>pyqtgraph</header>
+   <header>ImageViewWithPlotItemContainer</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -46,11 +46,9 @@ if os.name is not "posix":
     myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
-
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
-
 
 
 try:
@@ -177,10 +175,15 @@ class CCDWindow(QtGui.QMainWindow):
             # Pretty sure we can safely say it's
             # ASRL1
             idx = s['GPIBlist'].index('ASRL1::INSTR')
+            # my mac claims to have this port,
+            # cheap fix so it won't try to connect it
+            if os.name == "posix":
+                raise ValueError()
             s["specGPIBidx"] = idx
         except ValueError:
             # otherwise, just set it to the fake index
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
+        print "spec gpib", s["specGPIBidx"]
         try:
             # Pretty sure we can safely say it's
             # GPIB5
@@ -258,6 +261,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         s["nir_power"] = 0
         s["nir_lambda"] = 0
+        s["nir_pol"] = 'H'
         s["series"] = ""
         s["sample_name"] = ""
         s["fel_power"] = 0
@@ -273,6 +277,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["sample_spot_size"] = 0.05
         s["window_trans"] = 1.0
         s["eff_field"] = 1.0
+        s["fel_pol"] = 'H'
 
         self.settings = s
 
@@ -433,10 +438,41 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
+        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition)
 
-        self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
-        self.ui.mSeriesRemove.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
-        self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
+        ##
+        # todo: follow through the removal of undo series
+        # 11/6/15 undo series should be removed
+        ##
+        # self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
+        self.ui.mRemoveImageSequence.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
+
+        self.ui.mProcessBackgroundSequence.triggered.connect(
+            lambda x: self.getCurExp().processBackgroundSequence()
+        )
+
+        self.ui.mProcessImageSequence.triggered.connect(
+            lambda x: self.getCurExp().processImageSequence()
+        )
+
+        ##
+        # todo: I'm not sure setting the current series is neccesary anymore
+        # 11/6/15
+        ##
+        # self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
+
+        def keyboardTest():
+            print "keyboard testing",
+            mod = QtGui.QApplication.keyboardModifiers()
+            print mod
+            print mod == QtCore.Qt.ShiftModifier
+            print mod == QtCore.Qt.NoModifier
+
+
+        self.ui.mProcessImageSequence.triggered.connect(keyboardTest)
+
+        self.ui.bSettingsDirectory.clicked.connect(keyboardTest)
+
 
         self.ui.mLivePlotsForceAutoscale.triggered.connect(lambda x: self.getCurExp().autoscaleSignalHistogram())
 
@@ -534,6 +570,7 @@ class CCDWindow(QtGui.QMainWindow):
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
             self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
+            self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
         if self.curExp.hasFEL:
             self.curExp.ui.tCCDFELP.setText(str(self.settings["fel_power"]))
             self.curExp.ui.tCCDFELFreq.setText(str(self.settings["fel_lambda"]))
@@ -541,6 +578,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
             self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
+            self.curExp.ui.tCCDFELPol.setText(self.settings["fel_pol"])
         if openScope is None:
             print "Not told what to do"
             print "Open scope?", self.expUIs[exp].hasFEL
@@ -963,7 +1001,11 @@ class CCDWindow(QtGui.QMainWindow):
     @staticmethod
     def _____________________ls(): pass
     def addPolarizerMotorDriver(self):
-        import motordriver.__main__ as md
+        try:
+            import motordriver.__main__ as md
+        except ImportError:
+            MessageDialog(self, "Error importing module for motor driver")
+            return
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
         motorDriverGB.setFlat(True)
         layout = QtGui.QVBoxLayout()
@@ -1007,6 +1049,7 @@ class CCDWindow(QtGui.QMainWindow):
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
         try:
+            raise Exception("Cut this shit out, OSX. STOP OPENING IT")
             self.Spectrometer = ActonSP(
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]]
             )

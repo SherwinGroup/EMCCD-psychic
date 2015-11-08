@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
+# Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created: Fri Oct 30 17:45:53 2015
-#      by: PyQt4 UI code generator 4.10.4
+# Created: Sat Nov  7 09:21:14 2015
+#      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(827, 735)
+        MainWindow.resize(827, 847)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/test/icon.jpg")), QtGui.QIcon.Selected, QtGui.QIcon.On)
         MainWindow.setWindowIcon(icon)
@@ -189,7 +189,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_15.setContentsMargins(0, 10, 0, 0)
         self.horizontalLayout_15.setObjectName(_fromUtf8("horizontalLayout_15"))
         self.tVBin = QINumberEdit(self.groupBox_17)
-        self.tVBin.setEnabled(False)
+        self.tVBin.setEnabled(True)
         self.tVBin.setObjectName(_fromUtf8("tVBin"))
         self.horizontalLayout_15.addWidget(self.tVBin)
         self.gridLayout_4.addWidget(self.groupBox_17, 2, 0, 1, 1)
@@ -443,7 +443,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 827, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 827, 22))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         self.menuOther_Settings = QtGui.QMenu(self.menubar)
         self.menuOther_Settings.setObjectName(_fromUtf8("menuOther_Settings"))
@@ -504,11 +504,11 @@ class Ui_MainWindow(object):
         self.mLivePlotsDisableRawPlots = QtGui.QAction(MainWindow)
         self.mLivePlotsDisableRawPlots.setCheckable(True)
         self.mLivePlotsDisableRawPlots.setObjectName(_fromUtf8("mLivePlotsDisableRawPlots"))
-        self.mSeriesRemove = QtGui.QAction(MainWindow)
-        self.mSeriesRemove.setObjectName(_fromUtf8("mSeriesRemove"))
-        self.mSeriesReset = QtGui.QAction(MainWindow)
-        self.mSeriesReset.setStatusTip(_fromUtf8(""))
-        self.mSeriesReset.setObjectName(_fromUtf8("mSeriesReset"))
+        self.mRemoveImageSequence = QtGui.QAction(MainWindow)
+        self.mRemoveImageSequence.setObjectName(_fromUtf8("mRemoveImageSequence"))
+        self.m = QtGui.QAction(MainWindow)
+        self.m.setStatusTip(_fromUtf8(""))
+        self.m.setObjectName(_fromUtf8("m"))
         self.fExpTypeAlignment = QtGui.QAction(MainWindow)
         self.fExpTypeAlignment.setCheckable(True)
         self.fExpTypeAlignment.setObjectName(_fromUtf8("fExpTypeAlignment"))
@@ -530,19 +530,29 @@ class Ui_MainWindow(object):
         self.mFileScanNeLines.setObjectName(_fromUtf8("mFileScanNeLines"))
         self.mFileOpenDebugConsole = QtGui.QAction(MainWindow)
         self.mFileOpenDebugConsole.setObjectName(_fromUtf8("mFileOpenDebugConsole"))
+        self.mRemoveBackgroundSequence = QtGui.QAction(MainWindow)
+        self.mRemoveBackgroundSequence.setObjectName(_fromUtf8("mRemoveBackgroundSequence"))
+        self.mProcessImageSequence = QtGui.QAction(MainWindow)
+        self.mProcessImageSequence.setObjectName(_fromUtf8("mProcessImageSequence"))
+        self.mProcessBackgroundSequence = QtGui.QAction(MainWindow)
+        self.mProcessBackgroundSequence.setObjectName(_fromUtf8("mProcessBackgroundSequence"))
+        self.mFIleAbortAcquisition = QtGui.QAction(MainWindow)
+        self.mFIleAbortAcquisition.setObjectName(_fromUtf8("mFIleAbortAcquisition"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
         self.menuOther_Settings.addAction(self.mFileEnableAll)
         self.menuOther_Settings.addAction(self.mFileDoSpecSweep)
         self.menuOther_Settings.addAction(self.mFileScanNeLines)
+        self.menuOther_Settings.addAction(self.mFIleAbortAcquisition)
         self.menuOther_Settings.addSeparator()
         self.menuOther_Settings.addAction(self.mFileFastExit)
         self.menuOther_Settings.addAction(self.mFileOpenDebugConsole)
-        self.menuLive_Series.addAction(self.mSeriesSum)
-        self.menuLive_Series.addAction(self.mSeriesUndo)
-        self.menuLive_Series.addAction(self.mSeriesRemove)
-        self.menuLive_Series.addAction(self.mSeriesReset)
+        self.menuLive_Series.addAction(self.mRemoveImageSequence)
+        self.menuLive_Series.addAction(self.mRemoveBackgroundSequence)
+        self.menuLive_Series.addSeparator()
+        self.menuLive_Series.addAction(self.mProcessImageSequence)
+        self.menuLive_Series.addAction(self.mProcessBackgroundSequence)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_FVB)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_Image)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_PhotonCounting)
@@ -663,7 +673,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabSpec), _translate("MainWindow", "Spectrometer", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Misc Tools", None))
         self.menuOther_Settings.setTitle(_translate("MainWindow", "Other Settings", None))
-        self.menuLive_Series.setTitle(_translate("MainWindow", "Live Series", None))
+        self.menuLive_Series.setTitle(_translate("MainWindow", "Sequence Controls", None))
         self.menuExperiment_Type.setTitle(_translate("MainWindow", "Experiment Type", None))
         self.menuHSG_FVB.setTitle(_translate("MainWindow", "HSG", None))
         self.menuLive_Plots.setTitle(_translate("MainWindow", "Live Plots", None))
@@ -682,9 +692,9 @@ class Ui_MainWindow(object):
         self.fExpTypeTwo_Color_Abs.setText(_translate("MainWindow", "Two Color Abs", None))
         self.mLivePlotsDisableHistogramAutoscale.setText(_translate("MainWindow", "Disable Histogram autoscale", None))
         self.mLivePlotsDisableRawPlots.setText(_translate("MainWindow", "Disable Raw Plots", None))
-        self.mSeriesRemove.setText(_translate("MainWindow", "Remove Series", None))
-        self.mSeriesReset.setText(_translate("MainWindow", "Set Current as First", None))
-        self.mSeriesReset.setToolTip(_translate("MainWindow", "Set the current image as the first image in the series", None))
+        self.mRemoveImageSequence.setText(_translate("MainWindow", "Remove Image Sequence", None))
+        self.m.setText(_translate("MainWindow", "Set Current as First", None))
+        self.m.setToolTip(_translate("MainWindow", "Set the current image as the first image in the series", None))
         self.fExpTypeAlignment.setText(_translate("MainWindow", "Alignment", None))
         self.mLivePlotsForceAutoscale.setText(_translate("MainWindow", "Force Histogram Autoscale", None))
         self.fExpTypeHSG_FVB.setText(_translate("MainWindow", "FVB", None))
@@ -693,6 +703,10 @@ class Ui_MainWindow(object):
         self.mFileDoSpecSweep.setText(_translate("MainWindow", "Do Spec Sweep", None))
         self.mFileScanNeLines.setText(_translate("MainWindow", "Scan Ne Lines", None))
         self.mFileOpenDebugConsole.setText(_translate("MainWindow", "Open Debug Console", None))
+        self.mRemoveBackgroundSequence.setText(_translate("MainWindow", "Remove Background Sequence", None))
+        self.mProcessImageSequence.setText(_translate("MainWindow", "Process Image Sequence", None))
+        self.mProcessBackgroundSequence.setText(_translate("MainWindow", "Process Background Sequence", None))
+        self.mFIleAbortAcquisition.setText(_translate("MainWindow", "Abort Acquisition", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc

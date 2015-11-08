@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>827</width>
-    <height>735</height>
+    <height>847</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -481,7 +481,7 @@
                    <item>
                     <widget class="QINumberEdit" name="tVBin">
                      <property name="enabled">
-                      <bool>false</bool>
+                      <bool>true</bool>
                      </property>
                     </widget>
                    </item>
@@ -1137,7 +1137,7 @@
      <x>0</x>
      <y>0</y>
      <width>827</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOther_Settings">
@@ -1150,18 +1150,20 @@
     <addaction name="mFileEnableAll"/>
     <addaction name="mFileDoSpecSweep"/>
     <addaction name="mFileScanNeLines"/>
+    <addaction name="mFIleAbortAcquisition"/>
     <addaction name="separator"/>
     <addaction name="mFileFastExit"/>
     <addaction name="mFileOpenDebugConsole"/>
    </widget>
    <widget class="QMenu" name="menuLive_Series">
     <property name="title">
-     <string>Live Series</string>
+     <string>Sequence Controls</string>
     </property>
-    <addaction name="mSeriesSum"/>
-    <addaction name="mSeriesUndo"/>
-    <addaction name="mSeriesRemove"/>
-    <addaction name="mSeriesReset"/>
+    <addaction name="mRemoveImageSequence"/>
+    <addaction name="mRemoveBackgroundSequence"/>
+    <addaction name="separator"/>
+    <addaction name="mProcessImageSequence"/>
+    <addaction name="mProcessBackgroundSequence"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">
@@ -1315,12 +1317,12 @@
     <string>Disable Raw Plots</string>
    </property>
   </action>
-  <action name="mSeriesRemove">
+  <action name="mRemoveImageSequence">
    <property name="text">
-    <string>Remove Series</string>
+    <string>Remove Image Sequence</string>
    </property>
   </action>
-  <action name="mSeriesReset">
+  <action name="m">
    <property name="text">
     <string>Set Current as First</string>
    </property>
@@ -1384,6 +1386,26 @@
   <action name="mFileOpenDebugConsole">
    <property name="text">
     <string>Open Debug Console</string>
+   </property>
+  </action>
+  <action name="mRemoveBackgroundSequence">
+   <property name="text">
+    <string>Remove Background Sequence</string>
+   </property>
+  </action>
+  <action name="mProcessImageSequence">
+   <property name="text">
+    <string>Process Image Sequence</string>
+   </property>
+  </action>
+  <action name="mProcessBackgroundSequence">
+   <property name="text">
+    <string>Process Background Sequence</string>
+   </property>
+  </action>
+  <action name="mFIleAbortAcquisition">
+   <property name="text">
+    <string>Abort Acquisition</string>
    </property>
   </action>
  </widget>

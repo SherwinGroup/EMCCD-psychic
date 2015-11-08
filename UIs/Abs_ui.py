@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\Abs.ui'
+# Form implementation generated from reading ui file 'Abs.ui'
 #
-# Created: Fri Jul 17 15:09:37 2015
-#      by: PyQt4 UI code generator 4.10.4
+# Created: Fri Nov  6 20:17:01 2015
+#      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -247,14 +247,14 @@ class Ui_Abs(object):
         self.splitterImages.setSizePolicy(sizePolicy)
         self.splitterImages.setOrientation(QtCore.Qt.Vertical)
         self.splitterImages.setObjectName(_fromUtf8("splitterImages"))
-        self.gCCDImage = GraphicsLayoutWidget(self.splitterImages)
+        self.gCCDImage = ImageViewWithPlotItemContainer(self.splitterImages)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
         sizePolicy.setVerticalStretch(1)
         sizePolicy.setHeightForWidth(self.gCCDImage.sizePolicy().hasHeightForWidth())
         self.gCCDImage.setSizePolicy(sizePolicy)
         self.gCCDImage.setObjectName(_fromUtf8("gCCDImage"))
-        self.gCCDBack = GraphicsLayoutWidget(self.splitterImages)
+        self.gCCDBack = ImageViewWithPlotItemContainer(self.splitterImages)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
         sizePolicy.setVerticalStretch(1)
@@ -321,5 +321,6 @@ class Ui_Abs(object):
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("Abs", "Other Settings", None))
         self.lCCDProg.setText(_translate("Abs", "Done.", None))
 
-from pyqtgraph import PlotWidget, GraphicsLayoutWidget
+from pyqtgraph import PlotWidget
 from InstsAndQt.customQt import QINumberEdit, QFNumberEdit
+from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer

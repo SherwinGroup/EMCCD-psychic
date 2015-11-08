@@ -100,19 +100,37 @@ class fAndorEMCCD(object):
         arr = args[0][0]
         np.random.seed()
         new = [int(round(i)) for i in 100 * np.random.normal(0, 1, args[0][1])]
-        big = [int(round(i))+5000 for i in 100 * np.random.normal(0, 1, args[0][1])]
+        big = [int(round(i))+np.random.randint(4500, 5200) for i in 100 * np.random.normal(0, 1, args[0][1])]
         # make non-sideband 1/5
         sidebanded = bool(np.random.randint(5))
         for i in range(args[0][1]):
             if sidebanded and i>1600*150 and i<1600*250:
-                if (i-750)%1600==0 or (i-751)%1600==0:
-                    arr[i] = big[i]/10
-                elif (i-500)%1600==0 or (i-501)%1600==0:
-                    arr[i] = big[i]
+                if (i-750)%1600==0:
+                    arr[i] = int(big[i]/10)
+                elif (i-749)%1600==0 or (i-751)%1600==0:
+                    arr[i] = int(big[i]/14)
+                elif (i-748)%1600==0 or (i-752)%1600==0:
+                    arr[i] = int(big[i]/19)
+                elif (i-500)%1600==0:
+                    arr[i] = int(big[i])
+                elif (i-499)%1600==0 or (i-501)%1600==0:
+                    arr[i] = int(big[i]/1.6)
+                elif (i-498)%1600==0 or (i-502)%1600==0:
+                    arr[i] = int(big[i]/3)
+                else:
+                    if not np.random.randint(10000):
+                        arr[i] = np.random.randint(3000, 30000)
+                        arr[i-1] = int(0.8*arr[i])
+                        arr[i-2] = int(0.72*arr[i])
+                    else:
+                        arr[i] = new[i]
+            else:
+                if not np.random.randint(10000):
+                    arr[i] = np.random.randint(3000, 30000)
+                    arr[i-1] = int(0.8*arr[i])
+                    arr[i-2] = int(0.72*arr[i])
                 else:
                     arr[i] = new[i]
-            else:
-                arr[i] = new[i]
             
     def __getDet(self, *args):
         x = args[0][0]
