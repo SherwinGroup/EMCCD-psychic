@@ -998,7 +998,7 @@ class BaseExpWidget(QtGui.QWidget):
         if self.prevDataEMCCD is None:
             self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
             self.ui.groupBox_37.setTitle(
-                curBGtitle + ' (1)'
+                curBGtitle + ' (1*)'
             )
             self.prevDataEMCCD.setAsSequence()
             self.prevDataEMCCD.imageSequence.ignoreNormFactors = True
@@ -1007,7 +1007,7 @@ class BaseExpWidget(QtGui.QWidget):
                 self.curDataEMCCD
             )
             self.ui.groupBox_37.setTitle(
-                curBGtitle[:curBGtitle.find('(')-1] + " ({})".format(
+                curBGtitle[:curBGtitle.find('(')-1] + " ({}*)".format(
                     self.prevDataEMCCD.imageSequence.numImages()
                 )
             )
@@ -1017,7 +1017,7 @@ class BaseExpWidget(QtGui.QWidget):
         if self.prevBackEMCCD is None:
             self.prevBackEMCCD = copy.deepcopy(self.curBackEMCCD)
             self.ui.groupBox_38.setTitle(
-                curBGtitle + ' (1)'
+                curBGtitle + ' (1*)'
             )
             self.prevBackEMCCD.setAsSequence()
             self.prevBackEMCCD.imageSequence.ignoreNormFactors = True
@@ -1026,7 +1026,7 @@ class BaseExpWidget(QtGui.QWidget):
                 self.curBackEMCCD
             )
             self.ui.groupBox_38.setTitle(
-                curBGtitle[:curBGtitle.find('(')-1] + " ({})".format(
+                curBGtitle[:curBGtitle.find('(')-1] + " ({}*)".format(
                     self.prevBackEMCCD.imageSequence.numImages()
                 )
             )
@@ -1091,9 +1091,9 @@ class BaseExpWidget(QtGui.QWidget):
 
 
         self.curDataEMCCD = self.prevDataEMCCD
-        curBGtitle = str(self.ui.groupBox_37.title())
+        curBGtitle = str(self.ui.groupBox_37.title()).replace('*', '')
         self.ui.groupBox_38.setTitle(
-            curBGtitle[:curBGtitle.find('(')-1]
+            curBGtitle
         )
 
         self.prevDataEMCCD = None
@@ -1101,6 +1101,12 @@ class BaseExpWidget(QtGui.QWidget):
 
 
     def processBackgroundSequence(self):
+        mod = QtGui.QApplication.keyboardModifiers()
+        print "keybaord modifier"
+        print mod
+        print mod == QtCore.Qt.ShiftModifier
+        print mod == QtCore.Qt.NoModifier
+
         d, std = self.prevBackEMCCD.imageSequence.removeCosmics(debug=True)
         self.updateBackgroundImage(d)
 
@@ -1141,9 +1147,9 @@ class BaseExpWidget(QtGui.QWidget):
 
 
         self.curBackEMCCD = self.prevBackEMCCD
-        curBGtitle = str(self.ui.groupBox_38.title())
+        curBGtitle = str(self.ui.groupBox_38.title()).replace('*', '')
         self.ui.groupBox_38.setTitle(
-            curBGtitle[:curBGtitle.find('(')-1]
+            curBGtitle
         )
 
         self.prevBackEMCCD = None

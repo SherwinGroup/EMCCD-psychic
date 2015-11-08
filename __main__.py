@@ -469,11 +469,6 @@ class CCDWindow(QtGui.QMainWindow):
             print mod == QtCore.Qt.NoModifier
 
 
-        self.ui.mProcessImageSequence.triggered.connect(keyboardTest)
-
-        self.ui.bSettingsDirectory.clicked.connect(keyboardTest)
-
-
         self.ui.mLivePlotsForceAutoscale.triggered.connect(lambda x: self.getCurExp().autoscaleSignalHistogram())
 
         self.ui.mFileFastExit.triggered.connect(self.close)
