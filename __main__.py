@@ -100,7 +100,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -1044,7 +1044,7 @@ class CCDWindow(QtGui.QMainWindow):
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
         try:
-            raise Exception("Cut this shit out, OSX. STOP OPENING IT")
+            # raise Exception("Cut this shit out, OSX. STOP OPENING IT")
             self.Spectrometer = ActonSP(
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]]
             )

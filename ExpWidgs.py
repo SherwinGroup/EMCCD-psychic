@@ -485,8 +485,8 @@ class BaseExpWidget(QtGui.QWidget):
 
             self.runSettings["takingContinuous"] = True
             # Add infinite lines for ease in aligning
-            self.p1.addItem(self.ilOnep1)
-            self.p1.addItem(self.ilTwop1)
+            self.ui.gCCDImage.view.addItem(self.ilOnep1)
+            self.ui.gCCDImage.view.addItem(self.ilTwop1)
             self.ui.gCCDBin.plotItem.addItem(self.ilOnep2)
             self.ui.gCCDBin.plotItem.addItem(self.ilTwop2)
 
@@ -532,10 +532,10 @@ class BaseExpWidget(QtGui.QWidget):
             # self.doExposure()
         # re-enable UI elements, remove alignment plots
         self.toggleUIElements(True)
-        self.p1.removeItem(self.ilOnep1)
-        self.p1.removeItem(self.ilTwop1)
-        self.ui.gCCDBin.view.removeItem(self.ilOnep2)
-        self.ui.gCCDBin.view.removeItem(self.ilTwop2)
+        self.ui.gCCDImage.view.removeItem(self.ilOnep1)
+        self.ui.gCCDImage.view.removeItem(self.ilTwop1)
+        self.ui.gCCDBin.plotItem.removeItem(self.ilOnep2)
+        self.ui.gCCDBin.plotItem.removeItem(self.ilTwop2)
 
         # re-enable the other tabs
         for i in range(self.papa.ui.tabWidget.count()):
@@ -1049,11 +1049,11 @@ class BaseExpWidget(QtGui.QWidget):
                 fmt = '%f',
                 postfix="_std"
             )
-            log.debug("Saved proccesed background std, {}".format(
+            log.debug("Saved proccesed data image std, {}".format(
                 self.prevDataEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed background. {}".format(
+            log.warn("error saving std file of processed data image. {}".format(
                 e
             ))
 
@@ -1098,8 +1098,9 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.groupBox_37.setTitle(
             curBGtitle
         )
-
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
         self.prevDataEMCCD = None
+
 
 
 
@@ -1204,13 +1205,15 @@ class BaseExpWidget(QtGui.QWidget):
         if data.ndim == 3:
             # Need to transpose the second two axes for the
             # proper alignment.
-            self.ui.gCCDImage.setImage(data, autoLevels=True,
-                                      autoHistogramRange=False)
+            self.ui.gCCDImage.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
             # set it to the last image
             self.ui.gCCDImage.setCurrentIndex(data.shape[0])
         else:
-            self.ui.gCCDImage.setImage(data, autoLevels=False,
-                                      autoHistogramRange=False)
+            self.ui.gCCDImage.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
 
     def autoscaleSignalHistogram(self):
         data = self.pSigImage.image
@@ -1220,11 +1223,14 @@ class BaseExpWidget(QtGui.QWidget):
         if data.ndim == 3:
             # Need to transpose the second two axes for the
             # proper alignment.
-            self.ui.gCCDBack.setImage(data, autoLevels=True,
-                                      autoHistogramRange=False)
+            self.ui.gCCDBack.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
+            self.ui.gCCDBack.setCurrentIndex(data.shape[0])
         else:
-            self.ui.gCCDBack.setImage(data, autoLevels=False,
-                                      autoHistogramRange=False)
+            self.ui.gCCDBack.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
 
 
 

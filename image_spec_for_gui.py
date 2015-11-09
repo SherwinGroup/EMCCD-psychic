@@ -103,11 +103,10 @@ class ConsecutiveImageAnalyzer(object):
 
                 vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
                 vw.view.setAspectLocked(False)
-                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
                 vw.setImage(d)
                 vw.setWindowTitle("Raw Image")
-                # vw.roi.setSize((d.shape[1], d.shape[2]))
-                # vw.roi.translatable = False
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
                 vw.ui.roiPlot.plotItem.addLegend()
                 for ii in range(0, d.shape[0]):
                     for kk in range(0, d.shape[1]):
@@ -123,8 +122,8 @@ class ConsecutiveImageAnalyzer(object):
                 # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
                 vw.setImage(med)
                 vw.setWindowTitle("Median Image")
-                # vw.roi.setSize((med.shape[0], med.shape[1]))
-                # vw.roi.translatable = False
+                vw.roi.setSize((med.shape[1], med.shape[0]))
+                vw.roi.translatable = False
                 vw.ui.roiPlot.plotItem.addLegend()
                 for ii in range(0, med.shape[0]):
                         vw.ui.roiPlot.plot(med[ii], pen=pg.mkPen(style=ii+1), name=ii)
@@ -141,8 +140,8 @@ class ConsecutiveImageAnalyzer(object):
                 # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
                 vw.setImage(d-med)
                 vw.setWindowTitle("d-m")
-                # vw.roi.setSize((med.shape[0], med.shape[1]))
-                # vw.roi.translatable = False
+                vw.roi.setSize((med.shape[1], med.shape[0]))
+                vw.roi.translatable = False
                 vw.ui.roiPlot.plotItem.addLegend()
                 for ii in range(0, d.shape[0]):
                     for kk in range(0, d.shape[1]):
@@ -164,8 +163,8 @@ class ConsecutiveImageAnalyzer(object):
                 # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
                 vw.setImage((d-med)>cutoff[None,:,:])
                 vw.setWindowTitle("Cosmics?")
-                # vw.roi.setSize((d.shape[1], d.shape[2]))
-                # vw.roi.translatable = False
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
                 vw.ui.roiPlot.plotItem.addLegend()
                 for ii in range(0, d.shape[0]):
                     for kk in range(0, d.shape[1]):
@@ -191,7 +190,7 @@ class ConsecutiveImageAnalyzer(object):
         # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
 
         std = np.nanstd(d, axis=0)
-        d = np.nanmean(d, axis=0).astype(int)
+        d = np.nansum(d, axis=0).astype(int)
 
         return d, std
 
