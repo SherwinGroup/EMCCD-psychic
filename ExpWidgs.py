@@ -1030,30 +1030,73 @@ class BaseExpWidget(QtGui.QWidget):
                     self.prevBackEMCCD.imageSequence.numImages()
                 )
             )
-
+    def removeImageSequence(self):
+        """
+        Remove the previous image sequence
+        so future images will not get added to it
+        :return:
+        """
+        self.prevDataEMCCD = None
+        curBGtitle = str(self.ui.groupBox_37.title())
+        curBGtitle = curBGtitle.split('(')[0]
+        self.ui.groupBox_37.setTitle(
+            curBGtitle
+        )
+    def removeBackgroundSequence(self):
+        """
+        Remove the previous image sequence
+        so future images will not get added to it
+        :return:
+        """
+        self.prevBackEMCCD = None
+        curBGtitle = str(self.ui.groupBox_38.title())
+        curBGtitle = curBGtitle.split('(')[0]
+        self.ui.groupBox_37.setTitle(
+            curBGtitle
+        )
 
     def processImageSequence(self):
         mod = QtGui.QApplication.keyboardModifiers()
 
         debug = mod==QtCore.Qt.ShiftModifier
-        d, std = self.prevDataEMCCD.imageSequence.removeCosmics(debug=debug)
-        self.updateSignalImage(d)
+        self.prevDataEMCCD.imageSequence.removeCosmics(debug=debug)
+
+        self.prevDataEMCCD.equipment_dict["background_file"] = \
+            self.curBackEMCCD.saveFileName
+
+        d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
+            self.curBackEMCCD.imageSequence
+        )
         self.prevDataEMCCD.clean_array = d
-        self.prevDataEMCCD.std_array = std
-        # Calc the things and then save them untouched
+        self.prevDataEMCCD.std_array = sigpost
 
         try:
             self.prevDataEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
-                data = std,
+                data = sigpost,
                 fmt = '%f',
-                postfix="_std"
+                postfix="_stdpost"
             )
-            log.debug("Saved proccesed data image std, {}".format(
+            log.debug("Saved proccesed data image stdpost, {}".format(
                 self.prevDataEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed data image. {}".format(
+            log.warn("error saving std file of processed data image stdpost. {}".format(
+                e
+            ))
+
+        try:
+            self.prevDataEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = sigpost,
+                fmt = '%f',
+                postfix="_stdT"
+            )
+            log.debug("Saved proccesed data image stdT, {}".format(
+                self.prevDataEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed data image stdT. {}".format(
                 e
             ))
 
@@ -1073,10 +1116,8 @@ class BaseExpWidget(QtGui.QWidget):
 
         # Now the fun part: Start to process it and deal with the
         # noise of the backgorund
-        self.prevDataEMCCD.equipment_dict["background_file"] = \
-            self.curBackEMCCD.saveFileName
         try:
-            self.prevDataEMCCD.make_spectrum(background = self.curBackEMCCD)
+            self.prevDataEMCCD.make_spectrum()
             oh = self.prevDataEMCCD.origin_import.splitlines()
             oh[1] += ",error"
             oh[2] += ",arb.u."

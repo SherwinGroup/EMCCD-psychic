@@ -100,7 +100,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = False)
+            self.CCD = AndorEMCCD(wantFake = True)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -445,7 +445,7 @@ class CCDWindow(QtGui.QMainWindow):
         # 11/6/15 undo series should be removed
         ##
         # self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
-        self.ui.mRemoveImageSequence.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
+        # self.ui.mRemoveImageSequence.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
 
         self.ui.mProcessBackgroundSequence.triggered.connect(
             lambda x: self.getCurExp().processBackgroundSequence()
@@ -453,6 +453,14 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.ui.mProcessImageSequence.triggered.connect(
             lambda x: self.getCurExp().processImageSequence()
+        )
+
+        self.ui.mRemoveImageSequence.triggered.connect(
+            lambda x: self.getCurExp().removeImageSequence()
+        )
+
+        self.ui.mRemoveBackgroundSequence.triggered.connect(
+            lambda x: self.getCurExp().removeBackgroundSequence()
         )
 
         ##

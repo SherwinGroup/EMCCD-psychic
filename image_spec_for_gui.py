@@ -187,12 +187,55 @@ class ConsecutiveImageAnalyzer(object):
         if not self.ignoreNormFactors:
             d *= normFactors[:,None, None]
 
-        # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
-
+        # To be comprable to background
         std = np.nanstd(d, axis=0)
-        d = np.nansum(d, axis=0).astype(int)
+
+        if not self.ignoreNormFactors:
+            d /= normFactors[:,None, None]
+
+        # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
+        # if not self.ignoreNormFactors:
+        #     d *= normFactors[:,None, None]
+
+        # replace the cosmics
+        d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
+        self._rawImages = np.array(d)
+
+
+        d = np.nanmean(d, axis=0).astype(int)
 
         return d, std
+
+    def subtractImage(self, other):
+        """
+
+        :param other:
+        :type other: ConsecutiveImageAnalyzer
+        :return:
+        """
+        back = np.mean(other._rawImages.astype(float), axis=0)
+        sigb = np.std(other._rawImages, axis=0)
+        normfact = np.array(self._normFactors)
+
+        img = np.array(self._rawImages).astype(float)
+        sigim = np.std(img, axis=0)
+        sigT = np.sqrt(sigb**2 + sigim**2)
+
+        img -= back[None, :, :]
+        if not self.ignoreNormFactors:
+            img /= normfact[:, None, None]
+            sigT /= np.sum(normfact)
+
+        sigpost = np.std(img, axis=0)
+        sigpost /= np.sqrt(img.shape[0])
+        sigT /= np.sqrt(img.shape[0])
+
+        return np.mean(img, axis=0), sigpost, sigT
+
+
+
+
+
 
 
     def clearImages(self):
@@ -390,14 +433,14 @@ class EMCCD_image(object):
         image_removal.run(maxiter=4)
         self.clean_array = image_removal.cleanarray
     
-    def make_spectrum(self, background = None):
+    def make_spectrum(self, std = None):
         '''
         Integrates over vertical axis of the cleaned image
         
         I'm not exactly sure y_min and y_max are counting from the same side as
         in the UI.
         '''
-        if background is None:
+        if self.std_array is None:
             try:
                 self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
             except:
@@ -405,20 +448,29 @@ class EMCCD_image(object):
             wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
                                           self.equipment_dict['grating'])
             self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
-        elif isinstance(background, EMCCD_image):
+        else:
             self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
-            self.spectrum -= background.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
-
             spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
-            back_std = np.mean(background.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
-            spec_std = np.sqrt(spec_std**2 + back_std**2)
-
-
             wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
                                           self.equipment_dict['grating'])
             self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
-        else:
-            raise RuntimeError("What the fuck are you trying to do? I don't want to handle this right now")
+
+        # elif isinstance(background, EMCCD_image):
+            # self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            # self.spectrum -= background.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            #
+            # spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            # back_std = np.mean(background.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            # spec_std = np.sqrt(spec_std**2 + back_std**2)
+            #
+            #
+            # wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+            #                               self.equipment_dict['grating'])
+            # self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
+
+
+        # else:
+        #     raise RuntimeError("What the fuck are you trying to do? I don't want to handle this right now")
 
         
     def inspect_dark_regions(self):
