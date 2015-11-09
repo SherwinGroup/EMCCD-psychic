@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'PL.ui'
 #
-# Created: Fri Nov  6 20:17:13 2015
+# Created: Sun Nov  8 15:46:03 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -323,5 +323,5 @@ class Ui_PL(object):
         self.lCCDProg.setText(_translate("PL", "Done.", None))
 
 from pyqtgraph import PlotWidget
-from InstsAndQt.customQt import QINumberEdit, QFNumberEdit
 from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

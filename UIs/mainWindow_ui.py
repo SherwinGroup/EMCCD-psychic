@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created: Sat Nov  7 09:21:14 2015
+# Created: Sun Nov  8 15:45:54 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -461,7 +461,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
         self.mFileDoCRR = QtGui.QAction(MainWindow)
         self.mFileDoCRR.setCheckable(True)
-        self.mFileDoCRR.setChecked(True)
+        self.mFileDoCRR.setChecked(False)
         self.mFileDoCRR.setObjectName(_fromUtf8("mFileDoCRR"))
         self.mFileBreakTemp = QtGui.QAction(MainWindow)
         self.mFileBreakTemp.setEnabled(False)

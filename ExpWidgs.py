@@ -704,6 +704,7 @@ class BaseExpWidget(QtGui.QWidget):
         # self.analyzeSeries()
         self.addImageSequence()
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.imageSequence.getImages())
         self.sigMakeGui.emit(self.toggleUIElements, (True, ))
 
     def processBackground(self):
@@ -998,16 +999,15 @@ class BaseExpWidget(QtGui.QWidget):
         if self.prevDataEMCCD is None:
             self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
             self.ui.groupBox_37.setTitle(
-                curBGtitle + ' (1*)'
+                curBGtitle.split('(')[0] + '(1*)'
             )
             self.prevDataEMCCD.setAsSequence()
-            self.prevDataEMCCD.imageSequence.ignoreNormFactors = True
         else:
             self.prevDataEMCCD.addNewImage(
                 self.curDataEMCCD
             )
             self.ui.groupBox_37.setTitle(
-                curBGtitle[:curBGtitle.find('(')-1] + " ({}*)".format(
+                curBGtitle.split('(')[0] + "({}*)".format(
                     self.prevDataEMCCD.imageSequence.numImages()
                 )
             )
@@ -1017,7 +1017,7 @@ class BaseExpWidget(QtGui.QWidget):
         if self.prevBackEMCCD is None:
             self.prevBackEMCCD = copy.deepcopy(self.curBackEMCCD)
             self.ui.groupBox_38.setTitle(
-                curBGtitle + ' (1*)'
+                curBGtitle.split('(')[0] + '(1*)'
             )
             self.prevBackEMCCD.setAsSequence()
             self.prevBackEMCCD.imageSequence.ignoreNormFactors = True
@@ -1026,14 +1026,17 @@ class BaseExpWidget(QtGui.QWidget):
                 self.curBackEMCCD
             )
             self.ui.groupBox_38.setTitle(
-                curBGtitle[:curBGtitle.find('(')-1] + " ({}*)".format(
+                curBGtitle.split('(')[0] + "({}*)".format(
                     self.prevBackEMCCD.imageSequence.numImages()
                 )
             )
 
 
     def processImageSequence(self):
-        d, std = self.prevDataEMCCD.imageSequence.removeCosmics(debug=True)
+        mod = QtGui.QApplication.keyboardModifiers()
+
+        debug = mod==QtCore.Qt.ShiftModifier
+        d, std = self.prevDataEMCCD.imageSequence.removeCosmics(debug=debug)
         self.updateSignalImage(d)
         self.prevDataEMCCD.clean_array = d
         self.prevDataEMCCD.std_array = std
@@ -1092,7 +1095,7 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.curDataEMCCD = self.prevDataEMCCD
         curBGtitle = str(self.ui.groupBox_37.title()).replace('*', '')
-        self.ui.groupBox_38.setTitle(
+        self.ui.groupBox_37.setTitle(
             curBGtitle
         )
 
@@ -1102,12 +1105,9 @@ class BaseExpWidget(QtGui.QWidget):
 
     def processBackgroundSequence(self):
         mod = QtGui.QApplication.keyboardModifiers()
-        print "keybaord modifier"
-        print mod
-        print mod == QtCore.Qt.ShiftModifier
-        print mod == QtCore.Qt.NoModifier
+        debug = mod==QtCore.Qt.ShiftModifier
 
-        d, std = self.prevBackEMCCD.imageSequence.removeCosmics(debug=True)
+        d, std = self.prevBackEMCCD.imageSequence.removeCosmics(debug=debug)
         self.updateBackgroundImage(d)
 
 
@@ -1206,6 +1206,8 @@ class BaseExpWidget(QtGui.QWidget):
             # proper alignment.
             self.ui.gCCDImage.setImage(data, autoLevels=True,
                                       autoHistogramRange=False)
+            # set it to the last image
+            self.ui.gCCDImage.setCurrentIndex(data.shape[0])
         else:
             self.ui.gCCDImage.setImage(data, autoLevels=False,
                                       autoHistogramRange=False)

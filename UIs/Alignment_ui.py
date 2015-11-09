@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'Alignment.ui'
 #
-# Created: Fri Nov  6 20:17:05 2015
+# Created: Sun Nov  8 15:46:09 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -322,6 +322,6 @@ class Ui_Alignment(object):
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("Alignment", "Other Settings", None))
         self.lCCDProg.setText(_translate("Alignment", "Done.", None))
 
-from pyqtgraph import PlotWidget
-from InstsAndQt.customQt import QFNumberEdit, QINumberEdit
+from InstsAndQt.customQt import QINumberEdit, QFNumberEdit
 from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from pyqtgraph import PlotWidget

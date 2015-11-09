@@ -51,9 +51,11 @@ class ConsecutiveImageAnalyzer(object):
             self._rawImages.append(image.raw_array)
             if normFactor is None:
                 felp = image.equipment_dict.get("fel_pulses", 0)
+                print "from eqp dict", felp
                 if felp == 0: felp = 1
             else:
                 felp = normFactor
+            print "Added an image, norm factor", felp
             self._normFactors.append(felp)
         else:
             if normFactor is None: normFactor = 1
@@ -62,13 +64,28 @@ class ConsecutiveImageAnalyzer(object):
 
         self._stackedImages = None
 
+    def removeImageByIdx(self, index):
+        try:
+            self._rawImages.pop(index)
+            self._normFactors.pop(index)
+            self._stackedImages = None
+        except Exception as e:
+            log.warning("Error trying to pop the images, {}".format(e))
+
     def removeCosmics(self, ratio = 1.0, noisecoeff = 5, debug = False):
         if self._stackedImages is None:
             self.getImages()
         d = np.array(self._stackedImages).astype(float)
 
+        normFactors = np.array(self._normFactors)
         if not self.ignoreNormFactors:
-            d /= self._normFactors[:,None, None]
+            try:
+                d /= normFactors[:,None, None]
+            except:
+                print "error here"
+                print type(d), d
+                print type(normFactors), normFactors
+                raise
 
         med = np.median(d, axis=0)
         cutoff = med * ratio + noisecoeff * np.std(med[:,:100])
@@ -169,7 +186,7 @@ class ConsecutiveImageAnalyzer(object):
         badPix = np.where((d-med)>cutoff[None,:,:])
         d[badPix] = np.nan
         if not self.ignoreNormFactors:
-            d *= self._normFactors[:,None, None]
+            d *= normFactors[:,None, None]
 
         # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
 
@@ -177,8 +194,6 @@ class ConsecutiveImageAnalyzer(object):
         d = np.nanmean(d, axis=0).astype(int)
 
         return d, std
-
-
 
 
     def clearImages(self):
@@ -538,7 +553,9 @@ class EMCCD_image(object):
         images. Updates things such as FEL pulses/stats in the equipment dict
         to be lists to append to.
         :return:
-        """
+        """ 
+        self.imageSequence.clearImages()
+        self.imageSequence.addImage(self)
         if "fieldStrength" in self.equipment_dict:
             self.equipment_dict["fieldStrength"] = [
                 self.equipment_dict["fieldStrength"]
@@ -551,8 +568,6 @@ class EMCCD_image(object):
             self.equipment_dict["fel_pulses"] = [
                 self.equipment_dict["fel_pulses"]
             ]
-        self.imageSequence.clearImages()
-        self.imageSequence.addImage(self)
 
     def addNewImage(self, newImage):
         """
@@ -577,6 +592,20 @@ class EMCCD_image(object):
                 newImage.equipment_dict["fel_pulses"]
             )
         self.imageSequence.addImage(newImage)
+
+    def removeImageBySequence(self, index):
+        try:
+            if "fieldStrength" in self.equipment_dict:
+                self.equipment_dict["fieldStrength"].pop(index)
+                self.equipment_dict["fieldInt"].pop(index)
+                self.equipment_dict["fel_pulses"].pop(index)
+            self.imageSequence.removeImageByIdx(index)
+        except Exception as e:
+            log.warning("Exception trying to remove an image")
+
+
+
+
 
 
 

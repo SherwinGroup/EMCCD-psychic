@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'HSG.ui'
 #
-# Created: Fri Nov  6 20:17:08 2015
+# Created: Sun Nov  8 15:46:06 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -413,7 +413,7 @@ class Ui_HSG(object):
         self.horizontalLayout.addWidget(self.splitterAll)
 
         self.retranslateUi(HSG)
-        self.tabWidget_3.setCurrentIndex(1)
+        self.tabWidget_3.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(HSG)
         HSG.setTabOrder(self.tCCDNIRP, self.tCCDNIRwavelength)
         HSG.setTabOrder(self.tCCDNIRwavelength, self.tSampleName)
@@ -497,6 +497,6 @@ class Ui_HSG(object):
         self.tCCDSidebandNumber.setText(_translate("HSG", "1", None))
         self.groupBox_54.setTitle(_translate("HSG", "FEL Pulses", None))
 
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
-from InstsAndQt.customQt import QFNumberEdit, QINumberEdit
 from pyqtgraph import PlotWidget
+from InstsAndQt.customQt import QFNumberEdit, QINumberEdit
+from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer

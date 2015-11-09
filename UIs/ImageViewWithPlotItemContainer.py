@@ -25,6 +25,7 @@ class ImageViewWithPlotItemContainer(pg.ImageView):
     def __init__(self, *args, **kwargs):
         kwargs["view"] = pg.PlotItem()
         super(ImageViewWithPlotItemContainer, self).__init__(*args, **kwargs)
+        self.timeLine.setPen(pg.mkPen('k'))
     def setImage(self, img,  *args, **kwargs):
         # Screw you, Luke. For some fucking reason,
         # you decided that a 3D image which as a second dimension
