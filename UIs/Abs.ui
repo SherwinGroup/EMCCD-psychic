@@ -105,13 +105,23 @@
                 </property>
                </widget>
               </item>
+              <item row="0" column="1">
+               <widget class="QToolButton" name="bProcessImageSequence">
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="arrowType">
+                 <enum>Qt::RightArrow</enum>
+                </property>
+               </widget>
+              </item>
              </layout>
             </widget>
            </item>
            <item row="1" column="1">
             <widget class="QGroupBox" name="groupBox_34">
              <property name="title">
-              <string>Exposure (s)</string>
+              <string>Exp (s)</string>
              </property>
              <property name="flat">
               <bool>true</bool>
@@ -222,6 +232,16 @@
                <widget class="QINumberEdit" name="tCCDBGNum">
                 <property name="text">
                  <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QToolButton" name="bProcessBackgroundSequence">
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="arrowType">
+                 <enum>Qt::RightArrow</enum>
                 </property>
                </widget>
               </item>

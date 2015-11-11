@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'PL.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\PL.ui'
 #
-# Created: Sun Nov  8 15:46:03 2015
-#      by: PyQt4 UI code generator 4.11.3
+# Created: Wed Nov 11 10:29:33 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -103,6 +103,11 @@ class Ui_PL(object):
         self.tCCDBGNum = QINumberEdit(self.groupBox_38)
         self.tCCDBGNum.setObjectName(_fromUtf8("tCCDBGNum"))
         self.gridLayout_8.addWidget(self.tCCDBGNum, 0, 0, 1, 1)
+        self.bProcessBackgroundSequence = QtGui.QToolButton(self.groupBox_38)
+        self.bProcessBackgroundSequence.setText(_fromUtf8(""))
+        self.bProcessBackgroundSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessBackgroundSequence.setObjectName(_fromUtf8("bProcessBackgroundSequence"))
+        self.gridLayout_8.addWidget(self.bProcessBackgroundSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_38, 4, 2, 1, 1)
         self.bCCDImage = QtGui.QPushButton(self.tab_3)
         self.bCCDImage.setObjectName(_fromUtf8("bCCDImage"))
@@ -140,6 +145,11 @@ class Ui_PL(object):
         self.tCCDImageNum = QINumberEdit(self.groupBox_37)
         self.tCCDImageNum.setObjectName(_fromUtf8("tCCDImageNum"))
         self.gridLayout_7.addWidget(self.tCCDImageNum, 0, 0, 1, 1)
+        self.bProcessImageSequence = QtGui.QToolButton(self.groupBox_37)
+        self.bProcessImageSequence.setText(_fromUtf8(""))
+        self.bProcessImageSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessImageSequence.setObjectName(_fromUtf8("bProcessImageSequence"))
+        self.gridLayout_7.addWidget(self.bProcessImageSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_37, 3, 2, 1, 1)
         self.gridLayout.setColumnStretch(0, 1)
         self.verticalLayout_3.addLayout(self.gridLayout)
@@ -300,7 +310,7 @@ class Ui_PL(object):
         self.groupBox_38.setTitle(_translate("PL", "Bg Number", None))
         self.tCCDBGNum.setText(_translate("PL", "0", None))
         self.bCCDImage.setText(_translate("PL", "Take Image", None))
-        self.groupBox_34.setTitle(_translate("PL", "Exposure (s)", None))
+        self.groupBox_34.setTitle(_translate("PL", "Exp (s)", None))
         self.tEMCCDExp.setText(_translate("PL", "0.5", None))
         self.groupBox_36.setTitle(_translate("PL", "NIR Wl (nm)", None))
         self.tCCDNIRwavelength.setText(_translate("PL", "0", None))

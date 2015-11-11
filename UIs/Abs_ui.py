@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'Abs.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\Abs.ui'
 #
-# Created: Sun Nov  8 15:46:13 2015
-#      by: PyQt4 UI code generator 4.11.3
+# Created: Wed Nov 11 10:29:24 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -69,6 +69,11 @@ class Ui_Abs(object):
         self.tCCDImageNum = QINumberEdit(self.groupBox_37)
         self.tCCDImageNum.setObjectName(_fromUtf8("tCCDImageNum"))
         self.gridLayout_7.addWidget(self.tCCDImageNum, 0, 0, 1, 1)
+        self.bProcessImageSequence = QtGui.QToolButton(self.groupBox_37)
+        self.bProcessImageSequence.setText(_fromUtf8(""))
+        self.bProcessImageSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessImageSequence.setObjectName(_fromUtf8("bProcessImageSequence"))
+        self.gridLayout_7.addWidget(self.bProcessImageSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_37, 0, 2, 1, 1)
         self.groupBox_34 = QtGui.QGroupBox(self.tab_3)
         self.groupBox_34.setFlat(True)
@@ -110,6 +115,11 @@ class Ui_Abs(object):
         self.tCCDBGNum = QINumberEdit(self.groupBox_38)
         self.tCCDBGNum.setObjectName(_fromUtf8("tCCDBGNum"))
         self.gridLayout_8.addWidget(self.tCCDBGNum, 0, 0, 1, 1)
+        self.bProcessBackgroundSequence = QtGui.QToolButton(self.groupBox_38)
+        self.bProcessBackgroundSequence.setText(_fromUtf8(""))
+        self.bProcessBackgroundSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessBackgroundSequence.setObjectName(_fromUtf8("bProcessBackgroundSequence"))
+        self.gridLayout_8.addWidget(self.bProcessBackgroundSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_38, 2, 2, 1, 1)
         self.groupBox_42 = QtGui.QGroupBox(self.tab_3)
         self.groupBox_42.setFlat(True)
@@ -292,7 +302,7 @@ class Ui_Abs(object):
         self.tCCDRefNum.setText(_translate("Abs", "0", None))
         self.groupBox_37.setTitle(_translate("Abs", "Image Number", None))
         self.tCCDImageNum.setText(_translate("Abs", "0", None))
-        self.groupBox_34.setTitle(_translate("Abs", "Exposure (s)", None))
+        self.groupBox_34.setTitle(_translate("Abs", "Exp (s)", None))
         self.tEMCCDExp.setText(_translate("Abs", "0.5", None))
         self.bCCDReference.setText(_translate("Abs", "Take Reference", None))
         self.bCCDImage.setText(_translate("Abs", "Take Image", None))
@@ -321,6 +331,6 @@ class Ui_Abs(object):
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("Abs", "Other Settings", None))
         self.lCCDProg.setText(_translate("Abs", "Done.", None))
 
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from pyqtgraph import PlotWidget
-from InstsAndQt.customQt import QFNumberEdit, QINumberEdit
+from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

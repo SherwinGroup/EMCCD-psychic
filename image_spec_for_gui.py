@@ -37,10 +37,17 @@ class ConsecutiveImageAnalyzer(object):
         :return:
         """
         self._rawImages = []
+        self._cleanImages = None
         self._normFactors = []
         # how memory inefficient is it to
         # keep a cache of it?
         self._stackedImages = None
+
+        # parameters for the crr algorithm
+        self.crrParams = {
+            "ratio": 1.0,
+            "noisecoeff":5.0
+        }
 
         # Set to True to to not normalize the
         # images when doing crr
@@ -72,7 +79,7 @@ class ConsecutiveImageAnalyzer(object):
         except Exception as e:
             log.warning("Error trying to pop the images, {}".format(e))
 
-    def removeCosmics(self, ratio = 1.0, noisecoeff = 5, debug = False):
+    def removeCosmics(self, ratio = 1.0, noisecoeff = 5.0, debug = False):
         if self._stackedImages is None:
             self.getImages()
         d = np.array(self._stackedImages).astype(float)
@@ -87,12 +94,21 @@ class ConsecutiveImageAnalyzer(object):
                 print type(normFactors), normFactors
                 raise
 
+
         med = np.median(d, axis=0)
-        cutoff = med * ratio + noisecoeff * np.std(med[:,:100])
+        # estimate the noise by taking the std along the first
+        # 100px of each row, for each vertical pixel.
+        # Then just average those, as the noise should be roughly
+        # consant, and that will hopefully smear out the presence of
+        # sidebands or cosmics within the first 100px?
+
+        signoise = np.std(d[:,:,:100], axis=2).mean()
+        cutoff = med * ratio + noisecoeff * signoise
 
         if debug:
             try:
                 if d.shape[1]>10:
+                    debug = False
                     raise RuntimeError("Sorry, can't debug with this large"
                                        "an image, it causes things to break")
                 print "median shape", med.shape
@@ -103,7 +119,7 @@ class ConsecutiveImageAnalyzer(object):
 
                 vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
                 vw.view.setAspectLocked(False)
-                vw.setImage(d)
+                vw.setImage(d.copy())
                 vw.setWindowTitle("Raw Image")
                 vw.roi.setSize((d.shape[2], d.shape[1]))
                 vw.roi.translatable = False
@@ -156,8 +172,6 @@ class ConsecutiveImageAnalyzer(object):
                 winlist.append(vw)
 
 
-
-
                 vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
                 vw.view.setAspectLocked(False)
                 # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
@@ -175,7 +189,6 @@ class ConsecutiveImageAnalyzer(object):
                 vw.ui.roiBtn.setChecked(True)
                 vw.ui.roiBtn.clicked.emit(True)
                 winlist.append(vw)
-                self.winList = winlist
 
             except:
                 log.exception("this failed")
@@ -190,8 +203,8 @@ class ConsecutiveImageAnalyzer(object):
         # To be comprable to background
         std = np.nanstd(d, axis=0)
 
-        if not self.ignoreNormFactors:
-            d /= normFactors[:,None, None]
+        # if not self.ignoreNormFactors:
+        #     d /= normFactors[:,None, None]
 
         # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
         # if not self.ignoreNormFactors:
@@ -199,7 +212,29 @@ class ConsecutiveImageAnalyzer(object):
 
         # replace the cosmics
         d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
-        self._rawImages = np.array(d)
+        self._cleanImages = np.array(d)
+
+        if debug:
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                vw.setImage(self._cleanImages.copy())
+                vw.setWindowTitle("Clean Image")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+                self.winList = winlist
+
+
 
 
         d = np.nanmean(d, axis=0).astype(int)
@@ -213,11 +248,12 @@ class ConsecutiveImageAnalyzer(object):
         :type other: ConsecutiveImageAnalyzer
         :return:
         """
-        back = np.mean(other._rawImages.astype(float), axis=0)
-        sigb = np.std(other._rawImages, axis=0)
+        print "querying get images"
+        back = np.mean(other.getImages().astype(float), axis=0)
+        sigb = np.std(other.getImages(), axis=0)
         normfact = np.array(self._normFactors)
 
-        img = np.array(self._rawImages).astype(float)
+        img = np.array(self.getImages()).astype(float)
         sigim = np.std(img, axis=0)
         sigT = np.sqrt(sigb**2 + sigim**2)
 
@@ -233,17 +269,18 @@ class ConsecutiveImageAnalyzer(object):
         return np.mean(img, axis=0), sigpost, sigT
 
 
-
-
-
-
-
     def clearImages(self):
         self._rawImages = []
+        self._cleanImages = None
         self._normFactors = []
         self._stackedImages = None
 
     def getImages(self):
+        # prefer returning the clean stuff, I think this is
+        # what you'd always want
+        if self._cleanImages is not None:
+            print "You've cleaned it, return the cleaned ones"
+            return self._cleanImages.copy()
         if self._stackedImages is not None:
             return self._stackedImages
         elif not self._rawImages:

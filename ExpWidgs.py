@@ -44,8 +44,6 @@ class CustomAxis(pg.AxisItem):
                                       bounds_error=False,
                                       fill_value = -1)
 
-
-
 class BaseExpWidget(QtGui.QWidget):
     # Flags which help to initialize UI settings
     # Need to be set in subclass BEFORE calling def __init__()
@@ -57,7 +55,6 @@ class BaseExpWidget(QtGui.QWidget):
 
     # name to be used for the tab title
     name = 'Base Tab'
-
 
     sigStartTimer = QtCore.pyqtSignal()
 
@@ -88,6 +85,11 @@ class BaseExpWidget(QtGui.QWidget):
         self.runSettings = dict() # For keeping various information during the run
         self.runSettings["seriesNo"] = 0
         self.runSettings["exposing"] = False
+
+        self.crrSettings={
+            "ratio":0.07,
+            "noisecoeff":3.0
+        }
 
         self.exposureElapsedTimer = QtCore.QElapsedTimer() # For keeping the progress bar correct
 
@@ -144,6 +146,9 @@ class BaseExpWidget(QtGui.QWidget):
         # Connect the two standard image collection schemes
         self.ui.bCCDImage.clicked.connect(lambda: self.takeImage(False))
         self.ui.bCCDBack.clicked.connect(lambda: self.takeImage(True))
+
+        self.ui.bProcessImageSequence.clicked.connect(self.processImageSequence)
+        self.ui.bProcessBackgroundSequence.clicked.connect(self.processBackgroundSequence)
 
         # Need to tell main window when these settings have changed so it
         # can track them.
@@ -758,6 +763,7 @@ class BaseExpWidget(QtGui.QWidget):
             prompt = QtGui.QMessageBox(self)
             prompt.setText("Save most recent scan?")
             prompt.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard)
+            prompt.setEscapeButton(QtGui.QMessageBox.Discard)
             prompt.setDefaultButton(QtGui.QMessageBox.Save)
             prompt.setModal(False)
             prompt.setWindowModality(QtCore.Qt.NonModal)
@@ -1042,6 +1048,7 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.groupBox_37.setTitle(
             curBGtitle
         )
+
     def removeBackgroundSequence(self):
         """
         Remove the previous image sequence
@@ -1051,23 +1058,25 @@ class BaseExpWidget(QtGui.QWidget):
         self.prevBackEMCCD = None
         curBGtitle = str(self.ui.groupBox_38.title())
         curBGtitle = curBGtitle.split('(')[0]
-        self.ui.groupBox_37.setTitle(
+        self.ui.groupBox_38.setTitle(
             curBGtitle
         )
 
     def processImageSequence(self):
-        mod = QtGui.QApplication.keyboardModifiers()
-
-        debug = mod==QtCore.Qt.ShiftModifier
-        self.prevDataEMCCD.imageSequence.removeCosmics(debug=debug)
+        d, std = self.confirmCosmicRemoval(self.prevDataEMCCD.imageSequence)
+        if d is None:
+            return
 
         self.prevDataEMCCD.equipment_dict["background_file"] = \
             self.curBackEMCCD.saveFileName
 
+        print '\n'*10
+        print "Going to try to subtract"
         d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
             self.curBackEMCCD.imageSequence
         )
         self.prevDataEMCCD.clean_array = d
+        self.updateSignalImage(d)
         self.prevDataEMCCD.std_array = sigpost
 
         try:
@@ -1088,7 +1097,7 @@ class BaseExpWidget(QtGui.QWidget):
         try:
             self.prevDataEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
-                data = sigpost,
+                data = sigT,
                 fmt = '%f',
                 postfix="_stdT"
             )
@@ -1132,8 +1141,6 @@ class BaseExpWidget(QtGui.QWidget):
             log.warning("Exception trying to make/save the sequenced image file,"
                         "{}".format(e))
 
-
-
         self.curDataEMCCD = self.prevDataEMCCD
         curBGtitle = str(self.ui.groupBox_37.title()).replace('*', '')
         self.ui.groupBox_37.setTitle(
@@ -1142,17 +1149,13 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
         self.prevDataEMCCD = None
 
-
-
-
     def processBackgroundSequence(self):
-        mod = QtGui.QApplication.keyboardModifiers()
-        debug = mod==QtCore.Qt.ShiftModifier
+        d, std = self.confirmCosmicRemoval(self.prevBackEMCCD.imageSequence)
+        if d is None:
+            return
 
-        d, std = self.prevBackEMCCD.imageSequence.removeCosmics(debug=debug)
+
         self.updateBackgroundImage(d)
-
-
         self.prevBackEMCCD.clean_array = d
         self.prevBackEMCCD.std_array = std
 
@@ -1185,9 +1188,6 @@ class BaseExpWidget(QtGui.QWidget):
                 e
             ))
 
-
-
-
         self.curBackEMCCD = self.prevBackEMCCD
         curBGtitle = str(self.ui.groupBox_38.title()).replace('*', '')
         self.ui.groupBox_38.setTitle(
@@ -1196,6 +1196,53 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.prevBackEMCCD = None
 
+    def confirmCosmicRemoval(self, imSeq):
+        """
+
+        :param dataObject:
+        :type dataObject: EMCCD_image
+        :return:
+        """
+        mod = QtGui.QApplication.keyboardModifiers()
+        debug = mod==QtCore.Qt.ShiftModifier
+        ok = False
+        while not ok:
+            d, std = imSeq.removeCosmics(
+                debug=debug, **self.crrSettings
+            )
+            if not debug: break
+            prompt = QtGui.QMessageBox(self)
+            prompt.setText("Acceptable Cosmic Removal?")
+            prompt.setStandardButtons(
+                QtGui.QMessageBox.Yes |QtGui.QMessageBox.No
+            )
+            prompt.setDefaultButton(QtGui.QMessageBox.Yes)
+            prompt.setWindowModality(QtCore.Qt.WindowModal)
+            response = prompt.exec_()
+
+            # Have the garbage collector clear the windows
+            imSeq.winList = []
+            if response == QtGui.QMessageBox.Yes:
+                ok = True
+                break
+
+            newRat1, dialogOk1 = QtGui.QInputDialog.getDouble(
+                self, "New CRR Settings", "Ratio",
+                self.crrSettings["ratio"], decimals=2
+            )
+            if not dialogOk1:
+                imSeq._cleanImages = None
+                return None, None
+            newRat2, dialogOk2 = QtGui.QInputDialog.getDouble(
+                self, "New CRR Settings", "Noise Ratio",
+                self.crrSettings["noisecoeff"], decimals=2
+            )
+            if not dialogOk2:
+                imSeq._cleanImages = None
+                return None, None
+            self.crrSettings["ratio"] = newRat1
+            self.crrSettings["noisecoeff"] = newRat2
+        return d, std
 
 
     def removeCurrentSeries(self):

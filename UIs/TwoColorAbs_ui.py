@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'TwoColorAbs.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\TwoColorAbs.ui'
 #
-# Created: Sun Nov  8 15:46:00 2015
-#      by: PyQt4 UI code generator 4.11.3
+# Created: Wed Nov 11 10:29:35 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -72,6 +72,11 @@ class Ui_TwoColorAbs(object):
         self.tCCDBGNum = QINumberEdit(self.groupBox_38)
         self.tCCDBGNum.setObjectName(_fromUtf8("tCCDBGNum"))
         self.gridLayout_8.addWidget(self.tCCDBGNum, 0, 0, 1, 1)
+        self.bProcessBackgroundSequence = QtGui.QToolButton(self.groupBox_38)
+        self.bProcessBackgroundSequence.setText(_fromUtf8(""))
+        self.bProcessBackgroundSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessBackgroundSequence.setObjectName(_fromUtf8("bProcessBackgroundSequence"))
+        self.gridLayout_8.addWidget(self.bProcessBackgroundSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_38, 4, 2, 1, 1)
         self.groupBox_34 = QtGui.QGroupBox(self.tab_3)
         self.groupBox_34.setFlat(True)
@@ -119,6 +124,11 @@ class Ui_TwoColorAbs(object):
         self.tCCDImageNum = QINumberEdit(self.groupBox_37)
         self.tCCDImageNum.setObjectName(_fromUtf8("tCCDImageNum"))
         self.gridLayout_7.addWidget(self.tCCDImageNum, 0, 0, 1, 1)
+        self.bProcessImageSequence = QtGui.QToolButton(self.groupBox_37)
+        self.bProcessImageSequence.setText(_fromUtf8(""))
+        self.bProcessImageSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessImageSequence.setObjectName(_fromUtf8("bProcessImageSequence"))
+        self.gridLayout_7.addWidget(self.bProcessImageSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_37, 0, 2, 1, 1)
         self.groupBox = QtGui.QGroupBox(self.tab_3)
         self.groupBox.setFlat(True)
@@ -414,7 +424,7 @@ class Ui_TwoColorAbs(object):
         self.tEMCCDGain.setText(_translate("TwoColorAbs", "1", None))
         self.groupBox_38.setTitle(_translate("TwoColorAbs", "Bg Number", None))
         self.tCCDBGNum.setText(_translate("TwoColorAbs", "0", None))
-        self.groupBox_34.setTitle(_translate("TwoColorAbs", "Exposure (s)", None))
+        self.groupBox_34.setTitle(_translate("TwoColorAbs", "Exp (s)", None))
         self.tEMCCDExp.setText(_translate("TwoColorAbs", "0.5", None))
         self.bCCDImage.setText(_translate("TwoColorAbs", "Take Image", None))
         self.bCCDReference.setText(_translate("TwoColorAbs", "Take Reference", None))
@@ -461,5 +471,5 @@ class Ui_TwoColorAbs(object):
         self.groupBox_13.setTitle(_translate("TwoColorAbs", "FEL Pulses", None))
 
 from pyqtgraph import PlotWidget
-from InstsAndQt.customQt import QFNumberEdit, QINumberEdit
 from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

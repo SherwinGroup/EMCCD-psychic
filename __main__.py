@@ -100,7 +100,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -446,15 +446,6 @@ class CCDWindow(QtGui.QMainWindow):
         ##
         # self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
         # self.ui.mRemoveImageSequence.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
-
-        self.ui.mProcessBackgroundSequence.triggered.connect(
-            lambda x: self.getCurExp().processBackgroundSequence()
-        )
-
-        self.ui.mProcessImageSequence.triggered.connect(
-            lambda x: self.getCurExp().processImageSequence()
-        )
-
         self.ui.mRemoveImageSequence.triggered.connect(
             lambda x: self.getCurExp().removeImageSequence()
         )
@@ -469,12 +460,6 @@ class CCDWindow(QtGui.QMainWindow):
         ##
         # self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
 
-        def keyboardTest():
-            print "keyboard testing",
-            mod = QtGui.QApplication.keyboardModifiers()
-            print mod
-            print mod == QtCore.Qt.ShiftModifier
-            print mod == QtCore.Qt.NoModifier
 
 
         self.ui.mLivePlotsForceAutoscale.triggered.connect(lambda x: self.getCurExp().autoscaleSignalHistogram())

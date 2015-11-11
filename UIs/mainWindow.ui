@@ -1137,7 +1137,7 @@
      <x>0</x>
      <y>0</y>
      <width>827</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOther_Settings">
@@ -1161,9 +1161,6 @@
     </property>
     <addaction name="mRemoveImageSequence"/>
     <addaction name="mRemoveBackgroundSequence"/>
-    <addaction name="separator"/>
-    <addaction name="mProcessImageSequence"/>
-    <addaction name="mProcessBackgroundSequence"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">

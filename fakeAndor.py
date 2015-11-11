@@ -94,13 +94,15 @@ class fAndorEMCCD(object):
         
     def __voidReturn(self, *args):
         pass
-    
+
+    def __setImage(self, *args):
+        pass
 
     def __getData(self, *args):
         arr = args[0][0]
         np.random.seed()
-        new = [int(round(i)) for i in 100 * np.random.normal(0, 1, args[0][1])]
-        big = [int(round(i))+np.random.randint(4500, 5200) for i in 100 * np.random.normal(0, 1, args[0][1])]
+        new = [int(round(i)) for i in np.random.normal(297, 6, args[0][1])]
+        big = [int(round(i))+np.random.randint(4500, 5200) for i in np.random.normal(297, 6, args[0][1])]
         # make non-sideband 1/5
         sidebanded = bool(np.random.randint(5))
         for i in range(args[0][1]):

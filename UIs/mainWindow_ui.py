@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
-# Created: Sun Nov  8 15:45:54 2015
-#      by: PyQt4 UI code generator 4.11.3
+# Created: Wed Nov 11 10:29:30 2015
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -443,7 +443,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 827, 22))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 827, 21))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         self.menuOther_Settings = QtGui.QMenu(self.menubar)
         self.menuOther_Settings.setObjectName(_fromUtf8("menuOther_Settings"))
@@ -550,9 +550,6 @@ class Ui_MainWindow(object):
         self.menuOther_Settings.addAction(self.mFileOpenDebugConsole)
         self.menuLive_Series.addAction(self.mRemoveImageSequence)
         self.menuLive_Series.addAction(self.mRemoveBackgroundSequence)
-        self.menuLive_Series.addSeparator()
-        self.menuLive_Series.addAction(self.mProcessImageSequence)
-        self.menuLive_Series.addAction(self.mProcessBackgroundSequence)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_FVB)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_Image)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_PhotonCounting)
