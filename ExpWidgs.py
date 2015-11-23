@@ -409,6 +409,8 @@ class BaseExpWidget(QtGui.QWidget):
             self.sigStartTimer.emit()
         ret = self.papa.CCD.dllWaitForAcquisition()
         self.runSettings["exposing"] = False
+        self.updateProgressBar()
+        log.debug("Return value from waitforacq: {}".format(ret))
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
                 self.elWaitForOsc.exit()
@@ -426,14 +428,19 @@ class BaseExpWidget(QtGui.QWidget):
         # Thus, if the return is an int, it must have failed the return
         if isinstance(ret, int):
             self.sigMakeGui.emit(self.toggleUIElements, (True, ))
-            self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
+            # If 20024==nonew
+            if ret == 20024:
+                log.debug("No new data for image acquisition (Acquisition aborted?)")
+            else:
+                self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
+                log.warning("Invalid getImage return {}".format(ret))
             return
         self.rawData = ret
         postProcessing()
 
     def abortAcquisition(self):
-        MessageDialog(self, "Abort acquisition not implemented, sorry")
-        log.warning("Abort acquisition called, but not implemented. ")
+        ret = self.papa.CCD.dllAbortAcquisition()
+        log.debug("Abort acq return val: {}".format(ret))
 
     def startProgressBar(self):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
@@ -443,23 +450,23 @@ class BaseExpWidget(QtGui.QWidget):
                                  self.updateProgressBar)
 
     def updateProgressBar(self):
+        # sometimes, this is slow enough to be unsynchronized with
+        # the main thread, and image collection/processing
+        # finishes before this. This will cause the
+        # "Done" progress bar text to be replaced with
+        # "Reading data". It doesn't matter, but Hunter
+        # seems to think it's a problem, so stop letting
+        # this happen.
+        #
+        # If the main thread finishes before this,
+        # it will set 'exposing' to false, which we
+        # will see here to set the progress bar directly to
+        # 100 and not change the text
+        if not self.runSettings["exposing"]:
+            self.runSettings["progress"] = 100
+            self.ui.pCCD.setValue(self.runSettings["progress"])
+            return
         if self.runSettings["progress"] < 100:
-            # sometimes, this is slow enough to be unsynchronized with
-            # the main thread, and image collection/processing
-            # finishes before this. This will cause the
-            # "Done" progress bar text to be replaced with
-            # "Reading data". It doesn't matter, but Hunter
-            # seems to think it's a problem, so stop letting
-            # this happen.
-            #
-            # If the main thread finishes before this,
-            # it will set 'exposing' to false, which we
-            # will see here to set the progress bar directly to
-            # 100 and not change the text
-            if not self.runSettings["exposing"]:
-                self.runSettings["progress"] = 100
-                self.ui.pCCD.setValue(self.runSettings["progress"])
-                return
 
             self.runSettings["progress"] += 1
             self.ui.pCCD.setValue(self.runSettings["progress"])
@@ -731,6 +738,9 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving image")
+            log.critical("folder str: {}, filename: {}".format(
+                self.papa.settings["saveDir"], self.curBackEMCCD.file_name
+            ))
             log.exception("Error saving background image, {}".format(e))
 
         if self.papa.ui.mFileDoCRR.isChecked():

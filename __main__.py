@@ -7,14 +7,10 @@ Created on Sat Feb 14 15:06:30 2015
 
 from __future__ import absolute_import
 
-import numpy as np
-from PyQt4 import QtCore, QtGui
 from Andor import AndorEMCCD
-import pyqtgraph as pg
 import pyqtgraph.console as pgc
 from InstsAndQt.Instruments import *
 from InstsAndQt.customQt import *
-import copy
 import os
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -183,7 +179,6 @@ class CCDWindow(QtGui.QMainWindow):
         except ValueError:
             # otherwise, just set it to the fake index
             s["specGPIBidx"] = s['GPIBlist'].index('Fake')
-        print "spec gpib", s["specGPIBidx"]
         try:
             # Pretty sure we can safely say it's
             # GPIB5
@@ -438,7 +433,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
-        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition)
+        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition())
 
         ##
         # todo: follow through the removal of undo series
@@ -568,8 +563,6 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
             self.curExp.ui.tCCDFELPol.setText(self.settings["fel_pol"])
         if openScope is None:
-            print "Not told what to do"
-            print "Open scope?", self.expUIs[exp].hasFEL
             openScope = self.expUIs[exp].hasFEL
         if openScope:
             self.openFELEquipment() # Opens up the oscilloscope
@@ -585,8 +578,6 @@ class CCDWindow(QtGui.QMainWindow):
         )
         self.expUIs[exp].setParent(None)
         if closeScope is None:
-            print "Not told what to do"
-            print "Close scope?", self.expUIs[exp].hasFEL
             closeScope = self.curExp.hasFEL
         if closeScope:
             self.closeFELEquipment()
@@ -1044,6 +1035,12 @@ class CCDWindow(QtGui.QMainWindow):
         except Exception as e:
             log.warning("Could not initialize Spectrometer. GPIB: {}. Error{}".format(
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]], e))
+            self.settings["specGPIBidx"] = self.ui.cSpecGPIB.findText('Fake')
+            self.ui.cSpecGPIB.currentIndexChanged.disconnect(self.SpecGPIBChanged)
+            self.ui.cSpecGPIB.setCurrentIndex(
+                self.settings["specGPIBidx"]
+            )
+            self.ui.cSpecGPIB.currentIndexChanged.connect(self.SpecGPIBChanged)
             self.Spectrometer = ActonSP("Fake")
         try:
             self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
