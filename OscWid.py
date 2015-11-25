@@ -146,7 +146,10 @@ class OscWid(QtGui.QWidget):
 
         self.linearRegionTextBoxes = lrtb
         self.initLinearRegions()
-        self.show() #?
+
+        self.ui.cFELCoupler.currentIndexChanged.connect(self.updateFELCoupler)
+
+        self.show()
 
     @staticmethod
     def __ALL_THINGS_LINEARREGIONS(): pass
@@ -237,6 +240,20 @@ class OscWid(QtGui.QWidget):
              2: "bcpyCD"
         }
         self.papa.settings[d[i]] = list(curVals)
+
+    def updateFELCoupler(self):
+        """
+        Called when felcoupler combobox changes so the
+        FP thigns can be added/removed as necessary
+        :return:
+        """
+        nowFP = str(self.ui.cFELCoupler.currentText()) == "Cavity Dump"
+        if nowFP:
+            self.plotItem.addItem(self.boxcarRegions[1])
+        else:
+            self.plotItem.removeItem(self.boxcarRegions[1])
+        self.ui.tFpSt.setEnabled(nowFP)
+        self.ui.tFpEn.setEnabled(nowFP)
 
     @staticmethod
     def __POPPING_OUT_CONTROLS(): pass
@@ -388,8 +405,6 @@ class OscWid(QtGui.QWidget):
         #while trying to do analysis?
         pyD = self.settings['pyData']
 
-
-
         pyBGbounds = self.boxcarRegions[0].getRegion()
         pyBGidx = self.findIndices(pyBGbounds, pyD[:,0])
 
@@ -404,30 +419,49 @@ class OscWid(QtGui.QWidget):
 
         pyBG = np.mean(pyD[pyBGidx[0]:pyBGidx[1], 1])
 
+        if str(self.ui.cFELCoupler.currentText()) == "Cavity Dump":
+            if str(self.ui.cPyroMode.currentText()) == "Instant":
+                # if the pyro is in instantaneous ("fast" mode), integrate the data
+                # ourselves
+                pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
+                pyFP /= np.diff(pyFPidx)[0]
+                pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
+                pyCD /= np.diff(pyCDidx)[0]
+                self.settings['CDtoFPRatio'] = pyCD/(pyCD + pyFP)
+            else:
+                # otherwise, assume it's in integrating mode, we just
+                # want to pick out the points at the end of the FP
+                # and the start of the CD
 
-        if str(self.ui.cPyroMode.currentText()) == "Instant":
-            # if the pyro is in instantaneous ("fast" mode), integrate the data
-            # ourselves
-            pyFP = spi.simps(pyD[pyFPidx[0]:pyFPidx[1],1], pyD[pyFPidx[0]:pyFPidx[1], 0])
-            pyFP /= np.diff(pyFPidx)[0]
-            pyCD = spi.simps(pyD[pyCDidx[0]:pyCDidx[1],1], pyD[pyCDidx[0]:pyCDidx[1], 0])
-            pyCD /= np.diff(pyCDidx)[0]
-            self.settings['CDtoFPRatio'] = pyCD/(pyCD + pyFP)
+                # fit the FP to a line in the region selected by the user
+                #
+                linearCoeff = np.polyfit(*pyD[pyFPidx,:].T, deg=1)
+                pyFP = np.polyval(x = pyD[pyFPidx[-1], 0], p = linearCoeff)
+
+                # for the CD, pick the first index given by the
+                # linearregion
+                pyCD = pyD[pyCDidx[0], 1]
+                pyCD = np.mean(pyD[pyCDidx[0]:pyCDidx[1], 1])
+                self.settings['CDtoFPRatio'] = (pyCD-pyFP)/(pyCD - pyBG)
         else:
-            # otherwise, assume it's in integrating mode, we just
-            # want to pick out the points at the end of the FP
-            # and the start of the CD
-
-            # fit the FP to a line in the region selected by the user
+            # Now we assume that it's the hole coupler,
+            # need to ignore the FP regions
             #
-            linearCoeff = np.polyfit(*pyD[pyFPidx,:].T, deg=1)
-            pyFP = np.polyval(x = pyD[pyFPidx[-1], 0], p = linearCoeff)
+            # Force all calculations for "ratio" to be 1, since
+            # all the energy is now in the "cavity dump",
+            # which I'll take to mean the region of interest.
+            pyFP = 0
+            self.settings['CDtoFPRatio'] = 1
+            if str(self.ui.cPyroMode.currentText()) == "Instant":
+                # just calculate the average? This isn't
+                # even going to be used for anything yet
+                pyCD = np.mean(pyD[pyCDidx[0]:pyCDidx[1], 1])
+            else:
+                # Otherwise, fit it to a line because the power
+                # should be a fairly constant increase
+                linearCoeff = np.polyfit(*pyD[pyCDidx,:].T, deg=1)
+                pyCD = np.polyval(x = pyD[pyCDidx[-1], 0], p = linearCoeff)
 
-            # for the CD, pick the first index given by the
-            # linearregion
-            pyCD = pyD[pyCDidx[0], 1]
-            pyCD = np.mean(pyD[pyCDidx[0]:pyCDidx[1], 1])
-            self.settings['CDtoFPRatio'] = (pyCD-pyFP)/(pyCD - pyBG)
 
         return pyBG, pyFP, pyCD
 
