@@ -35,14 +35,18 @@ class CustomAxis(pg.AxisItem):
                 spacing=spacing
             )
         else:
-            return ['{:.1f}'.format(float(self.dataSetInterp(i))) for i in values]
+            return ['{:.0f}'.format(float(self.dataSetInterp(i))) for i in values]
 
     def setDataSet(self, data):
         self.dataSet = data
-        self.dataSetInterp = interp1d(x=data,
-                                      y=np.arange(len(data)),
-                                      bounds_error=False,
-                                      fill_value = -1)
+        if callable(data):
+            # let you pass a function
+            self.dataSetInterp = data
+        elif data is not None:
+            self.dataSetInterp = interp1d(x=data,
+                                          y=np.arange(len(data)),
+                                          bounds_error=False,
+                                          fill_value = -1)
 
 class BaseExpWidget(QtGui.QWidget):
     # Flags which help to initialize UI settings
@@ -72,6 +76,12 @@ class BaseExpWidget(QtGui.QWidget):
     # The expectation is that the emitted value is the return value
     sigMakeGui = QtCore.pyqtSignal(object, object)
     sigKillEventLoop = QtCore.pyqtSignal(object)
+
+
+    # Need to have an instance attribute because if we
+    # spawn threads willy-nilly, things end up breaking
+    # bad.
+    progressTimer = QtCore.QTimer()
     def __init__(self, parent = None, UI=None):
         super(BaseExpWidget, self).__init__(parent)
         self.baseInitUI(UI)
@@ -257,17 +267,23 @@ class BaseExpWidget(QtGui.QWidget):
         plotitem.axes['top']['item'] = caxis
         plotitem.layout.addItem(caxis, 1, 1)
 
-        # p2 = pg.ViewBox()
-        # pi = pg.PlotItem(axis={'top':caxis})
-        # p2.addItem(pi)
-        # pi.showAxis('top')
-        # # plotitem.showAxis('top')
-        # plotitem.scene().addItem(p2)
-        # plotitem.getAxis('top').linkToView(p2)
-        # # print p2.getAxis('top')
-        # p2.setXLink(plotitem)
-        # p2.setYLink(plotitem)
-        # # plotitem.getAxis('top').setLabel('pixel')
+
+
+
+        # specified that the view for the image is
+        # a plotitem, so I can have axis. Get it back
+        plotitem = self.ui.gCCDImage.getView()
+
+        # need to set up custom axis item so that
+        # I can add functionality to show the pixel
+        # number along with wavelength, for comparison
+        # with the real image
+        plotitem.layout.removeItem(plotitem.getAxis('right'))
+        caxis = CustomAxis(orientation='right', parent=plotitem)
+        caxis.linkToView(plotitem.vb)
+        plotitem.axes['right']['item'] = caxis
+        plotitem.layout.addItem(caxis, 2, 2)
+
 
 
 
@@ -390,7 +406,9 @@ class BaseExpWidget(QtGui.QWidget):
 
         self.runSettings["progress"] = 0
 
-
+        if not self.papa.ui.mFileTakeContinuous.isChecked():
+            # don't spam the log
+            log.debug("Beginning an exposure")
         self.papa.CCD.dllStartAcquisition()
         if self.hasFEL and not self.papa.oscWidget.settings["isScopePaused"] and not self.papa.ui.mFileTakeContinuous.isChecked():
             # Wait for an FEL pulse before we start counting, as determined by
@@ -410,14 +428,13 @@ class BaseExpWidget(QtGui.QWidget):
         ret = self.papa.CCD.dllWaitForAcquisition()
         self.runSettings["exposing"] = False
         self.updateProgressBar()
-        log.debug("Return value from waitforacq: {}".format(ret))
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
                 self.elWaitForOsc.exit()
             except:
                 log.debug("Error exiting eventLoop waiting for pulses")
         if ret != 20002:
-            log.debug("Acquisition not completed")
+            log.debug("Acquisition not completed, Ret = {}".format(ret))
             self.sigMakeGui.emit(self.toggleUIElements, (True, ))
             return
 
@@ -443,13 +460,31 @@ class BaseExpWidget(QtGui.QWidget):
         log.debug("Abort acq return val: {}".format(ret))
 
     def startProgressBar(self):
+        # things are breaking if the exposure time is too short
+        # I'm pretty sure it's because I didn't do things intelligently,
+        # but I think this is an edge case which doesn't have to work,
+        # but certainly shouldn't crash the software like it does
+        if self.papa.CCD.cameraSettings["exposureTime"]<=1:
+            return
+
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
         self.exposureElapsedTimer.start()
 
-        QtCore.QTimer.singleShot(self.papa.CCD.cameraSettings["exposureTime"]*10,
-                                 self.updateProgressBar)
+        self.progressTimer.timeout.connect(self.updateProgressBar)
+        self.progressTimer.setInterval(self.papa.CCD.cameraSettings["exposureTime"]*10)
+        self.progressTimer.setSingleShot(True)
+        self.progressTimer.start()
 
     def updateProgressBar(self):
+        # Weird asynchronicity can cause bizarre behavior
+        # Make sure the timer isn't running, if it is, stop it
+        if self.progressTimer.isActive():
+            self.sigMakeGui.emit(self.progressTimer.stop, None)
+            # self.progressTimer.stop()
+        try:
+            self.progressTimer.timeout.disconnect(self.updateProgressBar)
+        except TypeError as e:
+            pass
         # sometimes, this is slow enough to be unsynchronized with
         # the main thread, and image collection/processing
         # finishes before this. This will cause the
@@ -481,8 +516,9 @@ class BaseExpWidget(QtGui.QWidget):
                 newTime = 0
 
             try:
-                QtCore.QTimer.singleShot(newTime,
-                                         self.updateProgressBar)
+                self.progressTimer.setInterval(newTime)
+                self.progressTimer.timeout.connect(self.updateProgressBar)
+                self.progressTimer.start()
             except:
                 log.critical("Didn't update progress ")
         else:
@@ -1312,6 +1348,19 @@ class BaseExpWidget(QtGui.QWidget):
             self.ui.gCCDImage.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
                                       autoHistogramRange=True,
                                       autoRange = False)
+
+        # Set right axis to display real pixel coordinates
+        start=self.papa.CCD.cameraSettings["imageSettings"][4] #vstart
+        stop=self.papa.CCD.cameraSettings["imageSettings"][5]  # vstop
+        step=self.papa.CCD.cameraSettings["imageSettings"][1]
+        realPix = np.arange(start=start,
+                            stop=stop,
+                            step=step)
+
+        self.ui.gCCDImage.getView().getAxis('right').setDataSet(
+            lambda pix: pix*step + start
+        )
+
 
     def autoscaleSignalHistogram(self):
         data = self.pSigImage.image
