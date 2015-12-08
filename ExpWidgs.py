@@ -427,7 +427,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.sigStartTimer.emit()
         ret = self.papa.CCD.dllWaitForAcquisition()
         self.runSettings["exposing"] = False
-        self.updateProgressBar()
+        self.sigMakeGui.emit(self.updateProgressBar, None)
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
                 self.elWaitForOsc.exit()
@@ -499,6 +499,7 @@ class BaseExpWidget(QtGui.QWidget):
         # 100 and not change the text
         if not self.runSettings["exposing"]:
             self.runSettings["progress"] = 100
+            self.papa.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
             self.ui.pCCD.setValue(self.runSettings["progress"])
             return
         if self.runSettings["progress"] < 100:
@@ -720,6 +721,9 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving image")
+            log.critical("folder str: {}, filename: {}".format(
+                self.papa.settings["saveDir"], self.curDataEMCCD.file_name
+            ))
             log.warning("Error saving Data image, {}".format(e))
 
         if self.papa.ui.mFileDoCRR.isChecked():
