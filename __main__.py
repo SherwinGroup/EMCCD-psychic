@@ -157,6 +157,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
 
+        self.consecImages = 0
+
 
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
@@ -476,6 +478,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
         self.neCal.setEnabled(False)
 
+        self.consec = self.ui.menuOther_Settings.addAction(
+            "Do Consecutive Exposures"
+        )
+        self.consec.setCheckable(True)
+        self.consec.triggered.connect(self.startConsecutiveImages)
+        self.consec.setEnabled(False)
+
         self.ui.mFileOpenDebugConsole.triggered.connect(self.openDebugConsole)
 
         
@@ -623,6 +632,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
         self.neCal.setEnabled(val)
+
+        self.consec.setEnabled(val)
 
     def openDebugConsole(self):
         self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
@@ -1152,6 +1163,34 @@ class CCDWindow(QtGui.QMainWindow):
         self.updateElementSig.emit(lambda : self.sweep.setChecked(False), None)
         log.debug("Done with scan")
 
+
+    def startConsecutiveImages(self, val):
+        if not val:
+            return
+        val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?", 1,
+                                            self.consecImages, 50, 1)
+        if not ok or val == 0:
+            self.consec.setChecked(False)
+            return
+        log.debug("Doing consecutive image sequence")
+        self.consecImages = val
+        self.thDoSpectrometerSweep.target = self.doConsecutiveLoop
+        self.thDoSpectrometerSweep.start()
+
+    def doConsecutiveLoop(self):
+        numImages = 0
+        oldConfirm = self.curExp.confirmImage
+        newConfirm = lambda: True
+        self.curExp.confirmImage = newConfirm
+        while self.consec.isChecked() and numImages < self.consecImages:
+            log.debug("Consecutive image: {}".format(numImages))
+            self.getCurExp().ui.bCCDImage.clicked.emit(True)
+            time.sleep(0.25)
+            self.curExp.thDoExposure.wait()
+            numImages += 1
+        log.debug("Finished doing scan")
+        self.updateElementSig.emit(lambda: self.consec.setChecked(False), None)
+        self.curExp.confirmImage = oldConfirm
 
 
 
