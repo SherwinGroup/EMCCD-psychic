@@ -55,16 +55,24 @@ class ConsecutiveImageAnalyzer(object):
 
     def addImage(self, image, normFactor = None):
         if isinstance(image, EMCCD_image):
+            if self._rawImages and image.raw_array.shape != self._rawImages[0].shape:
+                raise ValueError("Input dimensions must match!\n\t got: {}, want: {}".format(
+                    image.raw_array.shape, self._rawImages[0].shape
+                ))
             self._rawImages.append(image.raw_array)
             if normFactor is None:
                 felp = image.equipment_dict.get("fel_pulses", 0)
-                print "from eqp dict", felp
+                # print "from eqp dict", felp
                 if felp == 0: felp = 1
             else:
                 felp = normFactor
-            print "Added an image, norm factor", felp
+            # print "Added an image, norm factor", felp
             self._normFactors.append(felp)
         else:
+            if self._rawImages and image.shape != self._rawImages[0].shape:
+                raise ValueError("Input dimensions must match!\n\t got: {}, want: {}".format(
+                    image.raw_array.shape, self._rawImages[0].shape
+                ))
             if normFactor is None: normFactor = 1
             self._rawImages.append(image)
             self._normFactors.append(normFactor)
@@ -248,7 +256,6 @@ class ConsecutiveImageAnalyzer(object):
         :type other: ConsecutiveImageAnalyzer
         :return:
         """
-        print "querying get images"
         back = np.mean(other.getImages().astype(float), axis=0)
         sigb = np.std(other.getImages(), axis=0)
         normfact = np.array(self._normFactors)
@@ -279,7 +286,6 @@ class ConsecutiveImageAnalyzer(object):
         # prefer returning the clean stuff, I think this is
         # what you'd always want
         if self._cleanImages is not None:
-            print "You've cleaned it, return the cleaned ones"
             return self._cleanImages.copy()
         if self._stackedImages is not None:
             return self._stackedImages
@@ -345,6 +351,8 @@ class EMCCD_image(object):
         self.equipment_dict["background_file"] = ''
 
         self.imageSequence = ConsecutiveImageAnalyzer()
+
+        self.isSequence = False
 
     def __str__(self):
         '''
@@ -552,8 +560,6 @@ class EMCCD_image(object):
         np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
 
-
-
     def getFileName(self, prefix=None):
         """
         Convenience function to get the name used for saving.
@@ -644,6 +650,7 @@ class EMCCD_image(object):
         """ 
         self.imageSequence.clearImages()
         self.imageSequence.addImage(self)
+        self.isSequence = True
         if "fieldStrength" in self.equipment_dict:
             self.equipment_dict["fieldStrength"] = [
                 self.equipment_dict["fieldStrength"]
@@ -690,13 +697,6 @@ class EMCCD_image(object):
             self.imageSequence.removeImageByIdx(index)
         except Exception as e:
             log.warning("Exception trying to remove an image")
-
-
-
-
-
-
-
 
 
 
@@ -894,10 +894,6 @@ class HSG_FVB_image(HSG_image):
         self.equipment_dict["fieldInt"] = [self.equipment_dict["fieldInt"]]
         self.equipment_dict["fel_pulses"] = [self.equipment_dict["fel_pulses"]]
 
-
-
-
-
 class PL_image(EMCCD_image):
     '''
     This class is for handling PL images and turning them into simple spectra.
@@ -989,7 +985,6 @@ class PL_image(EMCCD_image):
     #     np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array,
     #                delimiter=',', header=my_header, comments='#', fmt='%d')
 
-    
 class Abs_image(EMCCD_image):
     origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
     def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):

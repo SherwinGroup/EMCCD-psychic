@@ -249,9 +249,11 @@ class OscWid(QtGui.QWidget):
         """
         nowFP = str(self.ui.cFELCoupler.currentText()) == "Cavity Dump"
         if nowFP:
-            self.plotItem.addItem(self.boxcarRegions[1])
+            # self.plotItem.addItem(self.boxcarRegions[1])
+            self.boxcarRegions[1].show()
         else:
-            self.plotItem.removeItem(self.boxcarRegions[1])
+            # self.plotItem.removeItem(self.boxcarRegions[1])
+            self.boxcarRegions[1].hide()
         self.ui.tFpSt.setEnabled(nowFP)
         self.ui.tFpEn.setEnabled(nowFP)
 

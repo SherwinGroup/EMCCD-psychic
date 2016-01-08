@@ -27,14 +27,12 @@ class ImageViewWithPlotItemContainer(pg.ImageView):
         super(ImageViewWithPlotItemContainer, self).__init__(*args, **kwargs)
         self.timeLine.setPen(pg.mkPen('k'))
     def setImage(self, img,  *args, **kwargs):
-        # Screw you, Luke. For some fucking reason,
-        # you decided that a 3D image which as a second dimension
-        # length of <=4, that there's supposed to be some fucking flipping
-        # of the axes so one of them is a color pallete? Why the
-        # fuck would you do that?
-        # if you dont pass the axes for it here so that
-        # he can't randomly fucking redefine them on me.
-        # Fucking ass.
+        # a 3D image which has a second dimension
+        # length of <=4 does some weird things with
+        # interpreting the axes. Stop it from doing that
+        # since we have this often be the case if we bin
+        # images on the camera so only a few rows
+        # are read out.
         axes = kwargs.get("axes", None)
         if axes is None:
             kwargs["axes"] = {'t': 0, 'x': 1, 'y': 2, 'c': None}

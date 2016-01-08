@@ -236,40 +236,35 @@
              <property name="checkable">
               <bool>false</bool>
              </property>
-             <layout class="QGridLayout" name="gridLayout_7">
-              <property name="leftMargin">
-               <number>0</number>
+             <widget class="QINumberEdit" name="tCCDImageNum">
+              <property name="geometry">
+               <rect>
+                <x>1</x>
+                <y>25</y>
+                <width>60</width>
+                <height>20</height>
+               </rect>
               </property>
-              <property name="topMargin">
-               <number>10</number>
+              <property name="text">
+               <string>0</string>
               </property>
-              <property name="rightMargin">
-               <number>0</number>
+             </widget>
+             <widget class="QToolButton" name="bProcessImageSequence">
+              <property name="geometry">
+               <rect>
+                <x>61</x>
+                <y>24</y>
+                <width>23</width>
+                <height>22</height>
+               </rect>
               </property>
-              <property name="bottomMargin">
-               <number>0</number>
+              <property name="text">
+               <string/>
               </property>
-              <property name="spacing">
-               <number>0</number>
+              <property name="arrowType">
+               <enum>Qt::RightArrow</enum>
               </property>
-              <item row="0" column="0">
-               <widget class="QINumberEdit" name="tCCDImageNum">
-                <property name="text">
-                 <string>0</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QToolButton" name="bProcessImageSequence">
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="arrowType">
-                 <enum>Qt::RightArrow</enum>
-                </property>
-               </widget>
-              </item>
-             </layout>
+             </widget>
             </widget>
            </item>
            <item row="3" column="2">
@@ -297,6 +292,16 @@
                <widget class="QINumberEdit" name="tCCDRefNum">
                 <property name="text">
                  <string>0</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QToolButton" name="bProcessReferenceSequence">
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="arrowType">
+                 <enum>Qt::RightArrow</enum>
                 </property>
                </widget>
               </item>
@@ -927,6 +932,37 @@
              </layout>
             </widget>
            </item>
+           <item row="4" column="3">
+            <widget class="QGroupBox" name="groupBox_17">
+             <property name="title">
+              <string>LED Power (mW)</string>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_19">
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>10</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLineEdit" name="tCCDLEDPower">
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
           </layout>
          </item>
         </layout>
@@ -1032,12 +1068,12 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QINumberEdit</class>
+   <class>QFNumberEdit</class>
    <extends>QLineEdit</extends>
    <header>InstsAndQt.customQt</header>
   </customwidget>
   <customwidget>
-   <class>QFNumberEdit</class>
+   <class>QINumberEdit</class>
    <extends>QLineEdit</extends>
    <header>InstsAndQt.customQt</header>
   </customwidget>

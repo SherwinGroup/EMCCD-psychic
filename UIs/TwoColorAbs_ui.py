@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\TwoColorAbs.ui'
 #
-# Created: Wed Nov 11 10:29:35 2015
+# Created: Thu Jan 07 16:49:29 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -117,18 +117,14 @@ class Ui_TwoColorAbs(object):
         self.groupBox_37.setFlat(True)
         self.groupBox_37.setCheckable(False)
         self.groupBox_37.setObjectName(_fromUtf8("groupBox_37"))
-        self.gridLayout_7 = QtGui.QGridLayout(self.groupBox_37)
-        self.gridLayout_7.setSpacing(0)
-        self.gridLayout_7.setContentsMargins(0, 10, 0, 0)
-        self.gridLayout_7.setObjectName(_fromUtf8("gridLayout_7"))
         self.tCCDImageNum = QINumberEdit(self.groupBox_37)
+        self.tCCDImageNum.setGeometry(QtCore.QRect(1, 25, 60, 20))
         self.tCCDImageNum.setObjectName(_fromUtf8("tCCDImageNum"))
-        self.gridLayout_7.addWidget(self.tCCDImageNum, 0, 0, 1, 1)
         self.bProcessImageSequence = QtGui.QToolButton(self.groupBox_37)
+        self.bProcessImageSequence.setGeometry(QtCore.QRect(61, 24, 23, 22))
         self.bProcessImageSequence.setText(_fromUtf8(""))
         self.bProcessImageSequence.setArrowType(QtCore.Qt.RightArrow)
         self.bProcessImageSequence.setObjectName(_fromUtf8("bProcessImageSequence"))
-        self.gridLayout_7.addWidget(self.bProcessImageSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_37, 0, 2, 1, 1)
         self.groupBox = QtGui.QGroupBox(self.tab_3)
         self.groupBox.setFlat(True)
@@ -139,6 +135,11 @@ class Ui_TwoColorAbs(object):
         self.tCCDRefNum = QINumberEdit(self.groupBox)
         self.tCCDRefNum.setObjectName(_fromUtf8("tCCDRefNum"))
         self.horizontalLayout.addWidget(self.tCCDRefNum)
+        self.bProcessReferenceSequence = QtGui.QToolButton(self.groupBox)
+        self.bProcessReferenceSequence.setText(_fromUtf8(""))
+        self.bProcessReferenceSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessReferenceSequence.setObjectName(_fromUtf8("bProcessReferenceSequence"))
+        self.horizontalLayout.addWidget(self.bProcessReferenceSequence)
         self.gridLayout.addWidget(self.groupBox, 3, 2, 1, 1)
         self.gridLayout.setColumnStretch(0, 1)
         self.verticalLayout_2.addLayout(self.gridLayout)
@@ -356,6 +357,16 @@ class Ui_TwoColorAbs(object):
         self.tCCDFELPol.setObjectName(_fromUtf8("tCCDFELPol"))
         self.horizontalLayout_18.addWidget(self.tCCDFELPol)
         self.gridLayout_17.addWidget(self.groupBox_16, 3, 2, 1, 1)
+        self.groupBox_17 = QtGui.QGroupBox(self.tab_4)
+        self.groupBox_17.setFlat(True)
+        self.groupBox_17.setObjectName(_fromUtf8("groupBox_17"))
+        self.horizontalLayout_19 = QtGui.QHBoxLayout(self.groupBox_17)
+        self.horizontalLayout_19.setContentsMargins(0, 10, 0, 0)
+        self.horizontalLayout_19.setObjectName(_fromUtf8("horizontalLayout_19"))
+        self.tCCDLEDPower = QtGui.QLineEdit(self.groupBox_17)
+        self.tCCDLEDPower.setObjectName(_fromUtf8("tCCDLEDPower"))
+        self.horizontalLayout_19.addWidget(self.tCCDLEDPower)
+        self.gridLayout_17.addWidget(self.groupBox_17, 4, 3, 1, 1)
         self.horizontalLayout_52.addLayout(self.gridLayout_17)
         self.tabWidget_3.addTab(self.tab_4, _fromUtf8(""))
         self.splitterImages = QtGui.QSplitter(self.splitterTop)
@@ -466,6 +477,8 @@ class Ui_TwoColorAbs(object):
         self.groupBox_8.setTitle(_translate("TwoColorAbs", "Rep Rate (Hz)", None))
         self.groupBox_15.setTitle(_translate("TwoColorAbs", "NIR Pol", None))
         self.groupBox_16.setTitle(_translate("TwoColorAbs", "FEL Pol", None))
+        self.groupBox_17.setTitle(_translate("TwoColorAbs", "LED Power (mW)", None))
+        self.tCCDLEDPower.setText(_translate("TwoColorAbs", "0", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("TwoColorAbs", "Other Settings", None))
         self.lCCDProg.setText(_translate("TwoColorAbs", "Done.", None))
         self.groupBox_13.setTitle(_translate("TwoColorAbs", "FEL Pulses", None))

@@ -439,7 +439,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
-        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition)
+        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition())
 
         ##
         # todo: follow through the removal of undo series
@@ -478,12 +478,20 @@ class CCDWindow(QtGui.QMainWindow):
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
         self.neCal.setEnabled(False)
 
+
+
         self.consec = self.ui.menuOther_Settings.addAction(
             "Do Consecutive Exposures"
         )
         self.consec.setCheckable(True)
         self.consec.triggered.connect(self.startConsecutiveImages)
         self.consec.setEnabled(False)
+
+        self.ui.menuLive_Series.addSeparator()
+        addbg = self.ui.menuLive_Series.addAction("Load Background")
+        addbg.triggered.connect(self.getCurExp().reloadBackgroundFiles)
+
+
 
         self.ui.mFileOpenDebugConsole.triggered.connect(self.openDebugConsole)
 
@@ -1003,7 +1011,8 @@ class CCDWindow(QtGui.QMainWindow):
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
         motorDriverGB.setFlat(True)
         layout = QtGui.QVBoxLayout()
-        layout.addWidget(md.MotorWindow())
+        self.motorDriverWid = md.MotorWindow()
+        layout.addWidget(self.motorDriverWid)
         motorDriverGB.setLayout(layout)
         self.ui.miscToolsLayout.addWidget(motorDriverGB)
 
