@@ -236,6 +236,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["igNumber"] = 0
         self.curBG = None
         s["bgNumber"] = 0
+        s["rfNumber"] = 0
 
         # These are for the EMCCD classes which will
         # clean/save/process the data

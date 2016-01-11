@@ -159,9 +159,14 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.splitterAll.setStretchFactor(2, 2)
 
         self.ui.tCCDImageNum.textAccepted.connect(
-            lambda: self.updateImageNumbers(True))
+            lambda: self.papa.settings.__setitem__("igNumber",self.ui.tCCDImageNum.value()))
         self.ui.tCCDBGNum.textAccepted.connect(
-            lambda: self.updateImageNumbers(False))
+            lambda: self.papa.settings.__setitem__("bgNumber",self.ui.tCCDBGNum.value()))
+
+        # self.ui.tCCDImageNum.textAccepted.connect(
+        #     lambda: self.updateImageNumbers(True))
+        # self.ui.tCCDBGNum.textAccepted.connect(
+        #     lambda: self.updateImageNumbers(False))
 
 
         # Connect the two standard image collection schemes
@@ -1143,8 +1148,11 @@ class BaseExpWidget(QtGui.QWidget):
         if d is None:
             return
 
-        self.prevDataEMCCD.equipment_dict["background_file"] = \
-            self.curBackEMCCD.saveFileName
+        try:
+            self.prevDataEMCCD.equipment_dict["background_file"] = \
+                self.curBackEMCCD.saveFileName
+        except AttributeError:
+            self.prevRefEMCCD.equipment_dict["background_file"] = "NoneTaken"
 
         d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
             self.curBackEMCCD.imageSequence
@@ -1431,16 +1439,16 @@ class BaseExpWidget(QtGui.QWidget):
         if val>1500:
             self.ui.tCCDNIRwavelength.setText("{:.3f}".format(10000000./val))
 
-    def updateImageNumbers(self, isIm = True):
-        """
-        :param sender: flag for who sent
-        :return:
-        allow the user to update the image number counters
-        """
-        if isIm:
-            self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())+1
-        else:
-            self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())+1
+    # def updateImageNumbers(self, isIm = True):
+    #     """
+    #     :param sender: flag for who sent
+    #     :return:
+    #     allow the user to update the image number counters
+    #     """
+    #     if isIm:
+    #         self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())+1
+    #     else:
+    #         self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())+1
 
     def createGuiElement(self, fnc, args=None):
         """
@@ -1672,8 +1680,21 @@ class AbsWid(BaseExpWidget):
 
         self.ui.bProcessReferenceSequence.clicked.connect(self.processReferenceSequence)
 
+    def experimentOpen(self):
+        self.ui.tCCDRefNum.setText(str(self.papa.settings["rfNumber"]))
+
     def takeReference(self):
         self.takeImage(isBackground = self.processReference)
+
+    def processImage(self):
+        super(AbsWid, self).processImage()
+        # update the abs spectra if necessary
+        if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
+            return
+        else:
+            self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
+            self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
+
 
     # def processImage(self):
     #     super(AbsWid, self).processImage()
@@ -1704,7 +1725,7 @@ class AbsWid(BaseExpWidget):
             self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
             self.curAbsEMCCD.origin_import = \
-                '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
+                '\nWavelength,Raw Blank,Raw Trans,Abs\nnm,arb.u.,arb.u.,bels'
             try:
                 self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
             except Exception as e:
@@ -1738,9 +1759,9 @@ class AbsWid(BaseExpWidget):
 
         try:
             log.debug("Saving CCD Ref Image")
-            self.curRefEMCCD.save_images(self.papa.settings["saveDir"])
+            self.curRefEMCCD.save_images(self.papa.settings["saveDir"], prefix='RawReference_')
             self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDRefNum.value()+1))
-            self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDRefNum.value()+1)
+            self.papa.updateElementSig.emit(self.ui.tCCDRefNum, self.ui.tCCDRefNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving image")
             log.critical("folder str: {}, filename: {}".format(
@@ -1787,9 +1808,11 @@ class AbsWid(BaseExpWidget):
         if d is None:
             return
 
-        self.prevRefEMCCD.equipment_dict["background_file"] = \
-            self.curBackEMCCD.saveFileName
-
+        try:
+            self.prevRefEMCCD.equipment_dict["background_file"] = \
+                self.curBackEMCCD.saveFileName
+        except AttributeError:
+            self.prevRefEMCCD.equipment_dict["background_file"] = "NoneTaken"
         d, sigpost, sigT = self.prevRefEMCCD.imageSequence.subtractImage(
             self.curBackEMCCD.imageSequence
         )
@@ -1800,6 +1823,7 @@ class AbsWid(BaseExpWidget):
         try:
             self.prevRefEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
+                prefix='RawReference_',
                 data = sigpost,
                 fmt = '%f',
                 postfix="_stdpost"
@@ -1815,6 +1839,7 @@ class AbsWid(BaseExpWidget):
         try:
             self.prevRefEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
+                prefix='RawReference_',
                 data = sigT,
                 fmt = '%f',
                 postfix="_stdT"
@@ -1830,6 +1855,7 @@ class AbsWid(BaseExpWidget):
         try:
             self.prevRefEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
+                prefix='RawReference_',
                 data = d,
                 postfix="_seq"
             )
@@ -1852,6 +1878,7 @@ class AbsWid(BaseExpWidget):
 
             self.prevRefEMCCD.save_spectrum(
                 self.papa.settings["saveDir"],
+                prefix='RawReference_',
                 postfix = "seq",
                 origin_header=oh
             )
@@ -1959,8 +1986,18 @@ class AbsWid(BaseExpWidget):
             self.pRawBlank.setData(data[:,0], data[:,1])
             self.pSpec.setData([], [])
             self.pRawTrans.setData([], [])
+            if self.ui.gCCDBin.plotItem.vb.state["autoRange"][0]:
+                self.ui.gCCDBin.plotItem.setRange(
+                    xRange=data[[0,-1],0]
+                )
+                self.ui.gCCDBin.plotItem.vb.enableAutoRange(x=True)
         else:
             self.pRawTrans.setData(data[:,0], data[:,1])
+            if self.ui.gCCDBin.plotItem.vb.state["autoRange"][0]:
+                self.ui.gCCDBin.plotItem.setRange(
+                    xRange=data[[0,-1],0]
+                )
+                self.ui.gCCDBin.plotItem.vb.enableAutoRange(x=True)
             self.updateGraphViews()
 
         # super(AbsWid, self).updateSpectrum(data)
