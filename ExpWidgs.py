@@ -445,6 +445,7 @@ class BaseExpWidget(QtGui.QWidget):
         if not self.papa.ui.mFileTakeContinuous.isChecked():
             self.sigStartTimer.emit()
         ret = self.papa.CCD.dllWaitForAcquisition()
+        log.debug("Finished Waiting for Acquisition")
         self.runSettings["exposing"] = False
         self.sigMakeGui.emit(self.updateProgressBar, None)
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
@@ -459,6 +460,7 @@ class BaseExpWidget(QtGui.QWidget):
 
 
         ret = self.papa.CCD.getImage()
+        log.debug("Retrieved image from camera")
         # getImage will return the camera return value if it is not
         # 20002, otherwise it will return a np.array of the data
         # Thus, if the return is an int, it must have failed the return
@@ -780,6 +782,7 @@ class BaseExpWidget(QtGui.QWidget):
 
     def processBackground(self):
         # self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
+        log.debug("Reenabling after background")
         self.toggleUIElements(True)
         # return
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
@@ -790,6 +793,7 @@ class BaseExpWidget(QtGui.QWidget):
                                            str(self.ui.tCCDComments.toPlainText()),
                                            self.genEquipmentDict())
 
+        log.debug("Saving background images")
         try:
             self.curBackEMCCD.save_images(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Background: {}".format(self.ui.tCCDBGNum.value()+1))
@@ -808,10 +812,10 @@ class BaseExpWidget(QtGui.QWidget):
             self.curBackEMCCD.clean_array = self.curBackEMCCD.raw_array
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing up...")
 
-
+        log.debug("Adding backgorund sequence")
         self.addBackgroundSequence()
 
-
+        log.debug("Emitting background update")
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.prevBackEMCCD.imageSequence.getImages())
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
 
@@ -1759,7 +1763,7 @@ class AbsWid(BaseExpWidget):
 
         try:
             log.debug("Saving CCD Ref Image")
-            self.curRefEMCCD.save_images(self.papa.settings["saveDir"], prefix='RawReference_')
+            self.curRefEMCCD.save_images(self.papa.settings["saveDir"], prefix='absRef_')
             self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDRefNum.value()+1))
             self.papa.updateElementSig.emit(self.ui.tCCDRefNum, self.ui.tCCDRefNum.value()+1)
         except Exception as e:
@@ -1823,7 +1827,7 @@ class AbsWid(BaseExpWidget):
         try:
             self.prevRefEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
-                prefix='RawReference_',
+                prefix='absRef_',
                 data = sigpost,
                 fmt = '%f',
                 postfix="_stdpost"
@@ -1839,7 +1843,7 @@ class AbsWid(BaseExpWidget):
         try:
             self.prevRefEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
-                prefix='RawReference_',
+                prefix='absRef_',
                 data = sigT,
                 fmt = '%f',
                 postfix="_stdT"
@@ -1855,7 +1859,7 @@ class AbsWid(BaseExpWidget):
         try:
             self.prevRefEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
-                prefix='RawReference_',
+                prefix='absRef_',
                 data = d,
                 postfix="_seq"
             )
@@ -1878,7 +1882,7 @@ class AbsWid(BaseExpWidget):
 
             self.prevRefEMCCD.save_spectrum(
                 self.papa.settings["saveDir"],
-                prefix='RawReference_',
+                prefix='absRef_',
                 postfix = "seq",
                 origin_header=oh
             )
