@@ -46,11 +46,9 @@ if os.name is not "posix":
     myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
-
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
 from OscWid import *
-
 
 
 try:
@@ -159,6 +157,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
 
+        self.consecImages = 0
+
 
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
@@ -177,6 +177,10 @@ class CCDWindow(QtGui.QMainWindow):
             # Pretty sure we can safely say it's
             # ASRL1
             idx = s['GPIBlist'].index('ASRL1::INSTR')
+            # my mac claims to have this port,
+            # cheap fix so it won't try to connect it
+            if os.name == "posix":
+                raise ValueError()
             s["specGPIBidx"] = idx
         except ValueError:
             # otherwise, just set it to the fake index
@@ -232,6 +236,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["igNumber"] = 0
         self.curBG = None
         s["bgNumber"] = 0
+        s["rfNumber"] = 0
 
         # These are for the EMCCD classes which will
         # clean/save/process the data
@@ -258,6 +263,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         s["nir_power"] = 0
         s["nir_lambda"] = 0
+        s["nir_pol"] = 'H'
         s["series"] = ""
         s["sample_name"] = ""
         s["fel_power"] = 0
@@ -273,6 +279,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["sample_spot_size"] = 0.05
         s["window_trans"] = 1.0
         s["eff_field"] = 1.0
+        s["fel_pol"] = 'H'
 
         self.settings = s
 
@@ -304,23 +311,35 @@ class CCDWindow(QtGui.QMainWindow):
         # Creating all of the widgets used for different experiment types
         ###################
         self.expUIs = dict()
-        self.expUIs["HSG"] = HSGWid(self)
-        self.expUIs["HSG"].setParent(None)
-        self.expUIs["Abs"] = AbsWid(self)
-        self.expUIs["Abs"].setParent(None)
-        self.expUIs["PL"] = PLWid(self)
-        self.expUIs["PL"].setParent(None)
-        self.expUIs["Two Color Abs"] = TwoColorAbsWid(self)
-        self.expUIs["Two Color Abs"].setParent(None)
-        self.expUIs["Alignment"] = AlignWid(self)
-        self.expUIs["Alignment"].setParent(None)
+
+
+        actionToWidgets = [(self.ui.fExpTypeAbs, AbsWid),
+                           (self.ui.fExpTypeAlignment, AlignWid),
+                           (self.ui.fExpTypeHSG_FVB, HSGFVBWid),
+                           (self.ui.fExpTypeHSG_Image, HSGImageWid),
+                           (self.ui.fExpTypeHSG_PhotonCounting, HSGPCWid),
+                           (self.ui.fExpTypePL, PLWid),
+                           (self.ui.fExpTypeTwo_Color_Abs, TwoColorAbsWid)
+                           ]
+
+        # Keep track of the qactions to iterate over
+        # when changing experiments
+        self.expMenuActions = []
+
+        # Create all the widgets and store them in a dict
+        # Keys are the qactions, because those are the
+        # things that will trigger the changes
+        for act, wid in actionToWidgets:
+            self.expUIs[act] = wid(self)
+            self.expUIs[act].setParent(None)
+            self.expMenuActions.append(act)
+
         # Connect the changes
-        [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
 
         self.oscWidget = None
         self.curExp = None # Keep a reference if you ever want it
-        # self.openHSG()
-        self.openExp("HSG")
+        self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
 
         # Updating menus in the settings/CCD settings portion
@@ -394,7 +413,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bSpecSetGr.clicked.connect(self.updateSpecGrating)
 
 
-                                    
+
         ####################
         # Connect more things
         ###################
@@ -421,26 +440,63 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
+        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition())
 
-        self.ui.mSeriesUndo.triggered.connect(self.getCurExp().undoSeries)
-        self.ui.mSeriesRemove.triggered.connect(self.getCurExp().removeCurrentSeries)
-        self.ui.mSeriesReset.triggered.connect(self.getCurExp().setCurrentSeries)
+        ##
+        # todo: follow through the removal of undo series
+        # 11/6/15 undo series should be removed
+        ##
+        # self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
+        # self.ui.mRemoveImageSequence.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
+        self.ui.mRemoveImageSequence.triggered.connect(
+            lambda x: self.getCurExp().removeImageSequence()
+        )
 
-        self.ui.mLivePlotsForceAutoscale.triggered.connect(self.getCurExp().autoscaleSignalHistogram)
+        self.ui.mRemoveBackgroundSequence.triggered.connect(
+            lambda x: self.getCurExp().removeBackgroundSequence()
+        )
+
+        ##
+        # todo: I'm not sure setting the current series is neccesary anymore
+        # 11/6/15
+        ##
+        # self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
+
+
+
+        self.ui.mLivePlotsForceAutoscale.triggered.connect(lambda x: self.getCurExp().autoscaleSignalHistogram())
 
         self.ui.mFileFastExit.triggered.connect(self.close)
 
-        self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
+        # self.sweep = self.ui.menuOther_Settings.addAction("Do Spec Sweep")
+        self.sweep = self.ui.mFileDoSpecSweep
         self.sweep.setCheckable(True)
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
-        self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
+        # self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
+        self.neCal = self.ui.mFileScanNeLines
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
         self.neCal.setEnabled(False)
 
-        self.console = self.ui.menuOther_Settings.addAction("Open Debug Console")
-        self.console.triggered.connect(self.openDebugConsole)
+
+
+        self.consec = self.ui.menuOther_Settings.addAction(
+            "Do Consecutive Exposures"
+        )
+        self.consec.setCheckable(True)
+        self.consec.triggered.connect(self.startConsecutiveImages)
+        self.consec.setEnabled(False)
+
+        self.ui.menuLive_Series.addSeparator()
+        addbg = self.ui.menuLive_Series.addAction("Load Background")
+        addbg.triggered.connect(self.getCurExp().reloadBackgroundFiles)
+
+
+
+        self.ui.mFileOpenDebugConsole.triggered.connect(self.openDebugConsole)
+
+        
 
         ###############################
         #
@@ -479,40 +535,29 @@ class CCDWindow(QtGui.QMainWindow):
 
 
         #disconnect the actions, change to the proper toggle, and reconenct them
-        expActions = self.ui.menuExperiment_Type.actions()
-        [i.toggled.disconnect() for i in self.ui.menuExperiment_Type.actions()]
+        expActions = self.expMenuActions
+        [i.toggled.disconnect() for i in self.expMenuActions]
         # Keep track so we can close it.
-        oldExp = str([i for i in expActions if i is not sent and i.isChecked()][0].text())
-        [i.setChecked(False) for i in expActions if i is not sent]
-        [i.toggled[bool].connect(self.updateExperiment) for i in self.ui.menuExperiment_Type.actions()]
+        oldExp = [i for i in expActions if i is not sent and i.isChecked()][0]
+        oldExp.setChecked(False)
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
 
+        # Get the currently open tab to reopen it after they get
+        # jumbled from closing things
         curTabIdx = self.ui.tabWidget.currentIndex()
-        newExp = str(sent.text())
-        # if oldExp == "HSG":
-        #     self.closeHSG()
-        if oldExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
-            # hasFEL = self.getCurExp().hasFEL
-            self.closeExp(oldExp)
-            # if hasFEL:
-            #     self.closeHSG()
-        else:
-            log.error("Unknown old experiment, {}".format(oldExp))
+        # Don't want to be closing/opening the scope if the new
+        # experiment also uses it
+        openScope = self.expUIs[sent].hasFEL and not self.expUIs[oldExp].hasFEL
+        closeScope = not self.expUIs[sent].hasFEL and self.expUIs[oldExp].hasFEL
+        self.closeExp(oldExp, closeScope = closeScope)
 
-        # if newExp == "HSG":
-        #     self.openHSG()
-        if newExp in ["HSG", "PL", "Abs", "Two Color Abs", "Alignment"]:
-            self.openExp(newExp)
-            # if self.getCurExp().hasFEL:
-            #     self.openHSG()
-        else:
-            log.error("Unknown experiment chosen, {}".format(newExp))
-
+        self.openExp(sent, openScope = openScope)
 
         self.ui.tabWidget.setCurrentIndex(curTabIdx)
 
-    def openExp(self, exp = "HSG"):
+    def openExp(self, exp = "HSG", openScope = None):
         self.expUIs[exp].setParent(self)
-        self.ui.tabWidget.insertTab(1, self.expUIs[exp], exp)
+        self.ui.tabWidget.insertTab(1, self.expUIs[exp], self.expUIs[exp].name)
         self.curExp = self.expUIs[exp]
 
         # Need to set the texts so that they're constant between them all.
@@ -530,6 +575,7 @@ class CCDWindow(QtGui.QMainWindow):
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
             self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
+            self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
         if self.curExp.hasFEL:
             self.curExp.ui.tCCDFELP.setText(str(self.settings["fel_power"]))
             self.curExp.ui.tCCDFELFreq.setText(str(self.settings["fel_lambda"]))
@@ -537,24 +583,33 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
             self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
             self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
-            self.openHSG() # Opens up the oscilloscope
+            self.curExp.ui.tCCDFELPol.setText(self.settings["fel_pol"])
+        if openScope is None:
+            openScope = self.expUIs[exp].hasFEL
+        if openScope:
+            self.openFELEquipment() # Opens up the oscilloscope
+
+        self.curExp.experimentOpen()
 
 
 
-    def closeExp(self, exp = "HSG"):
+    def closeExp(self, exp = "HSG", closeScope = None):
+        self.curExp.experimentClose()
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.expUIs[exp])
         )
         self.expUIs[exp].setParent(None)
-        if self.curExp.hasFEL:
-            self.closeHSG()
+        if closeScope is None:
+            closeScope = self.curExp.hasFEL
+        if closeScope:
+            self.closeFELEquipment()
         self.curExp = None
 
-    def openHSG(self):
+    def openFELEquipment(self):
         self.oscWidget = OscWid(self)
         self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
 
-    def closeHSG(self):
+    def closeFELEquipment(self):
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.oscWidget)
         )
@@ -586,6 +641,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
         self.neCal.setEnabled(val)
+
+        self.consec.setEnabled(val)
 
     def openDebugConsole(self):
         self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
@@ -947,11 +1004,16 @@ class CCDWindow(QtGui.QMainWindow):
     @staticmethod
     def _____________________ls(): pass
     def addPolarizerMotorDriver(self):
-        import motordriver.__main__ as md
+        try:
+            import motordriver.__main__ as md
+        except ImportError:
+            MessageDialog(self, "Error importing module for motor driver")
+            return
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
         motorDriverGB.setFlat(True)
         layout = QtGui.QVBoxLayout()
-        layout.addWidget(md.MotorWindow())
+        self.motorDriverWid = md.MotorWindow()
+        layout.addWidget(self.motorDriverWid)
         motorDriverGB.setLayout(layout)
         self.ui.miscToolsLayout.addWidget(motorDriverGB)
 
@@ -991,6 +1053,7 @@ class CCDWindow(QtGui.QMainWindow):
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
         try:
+            # raise Exception("Cut this shit out, OSX. STOP OPENING IT")
             self.Spectrometer = ActonSP(
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]]
             )
@@ -1111,6 +1174,34 @@ class CCDWindow(QtGui.QMainWindow):
         log.debug("Done with scan")
 
 
+    def startConsecutiveImages(self, val):
+        if not val:
+            return
+        val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?", 1,
+                                            self.consecImages, 50, 1)
+        if not ok or val == 0:
+            self.consec.setChecked(False)
+            return
+        log.debug("Doing consecutive image sequence")
+        self.consecImages = val
+        self.thDoSpectrometerSweep.target = self.doConsecutiveLoop
+        self.thDoSpectrometerSweep.start()
+
+    def doConsecutiveLoop(self):
+        numImages = 0
+        oldConfirm = self.curExp.confirmImage
+        newConfirm = lambda: True
+        self.curExp.confirmImage = newConfirm
+        while self.consec.isChecked() and numImages < self.consecImages:
+            log.debug("Consecutive image: {}".format(numImages))
+            self.getCurExp().ui.bCCDImage.clicked.emit(True)
+            time.sleep(0.25)
+            self.curExp.thDoExposure.wait()
+            numImages += 1
+        log.debug("Finished doing scan")
+        self.updateElementSig.emit(lambda: self.consec.setChecked(False), None)
+        self.curExp.confirmImage = oldConfirm
+
 
 
 
@@ -1205,7 +1296,7 @@ class CCDWindow(QtGui.QMainWindow):
                    "settingsUI",
                    "doSpecSweep",
                    "exposing",
-                   "settingsUI"
+                   "settingsUI",
         )
 
         for key in badKeys:
@@ -1216,7 +1307,9 @@ class CCDWindow(QtGui.QMainWindow):
         saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
+        saveDict['curExp'] = [str(ii.text()) for ii in self.expMenuActions if ii.isChecked()][0]
 
+        # print "saving curvss", saveDict["curVSS"]
         with open('Settings.txt', 'w') as fh:
             json.dump(saveDict, fh, separators=(',', ': '),
                       sort_keys=True, indent=4, default=lambda x: 'NotSerial')
@@ -1286,8 +1379,17 @@ class CCDWindow(QtGui.QMainWindow):
         # reopen the experiment tab, which should
         # repopulate the experimental parameters.
         # Might be a better way of doing this, but fekkit
-        self.closeExp()
-        self.openExp()
+        curExp = self.getCurExp()
+        curExpAct = [k for k,v in self.expUIs.items() if v is curExp][0]
+        self.closeExp(curExpAct)
+
+        [i.toggled.disconnect() for i in self.expMenuActions]
+        [ii.setChecked(False) for ii in self.expMenuActions]
+        curExpAct = [ ii for ii in self.expMenuActions if str(ii.text()) == savedDict.get('curExp', self.expMenuActions[0])][0]
+        curExpAct.setChecked(True)
+        [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
+
+        self.openExp(curExpAct)
         self.getCurExp().ui.tEMCCDExp.setText(str(expose))
         self.getCurExp().ui.tEMCCDGain.setText(str(gain))
 
@@ -1346,7 +1448,6 @@ class CCDWindow(QtGui.QMainWindow):
         
     def closeEvent(self, event):
         self.saveSettings()
-        print 'closing,', event.type()
 
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:

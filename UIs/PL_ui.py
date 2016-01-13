@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\PL.ui'
 #
-# Created: Fri Jul 17 14:18:37 2015
+# Created: Wed Nov 11 10:29:33 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -103,6 +103,11 @@ class Ui_PL(object):
         self.tCCDBGNum = QINumberEdit(self.groupBox_38)
         self.tCCDBGNum.setObjectName(_fromUtf8("tCCDBGNum"))
         self.gridLayout_8.addWidget(self.tCCDBGNum, 0, 0, 1, 1)
+        self.bProcessBackgroundSequence = QtGui.QToolButton(self.groupBox_38)
+        self.bProcessBackgroundSequence.setText(_fromUtf8(""))
+        self.bProcessBackgroundSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessBackgroundSequence.setObjectName(_fromUtf8("bProcessBackgroundSequence"))
+        self.gridLayout_8.addWidget(self.bProcessBackgroundSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_38, 4, 2, 1, 1)
         self.bCCDImage = QtGui.QPushButton(self.tab_3)
         self.bCCDImage.setObjectName(_fromUtf8("bCCDImage"))
@@ -140,6 +145,11 @@ class Ui_PL(object):
         self.tCCDImageNum = QINumberEdit(self.groupBox_37)
         self.tCCDImageNum.setObjectName(_fromUtf8("tCCDImageNum"))
         self.gridLayout_7.addWidget(self.tCCDImageNum, 0, 0, 1, 1)
+        self.bProcessImageSequence = QtGui.QToolButton(self.groupBox_37)
+        self.bProcessImageSequence.setText(_fromUtf8(""))
+        self.bProcessImageSequence.setArrowType(QtCore.Qt.RightArrow)
+        self.bProcessImageSequence.setObjectName(_fromUtf8("bProcessImageSequence"))
+        self.gridLayout_7.addWidget(self.bProcessImageSequence, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.groupBox_37, 3, 2, 1, 1)
         self.gridLayout.setColumnStretch(0, 1)
         self.verticalLayout_3.addLayout(self.gridLayout)
@@ -204,6 +214,8 @@ class Ui_PL(object):
         self.tCCDYMax.setObjectName(_fromUtf8("tCCDYMax"))
         self.gridLayout_14.addWidget(self.tCCDYMax, 0, 0, 1, 1)
         self.gridLayout_17.addWidget(self.groupBox_44, 1, 3, 1, 1)
+        spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.gridLayout_17.addItem(spacerItem, 3, 0, 1, 1)
         self.groupBox_45 = QtGui.QGroupBox(self.tab_4)
         self.groupBox_45.setFlat(True)
         self.groupBox_45.setCheckable(False)
@@ -228,8 +240,16 @@ class Ui_PL(object):
         self.tCCDYMin.setObjectName(_fromUtf8("tCCDYMin"))
         self.gridLayout_13.addWidget(self.tCCDYMin, 0, 0, 1, 1)
         self.gridLayout_17.addWidget(self.groupBox_43, 1, 2, 1, 1)
-        spacerItem = QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        self.gridLayout_17.addItem(spacerItem, 2, 0, 1, 1)
+        self.groupBox = QtGui.QGroupBox(self.tab_4)
+        self.groupBox.setFlat(True)
+        self.groupBox.setObjectName(_fromUtf8("groupBox"))
+        self.horizontalLayout_2 = QtGui.QHBoxLayout(self.groupBox)
+        self.horizontalLayout_2.setContentsMargins(0, 10, 0, 0)
+        self.horizontalLayout_2.setObjectName(_fromUtf8("horizontalLayout_2"))
+        self.tCCDNIRPol = QtGui.QLineEdit(self.groupBox)
+        self.tCCDNIRPol.setObjectName(_fromUtf8("tCCDNIRPol"))
+        self.horizontalLayout_2.addWidget(self.tCCDNIRPol)
+        self.gridLayout_17.addWidget(self.groupBox, 2, 0, 1, 1)
         self.horizontalLayout_52.addLayout(self.gridLayout_17)
         self.tabWidget_3.addTab(self.tab_4, _fromUtf8(""))
         self.splitterImages = QtGui.QSplitter(self.splitterTop)
@@ -240,14 +260,14 @@ class Ui_PL(object):
         self.splitterImages.setSizePolicy(sizePolicy)
         self.splitterImages.setOrientation(QtCore.Qt.Vertical)
         self.splitterImages.setObjectName(_fromUtf8("splitterImages"))
-        self.gCCDImage = GraphicsLayoutWidget(self.splitterImages)
+        self.gCCDImage = ImageViewWithPlotItemContainer(self.splitterImages)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
         sizePolicy.setVerticalStretch(1)
         sizePolicy.setHeightForWidth(self.gCCDImage.sizePolicy().hasHeightForWidth())
         self.gCCDImage.setSizePolicy(sizePolicy)
         self.gCCDImage.setObjectName(_fromUtf8("gCCDImage"))
-        self.gCCDBack = GraphicsLayoutWidget(self.splitterImages)
+        self.gCCDBack = ImageViewWithPlotItemContainer(self.splitterImages)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
         sizePolicy.setVerticalStretch(1)
@@ -290,7 +310,7 @@ class Ui_PL(object):
         self.groupBox_38.setTitle(_translate("PL", "Bg Number", None))
         self.tCCDBGNum.setText(_translate("PL", "0", None))
         self.bCCDImage.setText(_translate("PL", "Take Image", None))
-        self.groupBox_34.setTitle(_translate("PL", "Exposure (s)", None))
+        self.groupBox_34.setTitle(_translate("PL", "Exp (s)", None))
         self.tEMCCDExp.setText(_translate("PL", "0.5", None))
         self.groupBox_36.setTitle(_translate("PL", "NIR Wl (nm)", None))
         self.tCCDNIRwavelength.setText(_translate("PL", "0", None))
@@ -308,8 +328,10 @@ class Ui_PL(object):
         self.tCCDSlits.setText(_translate("PL", "0", None))
         self.groupBox_43.setTitle(_translate("PL", "Ymin", None))
         self.tCCDYMin.setText(_translate("PL", "0", None))
+        self.groupBox.setTitle(_translate("PL", "NIR Pol", None))
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("PL", "Other Settings", None))
         self.lCCDProg.setText(_translate("PL", "Done.", None))
 
-from pyqtgraph import PlotWidget, GraphicsLayoutWidget
+from pyqtgraph import PlotWidget
+from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

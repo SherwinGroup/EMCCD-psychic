@@ -1,3 +1,4 @@
+
 from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
@@ -6,10 +7,6 @@ from scipy.interpolate import interp1d
 import scipy.stats as spt # for calculating FEL pulse information
 import re
 import time
-# import os, sys, inspect
-# cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"UIs")))
-# if cmd_subfolder not in sys.path:
-#      sys.path.insert(0, cmd_subfolder)
 from UIs.Abs_ui import Ui_Abs
 from UIs.HSG_ui import Ui_HSG
 from UIs.PL_ui import Ui_PL
@@ -18,11 +15,22 @@ from UIs.Alignment_ui import Ui_Alignment
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 from image_spec_for_gui import *
-from InstsAndQt.customQt import TempThread
 from InstsAndQt.customQt import *
 
 import logging
 log = logging.getLogger("EMCCD")
+
+
+seriesTags = {"SLITS": "slits",
+              "SPECL": "center_lambda",
+              "GAIN": "gain",
+              "EXP": "exposure",
+              "FELF": "fel_lambda",
+              "FELP": "fel_power",
+              "NIRP": "nir_power",
+              "NIRW": "nir_lambda",
+              "FELTRANS": "fel_transmission"}
+
 
 class CustomAxis(pg.AxisItem):
     def __init__(self, *args, **kwargs):
@@ -38,16 +46,18 @@ class CustomAxis(pg.AxisItem):
                 spacing=spacing
             )
         else:
-            return ['{:.1f}'.format(float(self.dataSetInterp(i))) for i in values]
+            return ['{:.0f}'.format(float(self.dataSetInterp(i))) for i in values]
 
     def setDataSet(self, data):
         self.dataSet = data
-        self.dataSetInterp = interp1d(x=data,
-                                      y=np.arange(len(data)),
-                                      bounds_error=False,
-                                      fill_value = -1)
-
-
+        if callable(data):
+            # let you pass a function
+            self.dataSetInterp = data
+        elif data is not None:
+            self.dataSetInterp = interp1d(x=data,
+                                          y=np.arange(len(data)),
+                                          bounds_error=False,
+                                          fill_value = -1)
 
 class BaseExpWidget(QtGui.QWidget):
     # Flags which help to initialize UI settings
@@ -57,6 +67,9 @@ class BaseExpWidget(QtGui.QWidget):
 
     # What is the class in which data will be stored?
     DataClass = EMCCD_image
+
+    # name to be used for the tab title
+    name = 'Base Tab'
 
     sigStartTimer = QtCore.pyqtSignal()
 
@@ -74,6 +87,12 @@ class BaseExpWidget(QtGui.QWidget):
     # The expectation is that the emitted value is the return value
     sigMakeGui = QtCore.pyqtSignal(object, object)
     sigKillEventLoop = QtCore.pyqtSignal(object)
+
+
+    # Need to have an instance attribute because if we
+    # spawn threads willy-nilly, things end up breaking
+    # bad.
+    progressTimer = QtCore.QTimer()
     def __init__(self, parent = None, UI=None):
         super(BaseExpWidget, self).__init__(parent)
         self.baseInitUI(UI)
@@ -87,6 +106,11 @@ class BaseExpWidget(QtGui.QWidget):
         self.runSettings = dict() # For keeping various information during the run
         self.runSettings["seriesNo"] = 0
         self.runSettings["exposing"] = False
+
+        self.crrSettings={
+            "ratio":0.07,
+            "noisecoeff":3.0
+        }
 
         self.exposureElapsedTimer = QtCore.QElapsedTimer() # For keeping the progress bar correct
 
@@ -103,6 +127,7 @@ class BaseExpWidget(QtGui.QWidget):
         self.curDataEMCCD = None
         self.curBackEMCCD = None
         self.prevDataEMCCD = None
+        self.prevBackEMCCD = None
 
         # The progress bar has timers, which can't be started
         # from another thread. This signal can be used
@@ -114,7 +139,7 @@ class BaseExpWidget(QtGui.QWidget):
         )
         self.sigMakeGui.connect(self.createGuiElement)
 
-    def baseInitUI(self, UI=None):
+    def baseInitUI(self, UI=Ui_HSG):
         # Initialize the UI. pass it the UI class from which it should be made
         self.ui = UI()
         self.ui.setupUi(self)
@@ -134,14 +159,22 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.splitterAll.setStretchFactor(2, 2)
 
         self.ui.tCCDImageNum.textAccepted.connect(
-            lambda: self.updateImageNumbers(True))
+            lambda: self.papa.settings.__setitem__("igNumber",self.ui.tCCDImageNum.value()))
         self.ui.tCCDBGNum.textAccepted.connect(
-            lambda: self.updateImageNumbers(False))
+            lambda: self.papa.settings.__setitem__("bgNumber",self.ui.tCCDBGNum.value()))
+
+        # self.ui.tCCDImageNum.textAccepted.connect(
+        #     lambda: self.updateImageNumbers(True))
+        # self.ui.tCCDBGNum.textAccepted.connect(
+        #     lambda: self.updateImageNumbers(False))
 
 
         # Connect the two standard image collection schemes
         self.ui.bCCDImage.clicked.connect(lambda: self.takeImage(False))
         self.ui.bCCDBack.clicked.connect(lambda: self.takeImage(True))
+
+        self.ui.bProcessImageSequence.clicked.connect(self.processImageSequence)
+        self.ui.bProcessBackgroundSequence.clicked.connect(self.processBackgroundSequence)
 
         # Need to tell main window when these settings have changed so it
         # can track them.
@@ -156,23 +189,23 @@ class BaseExpWidget(QtGui.QWidget):
         # I guess this has the benefit of clearly separating
         # settings held by the parent and those by the widget
         self.ui.tCCDSeries.editingFinished.connect(
-                lambda self=self: self.papa.settings.__setitem__('series',
-                    str(self.ui.tCCDSeries.text())))
+            lambda self=self: self.papa.settings.__setitem__('series',
+                                                             str(self.ui.tCCDSeries.text())))
         self.ui.tCCDSampleTemp.editingFinished.connect(
-                lambda: self.papa.settings.__setitem__('sample_temp',
-                         float(self.ui.tCCDSampleTemp.text())))
+            lambda: self.papa.settings.__setitem__('sample_temp',
+                                                   float(self.ui.tCCDSampleTemp.text())))
         self.ui.tCCDYMin.editingFinished.connect(
-                lambda : self.papa.settings.__setitem__('y_min',
-                        int(self.ui.tCCDYMin.text())))
+            lambda : self.papa.settings.__setitem__('y_min',
+                                                    int(self.ui.tCCDYMin.text())))
         self.ui.tCCDYMax.editingFinished.connect(
-                lambda : self.papa.settings.__setitem__('y_max',
-                        int(self.ui.tCCDYMax.text())))
+            lambda : self.papa.settings.__setitem__('y_max',
+                                                    int(self.ui.tCCDYMax.text())))
         self.ui.tCCDSlits.editingFinished.connect(
-                lambda: self.papa.settings.__setitem__('slits',
-                        int(self.ui.tCCDSlits.text())))
+            lambda: self.papa.settings.__setitem__('slits',
+                                                   int(self.ui.tCCDSlits.text())))
         self.ui.tSampleName.editingFinished.connect(
             lambda: self.papa.settings.__setitem__("sample_name",
-                        str(self.ui.tSampleName.text()))
+                                                   str(self.ui.tSampleName.text()))
         )
 
         if self.hasNIR:
@@ -181,6 +214,10 @@ class BaseExpWidget(QtGui.QWidget):
                 lambda v: self.papa.settings.__setitem__('nir_lambda', v))
             self.ui.tCCDNIRP.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('nir_power', v))
+            self.ui.tCCDNIRPol.editingFinished.connect(
+                lambda: self.papa.settings.__setitem__("nir_pol",
+                                                       str(self.ui.tCCDNIRPol.text()))
+            )
 
         if self.hasFEL:
             self.ui.tCCDFELP.textAccepted.connect(
@@ -189,15 +226,28 @@ class BaseExpWidget(QtGui.QWidget):
                 lambda v: self.papa.settings.__setitem__('fel_lambda', v))
             self.ui.tCCDFELRR.editingFinished.connect(
                 lambda: self.papa.settings.__setitem__('fel_reprate',
-                                     str(self.ui.tCCDFELRR.text())))
+                                                       str(self.ui.tCCDFELRR.text())))
             self.ui.tCCDSpotSize.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('sample_spot_size', v))
             self.ui.tCCDWindowTransmission.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('window_trans', v))
             self.ui.tCCDEffectiveField.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('eff_field', v))
+            self.ui.tCCDFELPol.editingFinished.connect(
+                lambda: self.papa.settings.__setitem__("fel_pol",
+                                                       str(self.ui.tCCDFELPol.text()))
+            )
 
+        # add autocompleter functionality so you
+        # know what series tags can automatically be used
+        words = ["{"+ii+"}" for ii in seriesTags]
+        comp = QtGui.QCompleter(words, self)
+        self.ui.tCCDSeries.setCompleter(comp)
 
+        """
+        11/6/15 Should be uncessary code
+        after migrating from qgraphicslayoutwidget
+        to imageview
         # Follow the pyqtgraph example for how to set up
         # an image plot and histogram, without the other obnoxious stuff
         # included in a plain ImageView
@@ -214,11 +264,17 @@ class BaseExpWidget(QtGui.QWidget):
         self.pBackHist = pg.HistogramLUTItem()
         self.pBackHist.setImageItem(self.pBackImage)
         self.ui.gCCDBack.addItem(self.pBackHist)
+        """
+        self.ui.gCCDBack.view.setAspectLocked(False)
+        self.ui.gCCDBack.view.invertY(False)
+
+        self.ui.gCCDImage.view.setAspectLocked(False)
+        self.ui.gCCDImage.view.invertY(False)
+
 
         self.pSpec = self.ui.gCCDBin.plot(pen='k')
 
         plotitem = self.ui.gCCDBin.plotItem
-        plotitem.setTitle('Spectrum')
         plotitem.setLabel('bottom',text='Wavelength',units='nm')
         plotitem.setLabel('left',text='Counts')
         # plotitem.setLabel('top', text='pixels')
@@ -231,17 +287,23 @@ class BaseExpWidget(QtGui.QWidget):
         plotitem.axes['top']['item'] = caxis
         plotitem.layout.addItem(caxis, 1, 1)
 
-        # p2 = pg.ViewBox()
-        # pi = pg.PlotItem(axis={'top':caxis})
-        # p2.addItem(pi)
-        # pi.showAxis('top')
-        # # plotitem.showAxis('top')
-        # plotitem.scene().addItem(p2)
-        # plotitem.getAxis('top').linkToView(p2)
-        # # print p2.getAxis('top')
-        # p2.setXLink(plotitem)
-        # p2.setYLink(plotitem)
-        # # plotitem.getAxis('top').setLabel('pixel')
+
+
+
+        # specified that the view for the image is
+        # a plotitem, so I can have axis. Get it back
+        plotitem = self.ui.gCCDImage.getView()
+
+        # need to set up custom axis item so that
+        # I can add functionality to show the pixel
+        # number along with wavelength, for comparison
+        # with the real image
+        plotitem.layout.removeItem(plotitem.getAxis('right'))
+        caxis = CustomAxis(orientation='right', parent=plotitem)
+        caxis.linkToView(plotitem.vb)
+        plotitem.axes['right']['item'] = caxis
+        plotitem.layout.addItem(caxis, 2, 2)
+
 
 
 
@@ -249,18 +311,50 @@ class BaseExpWidget(QtGui.QWidget):
         # image. Issues arise if you try to make them in
         # another thread.
         self.ilOnep1 = pg.InfiniteLine(800, movable=True,
-                                     pen=pg.mkPen(width=3, color='g'))
+                                       pen=pg.mkPen(width=3, color='g'))
         self.ilTwop1 = pg.InfiniteLine(800, movable=True,
-                                     pen=pg.mkPen(width=3, color='g'))
+                                       pen=pg.mkPen(width=3, color='g'))
         self.ilOnep2 = pg.InfiniteLine(760, movable=True,
-                                     pen=pg.mkPen(width=3, color='g'))
+                                       pen=pg.mkPen(width=3, color='g'))
         self.ilTwop2 = pg.InfiniteLine(760, movable=True,
-                                     pen=pg.mkPen(width=3, color='g'))
+                                       pen=pg.mkPen(width=3, color='g'))
+
+    def experimentOpen(self):
+        """
+        This function will be called by the CCD window when
+        the experiment is opened, after the experimental
+        settings are populated
+        :return:
+        """
+        pass
+
+    def experimentClose(self):
+        """
+        This will be called when the experiment is closed
+        ( when being changed to another experiment)
+        :return:
+        """
+        pass
 
     @staticmethod
     def __IMAGE_COLLECTION_METHODS(): pass
 
     def takeImage(self, isBackground = False):
+        """
+        This function is called to set up a camera exposure.
+        Toggle ui elements, set up a waiting thread, start the progress bar.
+        The waiting thread then calls a processing event afterwards,
+        as determined by isBackground
+        :param isBackground: Nominally, a bool for whether the image
+            being taken is the background (true) or data image (false).
+            Forward compatibility allows you to pass a callable
+            (must have __call__) so other functions could be called
+            e.g. lambda:None, if you don't want anything to happen,
+                new functino for continuous work,
+                a third type of image data (sample, reference, background for abs)
+                etc.
+        :return:
+        """
         try:
             self.papa.saveSettings()
         except Exception as e:
@@ -281,11 +375,32 @@ class BaseExpWidget(QtGui.QWidget):
             self.thDoExposure.args = self.processImage
             if isBackground:
                 self.thDoExposure.args = self.processBackground
+
+
+
+        # Update exposure/gain if necesssary. Include appropriate
+        # parsing of camera response to ensure things have been accepted
+        if not np.isclose(float(self.ui.tEMCCDExp.value()), self.papa.CCD.cameraSettings["exposureTime"]):
+            ret = self.papa.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
+            self.ui.tEMCCDExp.setText(str(self.papa.CCD.cameraSettings["exposureTime"]))
+            if ret != 20002:
+                log.error("Error setting exposure time! {}".format(self.papa.CCD.parseRetCode(ret)))
+                MessageDialog(self, "Error setting exposure time! {}".format(self.papa.CCD.parseRetCode(ret)))
+                return
+        if not int(self.ui.tEMCCDGain.text()) == self.papa.CCD.cameraSettings["gain"]:
+            ret = self.papa.CCD.setGain(int(self.ui.tEMCCDGain.text()))
+            self.ui.tEMCCDGain.setText(str(self.papa.CCD.cameraSettings["gain"]))
+            if ret != 20002:
+                log.error("Error setting gain value! {}".format(self.papa.CCD.parseRetCode(ret)))
+                MessageDialog(self, "Error setting gain value! {}".format(self.papa.CCD.parseRetCode(ret)))
+                return
+
+
         # Turn off UI elements to prevent conflicts
         # For some reson, if you do this in the thread,
         # Qt complains about starting timers in threads.
         # I could not figure out the source of this error, so
-        # I ignore it
+        # I prevent it by putting it here
         self.exposureElapsedTimer = QtCore.QElapsedTimer()
         self.toggleUIElements(False)
 
@@ -297,7 +412,6 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.oscWidget.settings["FELPulses"] = 0
         self.thDoExposure.start()
 
-
     def doExposure(self, postProcessing = lambda: True):
         """
         This function should be called when you want to handle taking an image
@@ -306,19 +420,14 @@ class BaseExpWidget(QtGui.QWidget):
 
         This thread WILL hang. Do not call from main thread
 
-        :return: the data from the camera, unmodified
+        :return: sets self.rawData to the image taken from the camera.
         """
 
         self.runSettings["progress"] = 0
-        # Update exposure/gain if necesssary
-        if not np.isclose(float(self.ui.tEMCCDExp.value()), self.papa.CCD.cameraSettings["exposureTime"]):
-            self.papa.CCD.setExposure(float(self.ui.tEMCCDExp.text()))
-            self.ui.tEMCCDExp.setText(str(self.papa.CCD.cameraSettings["exposureTime"]))
-        if not int(self.ui.tEMCCDGain.text()) == self.papa.CCD.cameraSettings["gain"]:
-            self.papa.CCD.setGain(int(self.ui.tEMCCDGain.text()))
-            self.ui.tEMCCDGain.setText(str(self.papa.CCD.cameraSettings["gain"]))
 
-
+        if not self.papa.ui.mFileTakeContinuous.isChecked():
+            # don't spam the log
+            log.debug("Beginning an exposure")
         self.papa.CCD.dllStartAcquisition()
         if self.hasFEL and not self.papa.oscWidget.settings["isScopePaused"] and not self.papa.ui.mFileTakeContinuous.isChecked():
             # Wait for an FEL pulse before we start counting, as determined by
@@ -335,30 +444,87 @@ class BaseExpWidget(QtGui.QWidget):
             self.thCalcFields.start()
         if not self.papa.ui.mFileTakeContinuous.isChecked():
             self.sigStartTimer.emit()
-        self.papa.CCD.dllWaitForAcquisition()
+        ret = self.papa.CCD.dllWaitForAcquisition()
+        log.debug("Finished Waiting for Acquisition")
         self.runSettings["exposing"] = False
+        self.sigMakeGui.emit(self.updateProgressBar, None)
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
                 self.elWaitForOsc.exit()
             except:
                 log.debug("Error exiting eventLoop waiting for pulses")
+        if ret != 20002:
+            log.debug("Acquisition not completed, Ret = {}".format(ret))
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            return
+
+
         ret = self.papa.CCD.getImage()
+        log.debug("Retrieved image from camera")
+        # getImage will return the camera return value if it is not
+        # 20002, otherwise it will return a np.array of the data
+        # Thus, if the return is an int, it must have failed the return
         if isinstance(ret, int):
             self.sigMakeGui.emit(self.toggleUIElements, (True, ))
-            self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
+            # If 20024==nonew
+            if ret == 20024:
+                log.debug("No new data for image acquisition (Acquisition aborted?)")
+            else:
+                self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
+                log.warning("Invalid getImage return {}".format(ret))
             return
         self.rawData = ret
         postProcessing()
 
+    def abortAcquisition(self):
+        ret = self.papa.CCD.dllAbortAcquisition()
+        log.debug("Abort acq return val: {}".format(ret))
+
     def startProgressBar(self):
+        # things are breaking if the exposure time is too short
+        # I'm pretty sure it's because I didn't do things intelligently,
+        # but I think this is an edge case which doesn't have to work,
+        # but certainly shouldn't crash the software like it does
+        if self.papa.CCD.cameraSettings["exposureTime"]<=1:
+            return
+
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Waiting exposure")
         self.exposureElapsedTimer.start()
 
-        QtCore.QTimer.singleShot(self.papa.CCD.cameraSettings["exposureTime"]*10,
-                                 self.updateProgressBar)
+        self.progressTimer.timeout.connect(self.updateProgressBar)
+        self.progressTimer.setInterval(self.papa.CCD.cameraSettings["exposureTime"]*10)
+        self.progressTimer.setSingleShot(True)
+        self.progressTimer.start()
 
     def updateProgressBar(self):
+        # Weird asynchronicity can cause bizarre behavior
+        # Make sure the timer isn't running, if it is, stop it
+        if self.progressTimer.isActive():
+            self.sigMakeGui.emit(self.progressTimer.stop, None)
+            # self.progressTimer.stop()
+        try:
+            self.progressTimer.timeout.disconnect(self.updateProgressBar)
+        except TypeError as e:
+            pass
+        # sometimes, this is slow enough to be unsynchronized with
+        # the main thread, and image collection/processing
+        # finishes before this. This will cause the
+        # "Done" progress bar text to be replaced with
+        # "Reading data". It doesn't matter, but Hunter
+        # seems to think it's a problem, so stop letting
+        # this happen.
+        #
+        # If the main thread finishes before this,
+        # it will set 'exposing' to false, which we
+        # will see here to set the progress bar directly to
+        # 100 and not change the text
+        if not self.runSettings["exposing"]:
+            self.runSettings["progress"] = 100
+            self.papa.updateElementSig.emit(self.ui.lCCDProg, "Reading Data")
+            self.ui.pCCD.setValue(self.runSettings["progress"])
+            return
         if self.runSettings["progress"] < 100:
+
             self.runSettings["progress"] += 1
             self.ui.pCCD.setValue(self.runSettings["progress"])
             # Get the new time, correcting for lags and other things
@@ -370,9 +536,11 @@ class BaseExpWidget(QtGui.QWidget):
             # which we can't yet do.
             if newTime < 0:
                 newTime = 0
+
             try:
-                QtCore.QTimer.singleShot(newTime,
-                                         self.updateProgressBar)
+                self.progressTimer.setInterval(newTime)
+                self.progressTimer.timeout.connect(self.updateProgressBar)
+                self.progressTimer.start()
             except:
                 log.critical("Didn't update progress ")
         else:
@@ -387,8 +555,8 @@ class BaseExpWidget(QtGui.QWidget):
 
             self.runSettings["takingContinuous"] = True
             # Add infinite lines for ease in aligning
-            self.p1.addItem(self.ilOnep1)
-            self.p1.addItem(self.ilTwop1)
+            self.ui.gCCDImage.view.addItem(self.ilOnep1)
+            self.ui.gCCDImage.view.addItem(self.ilTwop1)
             self.ui.gCCDBin.plotItem.addItem(self.ilOnep2)
             self.ui.gCCDBin.plotItem.addItem(self.ilTwop2)
 
@@ -411,8 +579,8 @@ class BaseExpWidget(QtGui.QWidget):
             # appear on faster-running computers (better ram? faster cpu? details
             # unclear)
             for i in range(self.papa.ui.tabWidget.count()):
-                 if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
-                 self.papa.ui.tabWidget.setTabEnabled(i, False)
+                if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+                self.papa.ui.tabWidget.setTabEnabled(i, False)
             # Take an image and have the thread call the continuous collection loop
             # Done this way so that it's working off the same thread
             # that data collection would normally be performed on
@@ -434,17 +602,16 @@ class BaseExpWidget(QtGui.QWidget):
             # self.doExposure()
         # re-enable UI elements, remove alignment plots
         self.toggleUIElements(True)
-        self.p1.removeItem(self.ilOnep1)
-        self.p1.removeItem(self.ilTwop1)
+        self.ui.gCCDImage.view.removeItem(self.ilOnep1)
+        self.ui.gCCDImage.view.removeItem(self.ilTwop1)
         self.ui.gCCDBin.plotItem.removeItem(self.ilOnep2)
         self.ui.gCCDBin.plotItem.removeItem(self.ilTwop2)
 
         # re-enable the other tabs
         for i in range(self.papa.ui.tabWidget.count()):
-             if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
-             self.papa.ui.tabWidget.setTabEnabled(i, True)
+            if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
+            self.papa.ui.tabWidget.setTabEnabled(i, True)
         self.runSettings["takingContinuous"] = False
-
 
 
     @staticmethod
@@ -476,7 +643,6 @@ class BaseExpWidget(QtGui.QWidget):
             except Exception as e:
                 print "ERROR ",e
 
-
     def doFieldCalcuation(self, BG = 1.0, FP = 2.0, CD = 2.0):
         """
         :param BG: integrated background value
@@ -495,7 +661,7 @@ class BaseExpWidget(QtGui.QWidget):
             #     ratio = CD/FP
             ratio = self.papa.oscWidget.settings['CDtoFPRatio']
             intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
-                                       ratio = ratio)
+                                           ratio = ratio)
             field = calc_THz_field(intensity)
 
             intensity = round(intensity/1000., 3)
@@ -511,24 +677,23 @@ class BaseExpWidget(QtGui.QWidget):
         except Exception as e:
             log.warning("Could not calculate electric field, {}".format(e))
 
-
     @staticmethod
     def __PROCESSING_METHODS(): pass
-        ####################################
-        #
-        # Concerning the image numbers:
-        #
-        # Things were getting confusing having an internal variable and the textbox
-        # so switched to only using textbox. But this has issue that, since texboxes
-        # can't be updated from non-main threads (or it's unpredictable), signals are needed
-        # But this has issues that a fast computer will instantiate the object before
-        # the text is updated, so they're out of sync (I think, at least).
-        #
-        # This way, we know that the textbox will be incremented by one,
-        # but we forcibly tell it that it's going to be incremented
-        # instead of hoping that things will time properly
-        #
-        ####################################
+    ####################################
+    #
+    # Concerning the image numbers:
+    #
+    # Things were getting confusing having an internal variable and the textbox
+    # so switched to only using textbox. But this has issue that, since texboxes
+    # can't be updated from non-main threads (or it's unpredictable), signals are needed
+    # But this has issues that a fast computer will instantiate the object before
+    # the text is updated, so they're out of sync (I think, at least).
+    #
+    # This way, we know that the textbox will be incremented by one,
+    # but we forcibly tell it that it's going to be incremented
+    # instead of hoping that things will time properly
+    #
+    ####################################
 
     def processImage(self):
         if not self.papa.ui.mLivePlotsDisableRawPlots.isChecked():
@@ -536,81 +701,99 @@ class BaseExpWidget(QtGui.QWidget):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curDataEMCCD = self.DataClass(self.rawData,
-                                            str(self.papa.ui.tImageName.text()),
-                                            str(self.ui.tCCDImageNum.value()+1),
-                                            str(self.ui.tCCDComments.toPlainText()),
-                                            self.genEquipmentDict())
+                                           str(self.papa.ui.tImageName.text()),
+                                           str(self.ui.tCCDImageNum.value()+1),
+                                           str(self.ui.tCCDComments.toPlainText()),
+                                           self.genEquipmentDict())
 
-        if self.papa.settings["doCRR"]:
-            self.curDataEMCCD.cosmic_ray_removal()
-        else:
-            self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
-
+        """
         try:
             self.curDataEMCCD = self.curDataEMCCD - self.curBackEMCCD
             self.curDataEMCCD.equipment_dict["background_darkcount_std"] = np.std(
-                self.curBackEMCCD.clean_array[:, self.curDataEMCCD.equipment_dict["y_min"]:
-                                            self.curDataEMCCD.equipment_dict["y_max"]]
+                self.curBackEMCCD.clean_array[self.curDataEMCCD.equipment_dict["y_min"]:
+                self.curDataEMCCD.equipment_dict["y_max"], :]
             )
         except AttributeError as e:
             log.debug("Attribute error: {}".format(e))
             pass # usually just because you subtract without taking a
-                 # background first
+            # background first
         except Exception as e:
             log.warning("Error subtracting background {}".format(e))
-
+        log.debug("Making CCD Spectra")
         self.curDataEMCCD.make_spectrum()
+        log.debug("Subtracting dark counts")
         self.curDataEMCCD.inspect_dark_regions()
-
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
+        """
+        self.curDataEMCCD.make_spectrum()
+        log.debug("Emitting image updates")
+        # self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.raw_array)
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
-
         # Do we want to keep this image?
         if not self.confirmImage():
+            log.debug("Image rejected")
             self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-            self.toggleUIElements(True)
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
             return
 
         try:
+            log.debug("Saving CCD Image")
             self.curDataEMCCD.save_images(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDImageNum.value()+1))
+            self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving image")
+            log.critical("folder str: {}, filename: {}".format(
+                self.papa.settings["saveDir"], self.curDataEMCCD.file_name
+            ))
             log.warning("Error saving Data image, {}".format(e))
 
+        if self.papa.ui.mFileDoCRR.isChecked():
+            self.curDataEMCCD.cosmic_ray_removal()
+        else:
+            self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
+
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
+        """
         try:
+            log.debug("Saving CCD Spectra")
             self.curDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Spectrum: {}".format(self.ui.tCCDImageNum.value()+1))
             # incrememnt the counter, but certainly after we're done with it
-            self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
+            # self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving Spectrum")
             log.warning("Error saving Data Spectrum, {}".format(e))
-
+        """
+        """
         if self.papa.ui.mSeriesSum.isChecked() and str(self.ui.tCCDSeries.text())!="":
+            log.debug("Image a part of series")
             self.papa.updateElementSig.emit(self.ui.lCCDProg, "Adding Series...")
             self.analyzeSeries()
         else:
             self.prevDataEMCCD = None
             self.runSettings["seriesNo"] = 0
             self.ui.groupBox_Series.setTitle("Series")
+        """
+        # self.analyzeSeries()
+        self.addImageSequence()
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-        self.toggleUIElements(True)
-
-
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.imageSequence.getImages())
+        self.sigMakeGui.emit(self.toggleUIElements, (True, ))
 
     def processBackground(self):
-        self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
+        # self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
+        log.debug("Reenabling after background")
         self.toggleUIElements(True)
+        # return
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curBackEMCCD = self.DataClass(self.rawData,
-                                            str(self.papa.ui.tBackgroundName.text()),
-                                            str(self.ui.tCCDBGNum.value()+1),
-                                            str(self.ui.tCCDComments.toPlainText()),
-                                            self.genEquipmentDict())
+                                           str(self.papa.ui.tBackgroundName.text()),
+                                           str(self.ui.tCCDBGNum.value()+1),
+                                           str(self.ui.tCCDComments.toPlainText()),
+                                           self.genEquipmentDict())
 
+        log.debug("Saving background images")
         try:
             self.curBackEMCCD.save_images(self.papa.settings["saveDir"])
             self.papa.sigUpdateStatusBar.emit("Saved Background: {}".format(self.ui.tCCDBGNum.value()+1))
@@ -618,18 +801,22 @@ class BaseExpWidget(QtGui.QWidget):
             self.papa.updateElementSig.emit(self.ui.tCCDBGNum, self.ui.tCCDBGNum.value()+1)
         except Exception as e:
             self.papa.sigUpdateStatusBar.emit("Error saving image")
-            log.warning("Error saving Data image, {}".format(e))
+            log.critical("folder str: {}, filename: {}".format(
+                self.papa.settings["saveDir"], self.curBackEMCCD.file_name
+            ))
+            log.exception("Error saving background image, {}".format(e))
 
-        if self.papa.settings["doCRR"]:
+        if self.papa.ui.mFileDoCRR.isChecked():
             self.curBackEMCCD.cosmic_ray_removal()
         else:
             self.curBackEMCCD.clean_array = self.curBackEMCCD.raw_array
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing up...")
 
-        self.curBackEMCCD.make_spectrum()
-        self.curBackEMCCD.inspect_dark_regions()
+        log.debug("Adding backgorund sequence")
+        self.addBackgroundSequence()
 
-        self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.curBackEMCCD.clean_array)
+        log.debug("Emitting background update")
+        self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.prevBackEMCCD.imageSequence.getImages())
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
 
     def confirmImage(self):
@@ -649,6 +836,7 @@ class BaseExpWidget(QtGui.QWidget):
             prompt = QtGui.QMessageBox(self)
             prompt.setText("Save most recent scan?")
             prompt.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard)
+            prompt.setEscapeButton(QtGui.QMessageBox.Discard)
             prompt.setDefaultButton(QtGui.QMessageBox.Save)
             prompt.setModal(False)
             prompt.setWindowModality(QtCore.Qt.NonModal)
@@ -677,7 +865,7 @@ class BaseExpWidget(QtGui.QWidget):
         except IndexError:
             log.critical("Something is wrong with getting the reference to the"
                          "dialog box")
-            return False
+            return True
 
         # now I need to wait for a button to be clicked
         p.buttonClicked.connect(loop.exit)
@@ -686,12 +874,14 @@ class BaseExpWidget(QtGui.QWidget):
 
         return p.buttonRole(p.clickedButton())==QtGui.QMessageBox.AcceptRole
         # return True
+
     def genEquipmentDict(self):
         """
         The EMCCD class wants a specific dictionary of values. This function will return it
         :return:
         """
         s = dict()
+        s["date"] = time.strftime('%x')
         s["ccd_temperature"] = str(self.papa.ui.tSettingsCurrTemp.text())
         s["exposure"] = float(self.papa.CCD.cameraSettings["exposureTime"])
         s["gain"] = int(self.papa.CCD.cameraSettings["gain"])
@@ -705,12 +895,18 @@ class BaseExpWidget(QtGui.QWidget):
         s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
         s["sample_name"] = str(self.ui.tSampleName.text())
         s["spec_step"] = str(self.ui.tSpectrumStep.text())
+        s["ccd_image_settings"] = self.papa.CCD.cameraSettings["imageSettings"]
         if self.hasFEL:
             s["fel_power"] = str(self.ui.tCCDFELP.text())
             s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
             s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
+            s["fel_pol"] = str(self.ui.tCCDFELPol.text())
             s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
                 str(self.ui.tCCDFELPulses.text()).strip() else 0
+            try:
+                s["fel_transmission"] = str(self.papa.motorDriverWid.ui.tCosCalc.text())
+            except Exception as e:
+                log.warning("Unable to grab wire grid transmission: {}".format(e))
 
             # We've started to do really long exposures
             # ( 10 min ~ 300-400 FEL pulses)
@@ -743,6 +939,7 @@ class BaseExpWidget(QtGui.QWidget):
         if self.hasNIR:
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
+            s["nir_pol"] = str(self.ui.tCCDNIRPol.text())
 
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value
@@ -757,16 +954,16 @@ class BaseExpWidget(QtGui.QWidget):
         # fill the role, use dict.get() so that a key error isn't thrown
         # when trying to access FEL/NIR only keys
         st = str(self.ui.tCCDSeries.text())
-        st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
-                       GAIN=s.get("gain"), EXP=s.get("exposure"),
-                       FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
-                       NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
+        st = st.format(**{k: s.get(v, -1.1) for k, v in seriesTags .items()})
+        # st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
+        #                GAIN=s.get("gain"), EXP=s.get("exposure"),
+        #                FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
+        #                NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
 
 
 
         s["series"] = st
         return s
-
 
     @staticmethod
     def __SERIES_METHODS(): pass
@@ -779,6 +976,14 @@ class BaseExpWidget(QtGui.QWidget):
         # the previous ones should be saved (hence why this is
         # after the saving is being done)
         #######################
+        if str(self.ui.tCCDSeries.text())=="":
+            # Undo if we don't have the series tag checked
+            # or the label is empty
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            self.ui.groupBox_Series.setTitle("Series")
+            return
+
         groupBox = self.ui.groupBox_Series
 
         if (self.prevDataEMCCD is not None and # Is there something to add to?
@@ -786,8 +991,8 @@ class BaseExpWidget(QtGui.QWidget):
                     self.curDataEMCCD.equipment_dict["series"] and # series tag?
                     self.prevDataEMCCD.equipment_dict["spec_step"] == # With the same
                     self.curDataEMCCD.equipment_dict["spec_step"] and # spectrum step?
-                self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
-                self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+                    self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                    self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
             log.debug("Added two series together")
             # Un-normalize by the number currently in series
             self.prevDataEMCCD.clean_array*=self.runSettings["seriesNo"]
@@ -833,6 +1038,15 @@ class BaseExpWidget(QtGui.QWidget):
             log.debug("Made a new series where I didn't think I'd be")
 
     def undoSeries(self):
+        """
+        todo: 11/6 I think this is a broken function now
+        :return:
+        """
+        log.critical("")
+        log.critical("")
+        log.critical("You actually called undoseries")
+        log.critical("")
+        log.critical("")
         log.debug("Removed two series together")
         # Un-normalize by the number currently in series
         self.prevDataEMCCD.clean_array *= self.runSettings["seriesNo"]
@@ -864,6 +1078,257 @@ class BaseExpWidget(QtGui.QWidget):
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
 
+    def addImageSequence(self):
+        curBGtitle = str(self.ui.groupBox_37.title())
+        # "It's easier to ask for forgiveness than
+        #  for permission"
+        try:
+            self.prevDataEMCCD.addNewImage(
+                self.curDataEMCCD
+            )
+            self.ui.groupBox_37.setTitle(
+                curBGtitle.split('(')[0] + "({}*)".format(
+                    self.prevDataEMCCD.imageSequence.numImages()
+                )
+            )
+        except (AttributeError, ValueError):
+            self.prevDataEMCCD = None
+        if self.prevDataEMCCD is None:
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.ui.groupBox_37.setTitle(
+                curBGtitle.split('(')[0] + '(1*)'
+            )
+            self.prevDataEMCCD.setAsSequence()
+
+    def addBackgroundSequence(self):
+        curBGtitle = str(self.ui.groupBox_38.title())
+        try:
+            self.prevBackEMCCD.addNewImage(
+                self.curBackEMCCD
+            )
+            self.ui.groupBox_38.setTitle(
+                curBGtitle.split('(')[0] + "({}*)".format(
+                    self.prevBackEMCCD.imageSequence.numImages()
+                )
+            )
+        except (AttributeError, ValueError):
+            self.prevBackEMCCD = None
+        if self.prevBackEMCCD is None:
+            self.prevBackEMCCD = copy.deepcopy(self.curBackEMCCD)
+            self.ui.groupBox_38.setTitle(
+                curBGtitle.split('(')[0] + '(1*)'
+            )
+            self.prevBackEMCCD.setAsSequence()
+            self.prevBackEMCCD.imageSequence.ignoreNormFactors = True
+
+    def removeImageSequence(self):
+        """
+        Remove the previous image sequence
+        so future images will not get added to it
+        :return:
+        """
+        self.prevDataEMCCD = None
+        curBGtitle = str(self.ui.groupBox_37.title())
+        curBGtitle = curBGtitle.split('(')[0]
+        self.ui.groupBox_37.setTitle(
+            curBGtitle
+        )
+
+    def removeBackgroundSequence(self):
+        """
+        Remove the previous image sequence
+        so future images will not get added to it
+        :return:
+        """
+        self.prevBackEMCCD = None
+        curBGtitle = str(self.ui.groupBox_38.title())
+        curBGtitle = curBGtitle.split('(')[0]
+        self.ui.groupBox_38.setTitle(
+            curBGtitle
+        )
+
+    def processImageSequence(self):
+        d, std = self.confirmCosmicRemoval(self.prevDataEMCCD.imageSequence)
+        if d is None:
+            return
+
+        try:
+            self.prevDataEMCCD.equipment_dict["background_file"] = \
+                self.curBackEMCCD.saveFileName
+        except AttributeError:
+            self.prevRefEMCCD.equipment_dict["background_file"] = "NoneTaken"
+
+        d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
+            self.curBackEMCCD.imageSequence
+        )
+        self.prevDataEMCCD.clean_array = d
+        self.updateSignalImage(d)
+        self.prevDataEMCCD.std_array = sigpost
+
+        try:
+            self.prevDataEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = sigpost,
+                fmt = '%f',
+                postfix="_stdpost"
+            )
+            log.debug("Saved proccesed data image stdpost, {}".format(
+                self.prevDataEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed data image stdpost. {}".format(
+                e
+            ))
+
+        try:
+            self.prevDataEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = sigT,
+                fmt = '%f',
+                postfix="_stdT"
+            )
+            log.debug("Saved proccesed data image stdT, {}".format(
+                self.prevDataEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed data image stdT. {}".format(
+                e
+            ))
+
+        try:
+            self.prevDataEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = d,
+                postfix="_seq"
+            )
+            log.debug("Saved proccesed sequence image, {}".format(
+                self.prevDataEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving image file of processed sequence. {}".format(
+                e
+            ))
+
+        # Now the fun part: Start to process it and deal with the
+        # noise of the backgorund
+        try:
+            self.prevDataEMCCD.make_spectrum()
+            oh = self.prevDataEMCCD.origin_import.splitlines()
+            oh[1] += ",error"
+            oh[2] += ",arb.u."
+            oh = "\n".join(oh)
+
+            self.prevDataEMCCD.save_spectrum(
+                self.papa.settings["saveDir"],
+                postfix = "seq",
+                origin_header=oh
+            )
+        except Exception as e:
+            log.warning("Exception trying to make/save the sequenced spectrum file,"
+                        "{}".format(e))
+
+        self.curDataEMCCD = self.prevDataEMCCD
+        curBGtitle = str(self.ui.groupBox_37.title()).replace('*', '')
+        self.ui.groupBox_37.setTitle(
+            curBGtitle
+        )
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+        self.prevDataEMCCD = None
+
+    def processBackgroundSequence(self):
+        d, std = self.confirmCosmicRemoval(self.prevBackEMCCD.imageSequence)
+        if d is None:
+            return
+
+
+        self.updateBackgroundImage(d)
+        self.prevBackEMCCD.clean_array = d
+        self.prevBackEMCCD.std_array = std
+
+        try:
+            self.prevBackEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = std,
+                fmt = '%f',
+                postfix="_std"
+            )
+            log.debug("Saved proccesed background std, {}".format(
+                self.prevBackEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed background. {}".format(
+                e
+            ))
+
+        try:
+            self.prevBackEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = d,
+                postfix="_seq"
+            )
+            log.debug("Saved proccesed background image, {}".format(
+                self.prevBackEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving image file of processed background. {}".format(
+                e
+            ))
+
+        self.curBackEMCCD = self.prevBackEMCCD
+        curBGtitle = str(self.ui.groupBox_38.title()).replace('*', '')
+        self.ui.groupBox_38.setTitle(
+            curBGtitle
+        )
+
+        self.prevBackEMCCD = None
+
+    def confirmCosmicRemoval(self, imSeq):
+        """
+
+        :param dataObject:
+        :type dataObject: EMCCD_image
+        :return:
+        """
+        mod = QtGui.QApplication.keyboardModifiers()
+        debug = mod==QtCore.Qt.ShiftModifier
+        ok = False
+        while not ok:
+            d, std = imSeq.removeCosmics(
+                debug=debug, **self.crrSettings
+            )
+            if not debug: break
+            prompt = QtGui.QMessageBox(self)
+            prompt.setText("Acceptable Cosmic Removal?")
+            prompt.setStandardButtons(
+                QtGui.QMessageBox.Yes |QtGui.QMessageBox.No
+            )
+            prompt.setDefaultButton(QtGui.QMessageBox.Yes)
+            prompt.setWindowModality(QtCore.Qt.WindowModal)
+            response = prompt.exec_()
+
+            # Have the garbage collector clear the windows
+            imSeq.winList = []
+            if response == QtGui.QMessageBox.Yes:
+                ok = True
+                break
+
+            newRat1, dialogOk1 = QtGui.QInputDialog.getDouble(
+                self, "New CRR Settings", "Ratio",
+                self.crrSettings["ratio"], decimals=2
+            )
+            if not dialogOk1:
+                imSeq._cleanImages = None
+                return None, None
+            newRat2, dialogOk2 = QtGui.QInputDialog.getDouble(
+                self, "New CRR Settings", "Noise Ratio",
+                self.crrSettings["noisecoeff"], decimals=2
+            )
+            if not dialogOk2:
+                imSeq._cleanImages = None
+                return None, None
+            self.crrSettings["ratio"] = newRat1
+            self.crrSettings["noisecoeff"] = newRat2
+        return d, std
 
     def removeCurrentSeries(self):
         """
@@ -892,6 +1357,15 @@ class BaseExpWidget(QtGui.QWidget):
         self.runSettings["seriesNo"] = 1
         self.ui.groupBox_Series.setTitle("Series (1)")
 
+    @staticmethod
+    def __RELOADING_FILES(): pass
+    def reloadBackgroundFiles(self):
+        print self.papa.settings["saveDir"]
+        files = QtGui.QFileDialog.getOpenFileNames(
+            self, "Choose background files",
+            str(self.papa.settings["saveDir"])
+        )
+        print "chosen files:", files
 
     @staticmethod
     def __BASIC_UI_CHANGES(): pass
@@ -905,26 +1379,51 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.bCCDBack.setEnabled(enabled)
         self.ui.bCCDImage.setEnabled(enabled)
         self.papa.ui.gbSettings.setEnabled(enabled)
-
+        self.ui.tEMCCDExp.setEnabled(enabled)
+        self.ui.tEMCCDGain.setEnabled(enabled)
 
     def updateSignalImage(self, data = None):
-        data = np.array(data)
-        self.pSigImage.setImage(data.T)
-        if self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked():
-            self.pSigImage.setLevels(self.pSigHist.getLevels())
+        if data.ndim == 3:
+            # Need to transpose the second two axes for the
+            # proper alignment.
+            self.ui.gCCDImage.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
+            # set it to the last image
+            self.ui.gCCDImage.setCurrentIndex(data.shape[0])
         else:
-            # self.pSigHist.setLevels(data.min(), data.max())
-            self.autoscaleSignalHistogram()
+            self.ui.gCCDImage.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
+
+        # Set right axis to display real pixel coordinates
+        start=self.papa.CCD.cameraSettings["imageSettings"][4] #vstart
+        stop=self.papa.CCD.cameraSettings["imageSettings"][5]  # vstop
+        step=self.papa.CCD.cameraSettings["imageSettings"][1]
+        realPix = np.arange(start=start,
+                            stop=stop,
+                            step=step)
+
+        self.ui.gCCDImage.getView().getAxis('right').setDataSet(
+            lambda pix: pix*step + start
+        )
 
     def autoscaleSignalHistogram(self):
         data = self.pSigImage.image
         self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
-        data = np.array(data)
-        self.pBackImage.setImage(data.T)
-        self.pBackHist.setLevels(data.min(), data.max())
-
+        if data.ndim == 3:
+            # Need to transpose the second two axes for the
+            # proper alignment.
+            self.ui.gCCDBack.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
+            self.ui.gCCDBack.setCurrentIndex(data.shape[0])
+        else:
+            self.ui.gCCDBack.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      autoHistogramRange=True,
+                                      autoRange = False)
 
     def updateSpectrum(self, data = None):
         self.pSpec.setData(data[:,0], data[:,1])
@@ -944,16 +1443,16 @@ class BaseExpWidget(QtGui.QWidget):
         if val>1500:
             self.ui.tCCDNIRwavelength.setText("{:.3f}".format(10000000./val))
 
-    def updateImageNumbers(self, isIm = True):
-        """
-        :param sender: flag for who sent
-        :return:
-        allow the user to update the image number counters
-        """
-        if isIm:
-            self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())+1
-        else:
-            self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())+1
+    # def updateImageNumbers(self, isIm = True):
+    #     """
+    #     :param sender: flag for who sent
+    #     :return:
+    #     allow the user to update the image number counters
+    #     """
+    #     if isIm:
+    #         self.papa.settings["igNumber"] = int(self.ui.tCCDImageNum.text())+1
+    #     else:
+    #         self.papa.settings["bgNumber"] = int(self.ui.tCCDBGNum.text())+1
 
     def createGuiElement(self, fnc, args=None):
         """
@@ -974,23 +1473,29 @@ class BaseExpWidget(QtGui.QWidget):
               cause the loop to return that value
                 (Note: May cause issue with non-integer returns?)
         """
-        if args is None:
-            ret = fnc()
-        else:
-            ret = fnc(*args)
-        if isinstance(args, list) and not args:
-            args.append(ret)
+        try:
+            if args is None:
+                ret = fnc()
+            else:
+                ret = fnc(*args)
+            if isinstance(args, list) and not args:
+                args.append(ret)
 
-        self.sigKillEventLoop.emit(ret)
+            self.sigKillEventLoop.emit(ret)
+        except Exception as e:
+            log.critical("Error creating gui element.")
+            log.critical("\t{},args:{}, error: {}".format(fnc, args, e))
 
-
-class HSGWid(BaseExpWidget):
+class BaseHSGWid(BaseExpWidget):
     hasNIR = True
     hasFEL = True
 
     DataClass = HSG_image
-    def __init__(self, parent = None):
-        super(HSGWid, self).__init__(parent, Ui_HSG)
+    name = 'HSG'
+    def __init__(self, parent = None, UI = None):
+        if UI is None:
+            UI = Ui_HSG
+        super(BaseHSGWid, self).__init__(parent, UI)
         self.initUI()
 
 
@@ -1030,12 +1535,121 @@ class HSGWid(BaseExpWidget):
         except Exception as e:
             log.warning("Could not update SB line from inputted value, {}".format(e))
 
+class HSGImageWid(BaseHSGWid):
+    pass
+
+class HSGFVBWid(BaseHSGWid):
+    DataClass = HSG_FVB_image
+    def __init__(self, parent = None, UI = None):
+        super(HSGFVBWid, self).__init__(parent, UI)
+        # self.seriesed_data = self.DataClass()
+
+    def analyzeSeries(self):
+        if str(self.ui.tCCDSeries.text())=="":
+            # Undo if we don't have the series tag checked
+            # or the label is empty
+            self.prevDataEMCCD = None
+            self.runSettings["seriesNo"] = 0
+            self.ui.groupBox_Series.setTitle("Series")
+            return
+        groupBox = self.ui.groupBox_Series
+
+        if (self.prevDataEMCCD is not None and # Is there something to add to?
+                    self.prevDataEMCCD.equipment_dict["series"] == # With the same
+                    self.curDataEMCCD.equipment_dict["series"] and # series tag?
+                    self.prevDataEMCCD.equipment_dict["spec_step"] == # With the same
+                    self.curDataEMCCD.equipment_dict["spec_step"] and # spectrum step?
+                    self.curDataEMCCD.equipment_dict["series"] != "" and #which isn't empty
+                    self.curDataEMCCD.file_name == self.prevDataEMCCD.file_name): #and from the same folder?
+
+            self.prevDataEMCCD.addSpectrum(self.curDataEMCCD)
+            self.prevDataEMCCD.make_spectrum()
+
+            try:
+                self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+            except IOError as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+                log.debug("Error saving series data, {}".format(e))
+            try:
+                self.prevDataEMCCD.save_images(self.papa.settings["saveDir"])
+            except IOError as e:
+                self.papa.sigUpdateStatusBar.emit("Error Saving Image")
+                log.warning("Error saving FVB series image, {}".format(e))
+
+
+            self.runSettings["seriesNo"] += 1
+            groupBox.setTitle("Series ({})".format(self.runSettings["seriesNo"]))
+        elif str(self.ui.tCCDSeries.text()) != "":
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.prevDataEMCCD.initializeSeries()
+            self.runSettings["seriesNo"] = 1
+            groupBox.setTitle("Series (1)")
+
+
+        # Update the plots with this new data
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.raw_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+    def doCosmicRemoval(self, b):
+        if not b: return
+        self.papa.ui.mFileDoCRR.setChecked(False)
+        if self.prevDataEMCCD is None:
+            log.error("Unable to remove cosmics without a series")
+            return
+        if self.prevDataEMCCD.raw_array.shape[0] <= 1:
+            log.error("Unable to remove cosmics with only one exposure")
+            return
+        if self.prevDataEMCCD.raw_array.shape[0] <= 3:
+            log.warn("CRR is not tested with less than 4 exposures")
+
+        offset = 0
+        medianRatio = 1.
+        noiseCoeff = 5.
+
+        self.prevDataEMCCD.cosmic_ray_removal(
+            offset = offset,
+            medianRatio = medianRatio,
+            noiseCoeff = noiseCoeff
+        )
+
+        self.prevDataEMCCD.make_spectrum()
+        """
+        DEBUGGING:
+        DO NOT SAVE THEM AFTER DOING CRR
+        try:
+            self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
+        except IOError as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Series")
+            log.debug("Error saving series data, {}".format(e))
+        try:
+            self.prevDataEMCCD.save_images(self.papa.settings["saveDir"])
+        except IOError as e:
+            self.papa.sigUpdateStatusBar.emit("Error Saving Image")
+            log.debug("Error saving Image data, {}".format(e))
+        """
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
+
+
+    def experimentOpen(self):
+        self.parentDoCRR = self.papa.ui.mFileDoCRR.isChecked()
+        self.papa.ui.mFileDoCRR.setChecked(False)
+        self.papa.ui.mFileDoCRR.triggered[bool].connect(self.doCosmicRemoval)
+
+
+    def experimentClose(self):
+        self.papa.ui.mFileDoCRR.setChecked(self.parentDoCRR)
+
+
+class HSGPCWid(BaseHSGWid):
+    pass
 
 class AbsWid(BaseExpWidget):
     hasNIR = False
     hasFEL = False
 
     DataClass = Abs_image
+    name = 'Absorbance'
     def __init__(self, parent = None, UI = None):
         # Want a UI parameter because this class
         # gets extended for two color (FEL/LED)
@@ -1045,6 +1659,7 @@ class AbsWid(BaseExpWidget):
         super(AbsWid, self).__init__(parent, UI)
         self.initUI()
         self.curRefEMCCD = None
+        self.prevRefEMCCD = None
         self.curAbsEMCCD = None # holds the actual absorption
 
     def initUI(self):
@@ -1067,11 +1682,45 @@ class AbsWid(BaseExpWidget):
         self.pRawvb.addItem(self.pRawBlank)
         self.pRawvb.addItem(self.pRawTrans)
 
+        self.ui.bProcessReferenceSequence.clicked.connect(self.processReferenceSequence)
+
+    def experimentOpen(self):
+        self.ui.tCCDRefNum.setText(str(self.papa.settings["rfNumber"]))
+
     def takeReference(self):
         self.takeImage(isBackground = self.processReference)
 
     def processImage(self):
         super(AbsWid, self).processImage()
+        # update the abs spectra if necessary
+        if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
+            return
+        else:
+            self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
+            self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
+
+
+    # def processImage(self):
+    #     super(AbsWid, self).processImage()
+    #     return
+    #     if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
+    #         self.papa.sigUpdateStatusBar.emit("Please take a reference with the same settings")
+    #         log.warning("Please take a reference with the same settings")
+    #         return
+    #     else:
+    #         self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
+    #         self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
+    #         self.curAbsEMCCD.origin_import = \
+    #             '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
+    #         try:
+    #             self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
+    #         except Exception as e:
+    #             self.papa.sigUpdateStatusBar.emit("Error saving Absorbance")
+    #             log.warning("Error saving Absorbance Spectrum, {}".format(e))
+    #         self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
+
+    def processImageSequence(self):
+        super(AbsWid, self).processImageSequence()
         if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
             self.papa.sigUpdateStatusBar.emit("Please take a reference with the same settings")
             log.warning("Please take a reference with the same settings")
@@ -1080,7 +1729,7 @@ class AbsWid(BaseExpWidget):
             self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
             self.curAbsEMCCD.origin_import = \
-                '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
+                '\nWavelength,Raw Blank,Raw Trans,Abs\nnm,arb.u.,arb.u.,bels'
             try:
                 self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
             except Exception as e:
@@ -1089,10 +1738,167 @@ class AbsWid(BaseExpWidget):
             self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
 
 
-    def processBackground(self):
-        super(AbsWid, self).processBackground()
 
     def processReference(self):
+        if not self.papa.ui.mLivePlotsDisableRawPlots.isChecked():
+            self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
+        self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
+
+        self.curRefEMCCD = self.DataClass(self.rawData,
+                                           str(self.papa.ui.tImageName.text()),
+                                           str(self.ui.tCCDRefNum.value()+1),
+                                           str(self.ui.tCCDComments.toPlainText()),
+                                           self.genEquipmentDict())
+
+        self.curRefEMCCD.make_spectrum()
+        log.debug("Emitting image updates")
+        # self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.raw_array)
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.curRefEMCCD)
+        # Do we want to keep this image?
+        if not self.confirmImage():
+            log.debug("Image rejected")
+            self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
+            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            return
+
+        try:
+            log.debug("Saving CCD Ref Image")
+            self.curRefEMCCD.save_images(self.papa.settings["saveDir"], prefix='absRef_')
+            self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDRefNum.value()+1))
+            self.papa.updateElementSig.emit(self.ui.tCCDRefNum, self.ui.tCCDRefNum.value()+1)
+        except Exception as e:
+            self.papa.sigUpdateStatusBar.emit("Error saving image")
+            log.critical("folder str: {}, filename: {}".format(
+                self.papa.settings["saveDir"], self.curRefEMCCD.file_name
+            ))
+            log.warning("Error saving ref Data image, {}".format(e))
+
+        if self.papa.ui.mFileDoCRR.isChecked():
+            self.curRefEMCCD.cosmic_ray_removal()
+        else:
+            self.curRefEMCCD.clean_array = self.curRefEMCCD.raw_array
+
+        self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
+
+        self.addReferenceSequence()
+        self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevRefEMCCD.imageSequence.getImages())
+        self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+
+    def addReferenceSequence(self):
+        curBGtitle = str(self.ui.groupBox.title())
+        # "It's easier to ask for forgiveness than
+        #  for permission"
+        try:
+            self.prevRefEMCCD.addNewImage(
+                self.curRefEMCCD
+            )
+            self.ui.groupBox.setTitle(
+                curBGtitle.split('(')[0] + "({}*)".format(
+                    self.prevRefEMCCD.imageSequence.numImages()
+                )
+            )
+        except (AttributeError, ValueError):
+            self.prevRefEMCCD = None
+        if self.prevRefEMCCD is None:
+            self.prevRefEMCCD = copy.deepcopy(self.curRefEMCCD)
+            self.ui.groupBox.setTitle(
+                curBGtitle.split('(')[0] + '(1*)'
+            )
+            self.prevRefEMCCD.setAsSequence()
+
+    def processReferenceSequence(self):
+        d, std = self.confirmCosmicRemoval(self.prevRefEMCCD.imageSequence)
+        if d is None:
+            return
+
+        try:
+            self.prevRefEMCCD.equipment_dict["background_file"] = \
+                self.curBackEMCCD.saveFileName
+        except AttributeError:
+            self.prevRefEMCCD.equipment_dict["background_file"] = "NoneTaken"
+        d, sigpost, sigT = self.prevRefEMCCD.imageSequence.subtractImage(
+            self.curBackEMCCD.imageSequence
+        )
+        self.prevRefEMCCD.clean_array = d
+        self.updateSignalImage(d)
+        self.prevRefEMCCD.std_array = sigpost
+
+        try:
+            self.prevRefEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                prefix='absRef_',
+                data = sigpost,
+                fmt = '%f',
+                postfix="_stdpost"
+            )
+            log.debug("Saved proccesed ref data image stdpost, {}".format(
+                self.prevRefEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed ref data image stdpost. {}".format(
+                e
+            ))
+
+        try:
+            self.prevRefEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                prefix='absRef_',
+                data = sigT,
+                fmt = '%f',
+                postfix="_stdT"
+            )
+            log.debug("Saved proccesed ref data image stdT, {}".format(
+                self.prevRefEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed ref data image stdT. {}".format(
+                e
+            ))
+
+        try:
+            self.prevRefEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                prefix='absRef_',
+                data = d,
+                postfix="_seq"
+            )
+            log.debug("Saved proccesed ref sequence image, {}".format(
+                self.prevRefEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving image file of processed ref sequence. {}".format(
+                e
+            ))
+
+        # Now the fun part: Start to process it and deal with the
+        # noise of the backgorund
+        try:
+            self.prevRefEMCCD.make_spectrum()
+            oh = self.prevRefEMCCD.origin_import.splitlines()
+            oh[1] += ",error"
+            oh[2] += ",arb.u."
+            oh = "\n".join(oh)
+
+            self.prevRefEMCCD.save_spectrum(
+                self.papa.settings["saveDir"],
+                prefix='absRef_',
+                postfix = "seq",
+                origin_header=oh
+            )
+        except Exception as e:
+            log.warning("Exception trying to make/save the ref sequenced spectrum file,"
+                        "{}".format(e))
+
+        self.curRefEMCCD = self.prevRefEMCCD
+        curBGtitle = str(self.ui.groupBox.title()).replace('*', '')
+        self.ui.groupBox.setTitle(
+            curBGtitle
+        )
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.curRefEMCCD)
+        self.prevRefEMCCD = None
+
+    def processReferenceOld(self):
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
@@ -1151,48 +1957,51 @@ class AbsWid(BaseExpWidget):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.toggleUIElements(True)
 
-    def analyzeSeries(self):
-        log.info("Note: Series not implemented for Absorption data")
-
     def updateGraphViews(self):
         self.pRawvb.setGeometry(self.ui.gCCDBin.plotItem.vb.sceneBoundingRect())
         self.pRawvb.linkedViewChanged(self.ui.gCCDBin.plotItem.vb,
                                       self.pRawvb.XAxis)
 
-
     def toggleUIElements(self, enabled = True):
         super(AbsWid, self).toggleUIElements(enabled)
         self.ui.bCCDReference.setEnabled(enabled)
 
-    def updateSignalImage(self, data = None):
-        title = "Transmission"
-        if id(data) == id(self.curRefEMCCD):
-            data = self.curRefEMCCD.clean_array
-            title = "Blank"
-        super(AbsWid, self).updateSignalImage(data)
-        pi = self.ui.gCCDImage.getItem(0,0)
-        pi.setTitle(title)
-
+    # def updateSignalImage(self, data = None):
+        # title = "Transmission"
+        # if id(data) == id(self.curRefEMCCD):
+        #     data = self.curRefEMCCD.clean_array
+        #     title = "Blank"
+        # super(AbsWid, self).updateSignalImage(data)
+        # pi = self.ui.gCCDImage.view
+        # pi.setTitle(title)
 
     def updateSpectrum(self, data = None):
         title = "Transmission"
         # Need to use id() because we've overloaded __eq__ for the
         # data class to check for camera settings
+
         if id(data) == id(self.curAbsEMCCD):
-            print "called with abs"
             self.pSpec.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,3])
             self.pRawBlank.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,1])
             self.pRawTrans.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,2])
         elif id(data)==id(self.curRefEMCCD):
             title = "Blank"
-            print "called with ref"
             data = self.curRefEMCCD.spectrum
             self.pRawBlank.setData(data[:,0], data[:,1])
             self.pSpec.setData([], [])
             self.pRawTrans.setData([], [])
+            if self.ui.gCCDBin.plotItem.vb.state["autoRange"][0]:
+                self.ui.gCCDBin.plotItem.setRange(
+                    xRange=data[[0,-1],0]
+                )
+                self.ui.gCCDBin.plotItem.vb.enableAutoRange(x=True)
         else:
-            print "called with else (img?)"
             self.pRawTrans.setData(data[:,0], data[:,1])
+            if self.ui.gCCDBin.plotItem.vb.state["autoRange"][0]:
+                self.ui.gCCDBin.plotItem.setRange(
+                    xRange=data[[0,-1],0]
+                )
+                self.ui.gCCDBin.plotItem.vb.enableAutoRange(x=True)
             self.updateGraphViews()
 
         # super(AbsWid, self).updateSpectrum(data)
@@ -1203,21 +2012,22 @@ class AbsWid(BaseExpWidget):
         s = super(AbsWid, self).genEquipmentDict()
         s["led_current"] = float(self.ui.tCCDLEDCurrent.text())
         s["led_temp"] = float(self.ui.tCCDLEDTemp.text())
+        s["led_power"] = float(self.ui.tCCDLEDPower.text())
         return s
 
 class TwoColorAbsWid(AbsWid):
     hasFEL = True
+    name = 'Two Color Abs'
 
     def __init__(self, parent = None):
         super(TwoColorAbsWid, self).__init__(parent, Ui_TwoColorAbs)
-
-
 
 class PLWid(BaseExpWidget):
     hasNIR = True
     hasFEL = False
 
     DataClass = PL_image
+    name = 'PL'
     def __init__(self, parent = None):
         super(PLWid, self).__init__(parent, Ui_PL)
 
@@ -1225,14 +2035,21 @@ class AlignWid(BaseExpWidget):
     hasNIR = True
     hasFEL = False
     DataClass = EMCCD_image
+    name = 'Vertical Alignment'
     def __init__(self, parent=None):
         super(AlignWid, self).__init__(parent, Ui_Alignment)
         self.ilOne = pg.InfiniteLine(pos=100, movable=True, pen='r')
         self.ilTwo = pg.InfiniteLine(pos=800, movable=True, pen='b')
         self.ilThree = pg.InfiniteLine(pos=1100, movable=True, pen='g')
+        self.ui.gCCDImage.view.addItem(self.ilOne)
+        self.ui.gCCDImage.view.addItem(self.ilTwo)
+        self.ui.gCCDImage.view.addItem(self.ilThree)
+        """
+        todo: remvoet his
         self.p1.addItem(self.ilOne)
         self.p1.addItem(self.ilTwo)
         self.p1.addItem(self.ilThree)
+        """
         self.ilOne.sigPositionChanged.connect(self.sumLines)
         self.ilTwo.sigPositionChanged.connect(self.sumLines)
         self.ilThree.sigPositionChanged.connect(self.sumLines)

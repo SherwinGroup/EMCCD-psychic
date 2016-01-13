@@ -12,16 +12,303 @@ import os, errno
 import copy
 import json
 import numpy as np
-import matplotlib.pyplot as plt
+# what the hell is this?
+# hangs on my mac at this import line
+# no idea what the fuck is going on here.
+# import matplotlib.pylab as plt
 import cosmics_hsg as cosmics
+import scipy.ndimage as ndimage
+import pyqtgraph as pg
+from UIs.ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 
 import logging
 log = logging.getLogger("EMCCD")
 
+
+class ConsecutiveImageAnalyzer(object):
+    def __init__(self):
+        """
+        This class will function to hold and control
+        all things necessary for performing statistical
+        metrics for consecutive, identical situation
+        CCD exposures. Namely, this is the raw
+        camera image, and the normalization factor
+        which may change between images (i.e. FEL pulses)
+        :return:
+        """
+        self._rawImages = []
+        self._cleanImages = None
+        self._normFactors = []
+        # how memory inefficient is it to
+        # keep a cache of it?
+        self._stackedImages = None
+
+        # parameters for the crr algorithm
+        self.crrParams = {
+            "ratio": 1.0,
+            "noisecoeff":5.0
+        }
+
+        # Set to True to to not normalize the
+        # images when doing crr
+        self.ignoreNormFactors = False
+
+    def addImage(self, image, normFactor = None):
+        if isinstance(image, EMCCD_image):
+            if self._rawImages and image.raw_array.shape != self._rawImages[0].shape:
+                raise ValueError("Input dimensions must match!\n\t got: {}, want: {}".format(
+                    image.raw_array.shape, self._rawImages[0].shape
+                ))
+            self._rawImages.append(image.raw_array)
+            if normFactor is None:
+                felp = image.equipment_dict.get("fel_pulses", 0)
+                # print "from eqp dict", felp
+                if felp == 0: felp = 1
+            else:
+                felp = normFactor
+            # print "Added an image, norm factor", felp
+            self._normFactors.append(felp)
+        else:
+            if self._rawImages and image.shape != self._rawImages[0].shape:
+                raise ValueError("Input dimensions must match!\n\t got: {}, want: {}".format(
+                    image.raw_array.shape, self._rawImages[0].shape
+                ))
+            if normFactor is None: normFactor = 1
+            self._rawImages.append(image)
+            self._normFactors.append(normFactor)
+
+        self._stackedImages = None
+
+    def removeImageByIdx(self, index):
+        try:
+            self._rawImages.pop(index)
+            self._normFactors.pop(index)
+            self._stackedImages = None
+        except Exception as e:
+            log.warning("Error trying to pop the images, {}".format(e))
+
+    def removeCosmics(self, ratio = 1.0, noisecoeff = 5.0, debug = False):
+        if self._stackedImages is None:
+            self.getImages()
+        d = np.array(self._stackedImages).astype(float)
+
+        normFactors = np.array(self._normFactors)
+        if not self.ignoreNormFactors:
+            try:
+                d /= normFactors[:,None, None]
+            except:
+                print "error here"
+                print type(d), d
+                print type(normFactors), normFactors
+                raise
+
+
+        med = np.median(d, axis=0)
+        # estimate the noise by taking the std along the first
+        # 100px of each row, for each vertical pixel.
+        # Then just average those, as the noise should be roughly
+        # consant, and that will hopefully smear out the presence of
+        # sidebands or cosmics within the first 100px?
+
+        signoise = np.std(d[:,:,:100], axis=2).mean()
+        cutoff = med * ratio + noisecoeff * signoise
+
+        if debug:
+            try:
+                if d.shape[1]>10:
+                    debug = False
+                    raise RuntimeError("Sorry, can't debug with this large"
+                                       "an image, it causes things to break")
+                print "median shape", med.shape
+                cutoff = med * ratio + noisecoeff * np.std(med[:,:100])
+                print "cutoff shape", cutoff.shape
+
+                winlist = []
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                vw.setImage(d.copy())
+                vw.setWindowTitle("Raw Image")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
+                vw.setImage(med)
+                vw.setWindowTitle("Median Image")
+                vw.roi.setSize((med.shape[1], med.shape[0]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, med.shape[0]):
+                        vw.ui.roiPlot.plot(med[ii], pen=pg.mkPen(style=ii+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
+                vw.setImage(d-med)
+                vw.setWindowTitle("d-m")
+                vw.roi.setSize((med.shape[1], med.shape[0]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk]-med[kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                for ii in range(0, med.shape[0]):
+                        vw.ui.roiPlot.plot(cutoff[ii], pen=pg.mkPen(style=ii+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
+                vw.setImage((d-med)>cutoff[None,:,:])
+                vw.setWindowTitle("Cosmics?")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(((d-med)>cutoff[None,:,:])[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+
+            except:
+                log.exception("this failed")
+
+
+
+        badPix = np.where((d-med)>cutoff[None,:,:])
+        d[badPix] = np.nan
+        if not self.ignoreNormFactors:
+            d *= normFactors[:,None, None]
+
+        # To be comprable to background
+        std = np.nanstd(d, axis=0)
+
+        # if not self.ignoreNormFactors:
+        #     d /= normFactors[:,None, None]
+
+        # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
+        # if not self.ignoreNormFactors:
+        #     d *= normFactors[:,None, None]
+
+        # replace the cosmics
+        d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
+        self._cleanImages = np.array(d)
+
+        if debug:
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                vw.setImage(self._cleanImages.copy())
+                vw.setWindowTitle("Clean Image")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+                self.winList = winlist
+
+
+
+
+        d = np.nanmean(d, axis=0).astype(int)
+
+        return d, std
+
+    def subtractImage(self, other):
+        """
+
+        :param other:
+        :type other: ConsecutiveImageAnalyzer
+        :return:
+        """
+        back = np.mean(other.getImages().astype(float), axis=0)
+        sigb = np.std(other.getImages(), axis=0)
+        normfact = np.array(self._normFactors)
+
+        img = np.array(self.getImages()).astype(float)
+        sigim = np.std(img, axis=0)
+        sigT = np.sqrt(sigb**2 + sigim**2)
+
+        img -= back[None, :, :]
+        if not self.ignoreNormFactors:
+            img /= normfact[:, None, None]
+            sigT /= np.sum(normfact)
+
+        sigpost = np.std(img, axis=0)
+        sigpost /= np.sqrt(img.shape[0])
+        sigT /= np.sqrt(img.shape[0])
+
+        return np.mean(img, axis=0), sigpost, sigT
+
+
+    def clearImages(self):
+        self._rawImages = []
+        self._cleanImages = None
+        self._normFactors = []
+        self._stackedImages = None
+
+    def getImages(self):
+        # prefer returning the clean stuff, I think this is
+        # what you'd always want
+        if self._cleanImages is not None:
+            return self._cleanImages.copy()
+        if self._stackedImages is not None:
+            return self._stackedImages
+        elif not self._rawImages:
+            return np.zeros((10, 10, 10)) - 1
+        self._stackedImages = np.array(self._rawImages[0])[None,:,:]
+
+        if len(self._rawImages)==1:
+            return self._stackedImages
+
+        for newImage in self._rawImages[1:]:
+            self._stackedImages = np.concatenate(
+                (self._stackedImages, newImage[None,:,:]), axis=0
+            )
+        return self._stackedImages
+    def numImages(self):
+        return len(self._rawImages)
+
+
 class EMCCD_image(object):
     origin_import = '\nWavelength,Signal\nnm,arb. u.'
     
-    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         """
         This init is to work with the most basic images with no specialiation
         for HSG or PL or absorbance data.  Feels like we should have something
@@ -47,18 +334,25 @@ class EMCCD_image(object):
         self.raw_array = np.array(raw_array)
         self.raw_shape = self.raw_array.shape
         self.file_name = file_name
+        self.saveFileName = '' # where were you actually saved?
         self.file_no = file_no
         self.description = description
         self.equipment_dict = equipment_dict
-        if self.equipment_dict['y_max'] - self.equipment_dict['y_min'] > int(self.raw_shape[1]):
+        if self.equipment_dict and self.equipment_dict.get('y_max', 0) - self.equipment_dict.get('y_min', 0) > int(self.raw_shape[0]):
             log.warning("y_min and y_max were set incorrectly")
-            self.equipment_dict['y_max'] = int(self.raw_shape[1]) - 1
+            self.equipment_dict['y_max'] = int(self.raw_shape[0])
             self.equipment_dict['y_min'] = 0
         self.clean_array = None
+        self.std_array = None # for holding the std of pixels
         self.spectrum = None
         self.addenda = [0, file_name + str(file_no)] # This is important for keeping track of addition and subtraction
         self.subtrahenda = []
         self.equipment_dict["background_darkcount_std"] = -1
+        self.equipment_dict["background_file"] = ''
+
+        self.imageSequence = ConsecutiveImageAnalyzer()
+
+        self.isSequence = False
 
     def __str__(self):
         '''
@@ -184,18 +478,45 @@ class EMCCD_image(object):
         image_removal.run(maxiter=4)
         self.clean_array = image_removal.cleanarray
     
-    def make_spectrum(self):
+    def make_spectrum(self, std = None):
         '''
         Integrates over vertical axis of the cleaned image
         
         I'm not exactly sure y_min and y_max are counting from the same side as
         in the UI.
         '''
+        if self.std_array is None:
+            try:
+                self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            except:
+                self.spectrum = self.raw_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
+        else:
+            self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
 
-        self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
-        wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'], 
-                                      self.equipment_dict['grating'])
-        self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
+        # elif isinstance(background, EMCCD_image):
+            # self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            # self.spectrum -= background.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            #
+            # spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            # back_std = np.mean(background.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            # spec_std = np.sqrt(spec_std**2 + back_std**2)
+            #
+            #
+            # wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+            #                               self.equipment_dict['grating'])
+            # self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
+
+
+        # else:
+        #     raise RuntimeError("What the fuck are you trying to do? I don't want to handle this right now")
+
         
     def inspect_dark_regions(self):
         '''
@@ -203,17 +524,20 @@ class EMCCD_image(object):
         the mean is set to zero.  It will also measure the standard deviation 
         of the noise for use later.
         '''
-        dark_region = self.clean_array[:,0] # This is a total kludge
+        dark_region = self.clean_array[0,:] # This is a total kludge
         self.dark_mean = np.mean(dark_region)
         self.std_dev = np.std(dark_region)
         # print "Base line is ", self.dark_mean
         # print "Standard deviation is ", self.std_dev
         height = self.equipment_dict['y_max'] - self.equipment_dict['y_min']
+        if height == self.clean_array.shape[0]:
+            log.warn("Integrating full image, cannot do dark count subtraction!")
+            return
         self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
         self.addenda[0] += self.dark_mean*height
         self.clean_array -= self.dark_mean
     
-    def save_spectrum(self, folder_str='Spectrum files', prefix=None):
+    def save_spectrum(self, folder_str='Spectrum files', prefix=None, postfix = '', origin_header = None):
         '''
         Saves the general spectrum.  Unsure if we need it, but, again, seems
         useful for novel, basic stuff.
@@ -222,19 +546,19 @@ class EMCCD_image(object):
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
         equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-        origin_import = self.origin_import
+        if origin_header is None:
+            origin_import = self.origin_import
+        else:
+            origin_import = origin_header
 
         filename = self.getFileName(prefix)
+        filename += postfix
 
 
         filename += "_spectrum.txt"
         my_header = '#' + equipment_str + '\n' + '#' + self.description.replace('\n','\n#') + origin_import
         np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
-
-        # print "Save image.\nDirectory: {}".format(
-        #     os.path.join(folder_str, 'Spectra', self.file_name, filename)
-        # )
 
     def getFileName(self, prefix=None):
         """
@@ -261,7 +585,8 @@ class EMCCD_image(object):
         filename += self.file_name + self.file_no
         return filename
     
-    def save_images(self, folder_str='Raw files', prefix=None):
+    def save_images(self, folder_str='Raw files', prefix=None, data = None,
+                    fmt = '%d', postfix = ''):
         '''
         Saves the raw_array, not the cleaned one.  Cleaning isn't that hard, 
         and how we do it could change in the future.
@@ -292,10 +617,10 @@ class EMCCD_image(object):
             name = type(self).__name__.lower()
             if "hsg" in name:
                 filename = "hsg_"
-                print "hsg"
+                if "fvb" in name:
+                    filename += 'fvb_'
             elif "pl" in name:
                 filename = "pl_"
-                print "pl"
             elif "abs" in name:
                 filename = "absRaw_"
             else:
@@ -303,12 +628,77 @@ class EMCCD_image(object):
         else:
             filename = str(prefix)
 
-        filename += self.file_name + self.file_no + '.txt'
-        np.savetxt(os.path.join(folder_str, "Images", filename), self.raw_array,
-               delimiter=',', header=my_header, comments = '#', fmt='%d')
+        if data is None:
+            data = self.raw_array
+
+
+        filename += self.file_name + postfix + self.file_no + '.txt'
+        self.saveFileName = filename
+        np.savetxt(os.path.join(folder_str, "Images", filename), data,
+               delimiter=',', header=my_header, comments = '#', fmt=fmt)
         print "Saved image\nDirectory: {}".format(
             os.path.join(folder_str, "Images", filename)
         )
+
+    def setAsSequence(self):
+        """
+        This function is called by the expwidget when this object
+        becomes a sequence image. Sets things up to be ready to take multiple
+        images. Updates things such as FEL pulses/stats in the equipment dict
+        to be lists to append to.
+        :return:
+        """ 
+        self.imageSequence.clearImages()
+        self.imageSequence.addImage(self)
+        self.isSequence = True
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"] = [
+                self.equipment_dict["fieldStrength"]
+            ]
+
+            self.equipment_dict["fieldInt"] = [
+                self.equipment_dict["fieldInt"]
+            ]
+
+            self.equipment_dict["fel_pulses"] = [
+                self.equipment_dict["fel_pulses"]
+            ]
+
+    def addNewImage(self, newImage):
+        """
+        This function should be called by an object
+        which serves to act as a collection of multiple images.
+
+        This will collect the FEL changes (pulses, strength, etc)
+        :param newImage:
+        :type newImage: EMCCD_image
+        :return:
+        """
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"].append(
+                newImage.equipment_dict["fieldStrength"]
+            )
+
+            self.equipment_dict["fieldInt"].append(
+                newImage.equipment_dict["fieldInt"]
+            )
+
+            self.equipment_dict["fel_pulses"].append(
+                newImage.equipment_dict["fel_pulses"]
+            )
+        self.imageSequence.addImage(newImage)
+
+    def removeImageBySequence(self, index):
+        try:
+            if "fieldStrength" in self.equipment_dict:
+                self.equipment_dict["fieldStrength"].pop(index)
+                self.equipment_dict["fieldInt"].pop(index)
+                self.equipment_dict["fel_pulses"].pop(index)
+            self.imageSequence.removeImageByIdx(index)
+        except Exception as e:
+            log.warning("Exception trying to remove an image")
+
+
 
 
 class HSG_image(EMCCD_image):
@@ -316,63 +706,193 @@ class HSG_image(EMCCD_image):
     This subclass will specialize in HSG initializing and saving, which mostly
     has to do with what the header in the file is at this point.  
     '''
-    
-    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+    pass
+
+class HSG_FVB_image(HSG_image):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
+        super(HSG_FVB_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
+        self.isSeries = False
+
+    def cosmic_ray_removal(self, offset = 0, medianRatio = 1, noiseCoeff = 5):
         """
-        Currently unchanged from the base class.
+        Remove cosmic rays from the raw_array when it is a sequence
+        of consecutive exposures.
+        :param offset: baseline to add to raw_array.
+               Not used, but here if it's needed in the future
+        :param medianRatio: Multiplier to the median when deciding a cutoff
+        :param noiseCoeff: Multiplier to the noise on the median
+                    May need changing for noisy data
+        :return:
         """
-        super(HSG_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
+        # log.warn("Warning: HSG FVB Cosmic removal not implemented")
+        # self.clean_array = self.raw_array
 
-    def __add__(self, other):
-        """
-        Want to also add field information from the FEL
-        """
-        ret = super(HSG_image, self).__add__(other)
-        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
+        d = np.array(self.raw_array)
+        print d.shape
 
-        return ret
-
-
-    def __sub__(self, other):
-        """
-        Want to also add field information from the FEL
-        """
-        ret = super(HSG_image, self).__sub__(other)
-        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
-
-        return ret
+        med = ndimage.filters.median_filter(d, size=(d.shape[0], 1), mode='wrap')
+        print med.shape
+        meanMedian  = med.mean(axis=0)
+        print meanMedian.shape
+        # Construct a cutoff for each pixel. It was kind of guess and
+        # check
+        cutoff = meanMedian * medianRatio + noiseCoeff * np.std(meanMedian[:100])
+        print cutoff.shape
 
 
 
-    def save_spectrum(self, folder_str='HSG files'):
+
+
+        winlist = []
+
+        win = pg.GraphicsLayoutWidget()
+        win.setWindowTitle("Raw Image")
+        p1 = win.addPlot()
+
+        img = pg.ImageItem()
+        img.setImage(d.copy().T)
+        p1.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        win.addItem(hist)
+
+        win.nextRow()
+        p2 = win.addPlot(colspan=2)
+        p2.plot(np.sum(d, axis=1))
+        win.show()
+        winlist.append(win)
+
+        win2 = pg.GraphicsLayoutWidget()
+        win2.setWindowTitle("Median Image")
+        p1 = win2.addPlot()
+
+        img = pg.ImageItem()
+        img.setImage(med.T)
+        p1.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        win2.addItem(hist)
+
+        win2.nextRow()
+        p2 = win2.addPlot(colspan=2)
+
+        p2.plot(np.sum(med, axis=1)/4)
+        win2.show()
+        winlist.append(win2)
+
+
+
+
+        win2 = pg.GraphicsLayoutWidget()
+        win2.setWindowTitle("d-m")
+        p1 = win2.addPlot()
+
+        img = pg.ImageItem()
+        img.setImage((d - med).T)
+        p1.addItem(img)
+
+        hist = pg.HistogramLUTItem()
+        hist.setImageItem(img)
+        win2.addItem(hist)
+
+        win2.nextRow()
+        p2 = win2.addPlot(colspan=2)
+
+        p2.plot((d - med)[0,:], pen='w')
+        p2.plot((d - med)[1,:], pen='g')
+        p2.plot((d - med)[2,:], pen='r')
+        p2.plot((d - med)[3,:], pen='y')
+        p2.plot(cutoff, pen='c')
+        win2.show()
+        winlist.append(win2)
+
+
+
+
+
+
+
+        self.winlist = winlist
+        # Find the bad pixel positions
+        # Note the [:, None] - needed to cast the correct shapes
+        badPixs = np.argwhere((d - med)>(cutoff))
+        for pix in badPixs:
+            # get the other pixels in the row which aren't the cosmic
+            p = d[pix[0], [i for i in range(d.shape[1]) if not i==pix[1]]]
+            # Replace the cosmic by the average of the others
+            # Could get hairy if more than one cosmic per row.
+            # Maybe when doing many exposures?
+            d[pix[0], pix[1]] = np.mean(p)
+        self.clean_array = np.array(d)
+
+
+    def make_spectrum(self):
         '''
-        Saves the general spectrum.  Unsure if we need it, but, again, seems
-        useful for novel, basic stuff.
+        Integrates over vertical axis of the cleaned image
+
+        I'm not exactly sure y_min and y_max are counting from the same side as
+        in the UI.
         '''
-        super(HSG_image, self).save_spectrum(folder_str=folder_str)
+        if not self.isSeries:
+            self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
 
-        return
+        else:
+            self.spectrum = self.raw_array.sum(axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
 
 
-    def save_images(self, folder_str='Raw files'):
-        '''
-        Saves the raw_array, not the cleaned one.  Cleaning isn't that hard, 
-        and how we do it could change in the future.
-        
-        This really depends on how the folders are initialized by the UI.  Will
-        they already exist by the time we get to saving images, or do they need
-        to be created on the fly?
-        
-        Also, I'm pretty sure self.raw_array is still ints?
-        '''
+    def isEmpty(self):
+        """
+        returns whether the raw_array is empty
+        """
+        return bool(self.raw_array.size)
 
-        super(HSG_image, self).save_images(folder_str=folder_str)
-        return
+    def updateSaveSettings(self, other):
+        """
+        Given an other EMCCD_image, this will populate this objects
+        save settings (img no, filename, etc)
+        """
+        self.filename = other.file_name
+        self.file_no = other.file_no
+        self.description = other.description
+        self.equipment_dict.update(other.equipment_dict)
 
+    def addSpectrum(self, other):
+        if isinstance(other, EMCCD_image):
+            newSpec  = np.array(other.spectrum[:,1])
+            pulse = other.equipment_dict["fel_pulses"]
+            pulse = 1 if pulse == 0 else pulse
+            newSpec /= pulse
+            self.equipment_dict["fieldStrength"].append(other.equipment_dict["fieldStrength"])
+            self.equipment_dict["fieldInt"].append(other.equipment_dict["fieldInt"])
+            self.equipment_dict["fel_pulses"].append(other.equipment_dict["fel_pulses"])
+            self.raw_array = np.row_stack((self.raw_array, newSpec))
+
+        elif isinstance(other, np.ndarray):
+            self.raw_array = np.row_stack((self.raw_array, other))
+
+    def initializeSeries(self):
+        """
+        To be called when the class will hold a collection
+        of the FVB spectra. Sets up self.spectra and
+        makes equipment dict ready to append new values
+        """
+        self.isSeries = True
+        self.clean_array = None
+        pulse = self.equipment_dict["fel_pulses"]
+        pulse = 1 if pulse == 0 else pulse
+        self.raw_array = self.spectrum[:,1].reshape((1, 1600))/pulse
+        self.file_no += "seriesed"
+        self.equipment_dict["fieldStrength"] = [self.equipment_dict["fieldStrength"]]
+        self.equipment_dict["fieldInt"] = [self.equipment_dict["fieldInt"]]
+        self.equipment_dict["fel_pulses"] = [self.equipment_dict["fel_pulses"]]
 
 class PL_image(EMCCD_image):
     '''
@@ -465,10 +985,9 @@ class PL_image(EMCCD_image):
     #     np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array,
     #                delimiter=',', header=my_header, comments='#', fmt='%d')
 
-    
 class Abs_image(EMCCD_image):
     origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
-    def __init__(self, raw_array, file_name, file_no, description, equipment_dict):
+    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None
         self.equipment_dict["reference_file"] = ""

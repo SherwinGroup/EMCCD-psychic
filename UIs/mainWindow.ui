@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>827</width>
-    <height>735</height>
+    <height>847</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -481,7 +481,7 @@
                    <item>
                     <widget class="QINumberEdit" name="tVBin">
                      <property name="enabled">
-                      <bool>false</bool>
+                      <bool>true</bool>
                      </property>
                     </widget>
                    </item>
@@ -1148,23 +1148,33 @@
     <addaction name="mFileBreakTemp"/>
     <addaction name="mFileTakeContinuous"/>
     <addaction name="mFileEnableAll"/>
+    <addaction name="mFileDoSpecSweep"/>
+    <addaction name="mFileScanNeLines"/>
+    <addaction name="mFIleAbortAcquisition"/>
     <addaction name="separator"/>
     <addaction name="mFileFastExit"/>
+    <addaction name="mFileOpenDebugConsole"/>
    </widget>
    <widget class="QMenu" name="menuLive_Series">
     <property name="title">
-     <string>Live Series</string>
+     <string>Sequence Controls</string>
     </property>
-    <addaction name="mSeriesSum"/>
-    <addaction name="mSeriesUndo"/>
-    <addaction name="mSeriesRemove"/>
-    <addaction name="mSeriesReset"/>
+    <addaction name="mRemoveImageSequence"/>
+    <addaction name="mRemoveBackgroundSequence"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">
      <string>Experiment Type</string>
     </property>
-    <addaction name="fExpTypeHSG"/>
+    <widget class="QMenu" name="menuHSG_FVB">
+     <property name="title">
+      <string>HSG</string>
+     </property>
+     <addaction name="fExpTypeHSG_FVB"/>
+     <addaction name="fExpTypeHSG_Image"/>
+     <addaction name="fExpTypeHSG_PhotonCounting"/>
+    </widget>
+    <addaction name="menuHSG_FVB"/>
     <addaction name="fExpTypePL"/>
     <addaction name="fExpTypeAbs"/>
     <addaction name="fExpTypeTwo_Color_Abs"/>
@@ -1189,7 +1199,7 @@
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
     <string>Do cosmic ray removal</string>
@@ -1248,15 +1258,15 @@
     <string>Undo Last</string>
    </property>
   </action>
-  <action name="fExpTypeHSG">
+  <action name="fExpTypeHSGImage">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
-    <string>HSG</string>
+    <string>HSG Image</string>
    </property>
   </action>
   <action name="fExpTypePL">
@@ -1304,12 +1314,12 @@
     <string>Disable Raw Plots</string>
    </property>
   </action>
-  <action name="mSeriesRemove">
+  <action name="mRemoveImageSequence">
    <property name="text">
-    <string>Remove Series</string>
+    <string>Remove Image Sequence</string>
    </property>
   </action>
-  <action name="mSeriesReset">
+  <action name="m">
    <property name="text">
     <string>Set Current as First</string>
    </property>
@@ -1331,6 +1341,68 @@
   <action name="mLivePlotsForceAutoscale">
    <property name="text">
     <string>Force Histogram Autoscale</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_FVB">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FVB</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_Image">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Image</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_PhotonCounting">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Photon Counting</string>
+   </property>
+  </action>
+  <action name="mFileDoSpecSweep">
+   <property name="text">
+    <string>Do Spec Sweep</string>
+   </property>
+  </action>
+  <action name="mFileScanNeLines">
+   <property name="text">
+    <string>Scan Ne Lines</string>
+   </property>
+  </action>
+  <action name="mFileOpenDebugConsole">
+   <property name="text">
+    <string>Open Debug Console</string>
+   </property>
+  </action>
+  <action name="mRemoveBackgroundSequence">
+   <property name="text">
+    <string>Remove Background Sequence</string>
+   </property>
+  </action>
+  <action name="mProcessImageSequence">
+   <property name="text">
+    <string>Process Image Sequence</string>
+   </property>
+  </action>
+  <action name="mProcessBackgroundSequence">
+   <property name="text">
+    <string>Process Background Sequence</string>
+   </property>
+  </action>
+  <action name="mFIleAbortAcquisition">
+   <property name="text">
+    <string>Abort Acquisition</string>
    </property>
   </action>
  </widget>

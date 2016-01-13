@@ -204,6 +204,7 @@ class AndorEMCCD(object):
 
     def setVSS(self, idx):
         log.debug('Setting VSS {}'.format(idx))
+        self.getVSS()
         ret = self.dllSetVSSpeed(idx)
         if ret == 20002:
             self.cameraSettings['curVSS'] = self.cameraSettings['VSS'][idx]
@@ -414,9 +415,31 @@ class AndorEMCCD(object):
                     import fakeAndor as FA
                     dll = FA.fAndorEMCCD()
                     self.amFake = True
+                    dll.Initialize.retWeights = ((1,), -2)
                     dll.Initialize = FA.myCallable(lambda x: None, 'InitializeMissingDLL')
         
         self.dll = dll # For if it's ever needed to call things directly
+        """
+        AbortAcquisition: This function aborts the current
+        acquisition if one is active.
+
+        Parameters
+        ----------
+        None
+
+        Return
+        ------
+        unsigned int
+            DRV_SUCCESS             Acquisition aborted.
+            DRV_NOT_INITIALIZED     System not initialized.
+            DRV_IDLE                The system is not currently acquiring.
+            DRV_VXDNOTINSTALLED     VxD not loaded.
+            DRV_ERROR_ACK           Unable to communicate with card.
+
+        """
+        self.dllAbortAcquisition = dll.AbortAcquisition
+        self.dllAbortAcquisition.restype = c_uint
+        self.dllAbortAcquisition.argtypes = []
         
         
         """
