@@ -7,14 +7,13 @@ Created on Sat Feb 14 15:06:30 2015
 
 from __future__ import absolute_import
 
-import numpy as np
-from PyQt4 import QtCore, QtGui
 from Andor import AndorEMCCD
-import pyqtgraph as pg
+
 import pyqtgraph.console as pgc
 from InstsAndQt.Instruments import *
+from InstsAndQt.PyroOscope.OscWid import OscWid
 from InstsAndQt.customQt import *
-import copy
+
 import os
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -33,7 +32,7 @@ log.setLevel(logging.DEBUG)
 handler = logging.FileHandler("TheLog.log")
 handler.setLevel(logging.DEBUG)
 handler1 = logging.StreamHandler()
-handler1.setLevel(logging.DEBUG)
+handler1.setLevel(logging.WARN)
 formatter = logging.Formatter('%(asctime)s - [%(filename)s:%(lineno)s - %(funcName)s()] - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 handler1.setFormatter(formatter)
@@ -48,7 +47,7 @@ if os.name is not "posix":
 
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
-from OscWid import *
+# from OscWid import *
 
 
 try:
@@ -117,6 +116,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.initUI()
         if self.checkSaveFile():
             self.loadOldSettings()
+        else:
+            self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
+
 
         # A note on the cooler:
         # This command will make it so the cooling fan
@@ -339,7 +341,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.oscWidget = None
         self.curExp = None # Keep a reference if you ever want it
-        self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
+        # self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
 
         # Updating menus in the settings/CCD settings portion
@@ -490,7 +492,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.ui.menuLive_Series.addSeparator()
         addbg = self.ui.menuLive_Series.addAction("Load Background")
-        addbg.triggered.connect(self.getCurExp().reloadBackgroundFiles)
+        addbg.triggered.connect(lambda x:self.getCurExp().reloadBackgroundFiles())
 
 
 
@@ -576,14 +578,6 @@ class CCDWindow(QtGui.QMainWindow):
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
             self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
             self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
-        if self.curExp.hasFEL:
-            self.curExp.ui.tCCDFELP.setText(str(self.settings["fel_power"]))
-            self.curExp.ui.tCCDFELFreq.setText(str(self.settings["fel_lambda"]))
-            self.curExp.ui.tCCDFELRR.setText(str(self.settings["fel_reprate"]))
-            self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
-            self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
-            self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
-            self.curExp.ui.tCCDFELPol.setText(self.settings["fel_pol"])
         if openScope is None:
             openScope = self.expUIs[exp].hasFEL
         if openScope:
@@ -606,10 +600,29 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp = None
 
     def openFELEquipment(self):
-        self.oscWidget = OscWid(self)
+
+        self.oscWidget = OscWid(self, **self.settings)
         self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
 
     def closeFELEquipment(self):
+        # hold on to Osc Settings
+        # s = {
+        #     "fel_power": str(self.oscWidget.ui.tFELP.text()),
+        #     "fel_lambda": str(self.oscWidget.ui.tFELFreq.text()),
+        #     "fel_reprate": str(self.oscWidget.ui.tFELRR.text()),
+        #     "sample_spot_size": str(self.oscWidget.ui.tSpotSize.text()),
+        #     "window_trans": str(self.oscWidget.ui.tWindowTransmission.text()),
+        #     "eff_field": str(self.oscWidget.ui.tEffectiveField.text()),
+        #     "fel_pol": str(self.oscWidget.ui.tFELPol.text()),
+        #     "pulseCountRatio": str(self.oscWidget.ui.tOscCDRatio.text()),
+        #     'bcpyBG': self.oscWidget.boxcarRegions[0].getRegion(),
+        #     'bcpyFP': self.oscWidget.boxcarRegions[1].getRegion(),
+        #     'bcpyCD': self.oscWidget.boxcarRegions[2].getRegion()
+        # }
+        self.settings.update(self.oscWidget.getSaveSettings())
+
+
+
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.oscWidget)
         )
@@ -1308,6 +1321,7 @@ class CCDWindow(QtGui.QMainWindow):
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
         saveDict['curExp'] = [str(ii.text()) for ii in self.expMenuActions if ii.isChecked()][0]
+        # saveDict['comments'] = str(self.ui.tCCDComments.toPlainText())
 
         # print "saving curvss", saveDict["curVSS"]
         with open('Settings.txt', 'w') as fh:
@@ -1379,9 +1393,9 @@ class CCDWindow(QtGui.QMainWindow):
         # reopen the experiment tab, which should
         # repopulate the experimental parameters.
         # Might be a better way of doing this, but fekkit
-        curExp = self.getCurExp()
-        curExpAct = [k for k,v in self.expUIs.items() if v is curExp][0]
-        self.closeExp(curExpAct)
+        # curExp = self.getCurExp()
+        # curExpAct = [k for k,v in self.expUIs.items() if v is curExp][0]
+        # self.closeExp(curExpAct)
 
         [i.toggled.disconnect() for i in self.expMenuActions]
         [ii.setChecked(False) for ii in self.expMenuActions]
@@ -1447,8 +1461,6 @@ class CCDWindow(QtGui.QMainWindow):
             self.sbText.setMessage(obj[0], [1])
         
     def closeEvent(self, event):
-        self.saveSettings()
-
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:
             ret = QtGui.QMessageBox.warning(
@@ -1520,6 +1532,9 @@ class CCDWindow(QtGui.QMainWindow):
         #########
         # All clear, start closing things down
         #########
+        if self.oscWidget is not None:
+            self.closeFELEquipment()
+        self.saveSettings()
 
         # Make sure the shutter isn't accidentally left open
         # 0,0 -> Auto

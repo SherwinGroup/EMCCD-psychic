@@ -121,7 +121,6 @@ class BaseExpWidget(QtGui.QWidget):
 
         # these are necessary for experiments which calculate field strength/
         # intensity with the FEL
-        self.thCalcFields = TempThread(target = self.calcFieldValuesLoop)
         self.elWaitForOsc = QtCore.QEventLoop()
 
         self.curDataEMCCD = None
@@ -219,6 +218,7 @@ class BaseExpWidget(QtGui.QWidget):
                                                        str(self.ui.tCCDNIRPol.text()))
             )
 
+        """
         if self.hasFEL:
             self.ui.tCCDFELP.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('fel_power', v))
@@ -237,6 +237,7 @@ class BaseExpWidget(QtGui.QWidget):
                 lambda: self.papa.settings.__setitem__("fel_pol",
                                                        str(self.ui.tCCDFELPol.text()))
             )
+        """
 
         # add autocompleter functionality so you
         # know what series tags can automatically be used
@@ -408,8 +409,11 @@ class BaseExpWidget(QtGui.QWidget):
             self.runSettings["fieldStrength"] = []
             self.runSettings["fieldInt"] = []
             self.ui.tCCDFELPulses.setText("0")
-            self.papa.oscWidget.ui.tOscPulses.setText("0")
-            self.papa.oscWidget.settings["FELPulses"] = 0
+            self.papa.oscWidget.startExposure()
+            # Probably clearer/better to connect this to a function...
+            # Need to ignore signal if things iddn't work
+            self.papa.oscWidget.sigPulseCounted.connect(
+                    lambda x: [self.ui.tCCDFELPulses.setText(str(x)) if x>=0 else 0])
         self.thDoExposure.start()
 
     def doExposure(self, postProcessing = lambda: True):
@@ -436,17 +440,17 @@ class BaseExpWidget(QtGui.QWidget):
             # This feature is intended to synchronize better with the camera
             # exposure when it is also triggered by the FEL.
             waitForPulseLoop = QtCore.QEventLoop()
-            self.papa.oscWidget.updateOscDataSig.connect(waitForPulseLoop.exit)
+            self.papa.oscWidget.sigOscDataCollected.connect(waitForPulseLoop.exit)
             waitForPulseLoop.exec_()
 
         self.runSettings["exposing"] = True
-        if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
-            self.thCalcFields.start()
+
         if not self.papa.ui.mFileTakeContinuous.isChecked():
             self.sigStartTimer.emit()
         ret = self.papa.CCD.dllWaitForAcquisition()
         log.debug("Finished Waiting for Acquisition")
         self.runSettings["exposing"] = False
+        self.papa.oscWidget.stopExposure()
         self.sigMakeGui.emit(self.updateProgressBar, None)
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
@@ -615,69 +619,6 @@ class BaseExpWidget(QtGui.QWidget):
 
 
     @staticmethod
-    def __PULSE_COUNTING(): pass
-    ################################
-    #
-    # These methods only really matter if the FEL
-    # is around
-    #
-    ################################
-    def calcFieldValuesLoop(self):
-        self.elWaitForOsc = QtCore.QEventLoop()
-        self.papa.oscWidget.sigDoneCounting.connect(self.elWaitForOsc.exit)
-        self.elWaitForOsc.exec_()
-        self.papa.oscWidget.sigDoneCounting.disconnect(self.elWaitForOsc.exit)
-        while self.runSettings["exposing"]:
-            try:
-                self.doFieldCalcuation(
-                    self.papa.oscWidget.settings["pyBG"],
-                    self.papa.oscWidget.settings["pyFP"],
-                    self.papa.oscWidget.settings["pyCD"]
-                )
-                # MUST INSTANTIATE IN THREAD
-                # Otherwise catastrophic Qt errors arise
-                self.elWaitForOsc = QtCore.QEventLoop()
-                self.papa.oscWidget.sigDoneCounting.connect(self.elWaitForOsc.exit)
-                self.elWaitForOsc.exec_()
-                self.papa.oscWidget.sigDoneCounting.disconnect(self.elWaitForOsc.exit)
-            except Exception as e:
-                print "ERROR ",e
-
-    def doFieldCalcuation(self, BG = 1.0, FP = 2.0, CD = 2.0):
-        """
-        :param BG: integrated background value
-        :param FP: integrated front porch value
-        :param CD: integrated cav   ity dump region
-        :return:
-        """
-        try:
-            energy = self.ui.tCCDFELP.value()
-            windowTrans = self.ui.tCCDWindowTransmission.value()
-            effField = self.ui.tCCDEffectiveField.value()
-            radius = self.ui.tCCDSpotSize.value()
-            # if str(self.papa.oscWidget.ui.cPyroMode.currentText()) == "Instant":
-            #     ratio = CD/(FP + CD)
-            # else:
-            #     ratio = CD/FP
-            ratio = self.papa.oscWidget.settings['CDtoFPRatio']
-            intensity = calc_THz_intensity(energy, windowTrans, effField, radius=radius,
-                                           ratio = ratio)
-            field = calc_THz_field(intensity)
-
-            intensity = round(intensity/1000., 3)
-            field = round(field/1000., 3)
-
-            self.papa.updateElementSig.emit(
-                self.ui.tCCDIntensity, "{:.3f}".format(intensity))
-            self.runSettings["fieldInt"].append(intensity)
-            self.papa.updateElementSig.emit(
-                self.ui.tCCDEField, "{:.3f}".format(field))
-            self.runSettings["fieldStrength"].append(field)
-
-        except Exception as e:
-            log.warning("Could not calculate electric field, {}".format(e))
-
-    @staticmethod
     def __PROCESSING_METHODS(): pass
     ####################################
     #
@@ -706,24 +647,7 @@ class BaseExpWidget(QtGui.QWidget):
                                            str(self.ui.tCCDComments.toPlainText()),
                                            self.genEquipmentDict())
 
-        """
-        try:
-            self.curDataEMCCD = self.curDataEMCCD - self.curBackEMCCD
-            self.curDataEMCCD.equipment_dict["background_darkcount_std"] = np.std(
-                self.curBackEMCCD.clean_array[self.curDataEMCCD.equipment_dict["y_min"]:
-                self.curDataEMCCD.equipment_dict["y_max"], :]
-            )
-        except AttributeError as e:
-            log.debug("Attribute error: {}".format(e))
-            pass # usually just because you subtract without taking a
-            # background first
-        except Exception as e:
-            log.warning("Error subtracting background {}".format(e))
-        log.debug("Making CCD Spectra")
-        self.curDataEMCCD.make_spectrum()
-        log.debug("Subtracting dark counts")
-        self.curDataEMCCD.inspect_dark_regions()
-        """
+
         self.curDataEMCCD.make_spectrum()
         log.debug("Emitting image updates")
         # self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.raw_array)
@@ -753,27 +677,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
 
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
-        """
-        try:
-            log.debug("Saving CCD Spectra")
-            self.curDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
-            self.papa.sigUpdateStatusBar.emit("Saved Spectrum: {}".format(self.ui.tCCDImageNum.value()+1))
-            # incrememnt the counter, but certainly after we're done with it
-            # self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
-        except Exception as e:
-            self.papa.sigUpdateStatusBar.emit("Error saving Spectrum")
-            log.warning("Error saving Data Spectrum, {}".format(e))
-        """
-        """
-        if self.papa.ui.mSeriesSum.isChecked() and str(self.ui.tCCDSeries.text())!="":
-            log.debug("Image a part of series")
-            self.papa.updateElementSig.emit(self.ui.lCCDProg, "Adding Series...")
-            self.analyzeSeries()
-        else:
-            self.prevDataEMCCD = None
-            self.runSettings["seriesNo"] = 0
-            self.ui.groupBox_Series.setTitle("Series")
-        """
+
         # self.analyzeSeries()
         self.addImageSequence()
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
@@ -897,44 +801,18 @@ class BaseExpWidget(QtGui.QWidget):
         s["spec_step"] = str(self.ui.tSpectrumStep.text())
         s["ccd_image_settings"] = self.papa.CCD.cameraSettings["imageSettings"]
         if self.hasFEL:
-            s["fel_power"] = str(self.ui.tCCDFELP.text())
-            s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
-            s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
-            s["fel_pol"] = str(self.ui.tCCDFELPol.text())
-            s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
-                str(self.ui.tCCDFELPulses.text()).strip() else 0
+            # s["fel_power"] = str(self.ui.tCCDFELP.text())
+            # s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
+            # s["fel_lambda"] = str(self.ui.tCCDFELFreq.text())
+            # s["fel_pol"] = str(self.ui.tCCDFELPol.text())
+            # s["fel_pulses"] = int(self.ui.tCCDFELPulses.text()) if \
+            #     str(self.ui.tCCDFELPulses.text()).strip() else 0
             try:
                 s["fel_transmission"] = str(self.papa.motorDriverWid.ui.tCosCalc.text())
             except Exception as e:
                 log.warning("Unable to grab wire grid transmission: {}".format(e))
 
-            # We've started to do really long exposures
-            # ( 10 min ~ 300-400 FEL pulses)
-            # which gets annoying when we used to print every pulse
-            # Now we just print some statistics and hope it's
-            # useful enough for us
-            fs = np.array(self.runSettings["fieldStrength"])
-            # prevent warnings/errors when no pulses counted
-            if len(fs)==0:
-                fs = [0]
-            s["fieldStrength"] = {
-                "mean":np.mean(fs),
-                "std": np.std(fs),
-                "skew": spt.skew(fs),
-                "kurtosis": spt.kurtosis(fs)
-            }
-
-            fs = np.array(self.runSettings["fieldInt"])
-            if len(fs)==0:
-                fs = [0]
-            s["fieldInt"] = {
-                "mean":np.mean(fs),
-                "std": np.std(fs),
-                "skew": spt.skew(fs),
-                "kurtosis": spt.kurtosis(fs)
-            }
-
-            # s["fieldInt"] = self.runSettings["fieldInt"]
+            s.update(self.papa.oscWidget.getExposureResults())
 
         if self.hasNIR:
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
@@ -955,12 +833,6 @@ class BaseExpWidget(QtGui.QWidget):
         # when trying to access FEL/NIR only keys
         st = str(self.ui.tCCDSeries.text())
         st = st.format(**{k: s.get(v, -1.1) for k, v in seriesTags .items()})
-        # st = st.format(SLITS=s.get("slits", None), SPECL = s.get("center_lambda"),
-        #                GAIN=s.get("gain"), EXP=s.get("exposure"),
-        #                FELF=s.get("fel_lambda"), FELP=s.get("fel_power"),
-        #                NIRP=s.get("nir_power"), NIRW=s.get("nir_lambda"))
-
-
 
         s["series"] = st
         return s
@@ -1156,7 +1028,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.prevDataEMCCD.equipment_dict["background_file"] = \
                 self.curBackEMCCD.saveFileName
         except AttributeError:
-            self.prevRefEMCCD.equipment_dict["background_file"] = "NoneTaken"
+            self.prevDataEMCCD.equipment_dict["background_file"] = "NoneTaken"
 
         d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
             self.curBackEMCCD.imageSequence
@@ -1216,6 +1088,7 @@ class BaseExpWidget(QtGui.QWidget):
             oh = self.prevDataEMCCD.origin_import.splitlines()
             oh[1] += ",error"
             oh[2] += ",arb.u."
+            oh.append(",{},".format(self.prevDataEMCCD.equipment_dict["series"]))
             oh = "\n".join(oh)
 
             self.prevDataEMCCD.save_spectrum(
@@ -1224,7 +1097,7 @@ class BaseExpWidget(QtGui.QWidget):
                 origin_header=oh
             )
         except Exception as e:
-            log.warning("Exception trying to make/save the sequenced spectrum file,"
+            log.warning("Exception trying to make/save the sequenced spectrum file\n\t\t"
                         "{}".format(e))
 
         self.curDataEMCCD = self.prevDataEMCCD
@@ -1700,25 +1573,6 @@ class AbsWid(BaseExpWidget):
             self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
 
 
-    # def processImage(self):
-    #     super(AbsWid, self).processImage()
-    #     return
-    #     if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
-    #         self.papa.sigUpdateStatusBar.emit("Please take a reference with the same settings")
-    #         log.warning("Please take a reference with the same settings")
-    #         return
-    #     else:
-    #         self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
-    #         self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
-    #         self.curAbsEMCCD.origin_import = \
-    #             '\nWavelength,Raw Blank, Raw Trans, Abs\nnm,arb. u., arb. u., bels'
-    #         try:
-    #             self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
-    #         except Exception as e:
-    #             self.papa.sigUpdateStatusBar.emit("Error saving Absorbance")
-    #             log.warning("Error saving Absorbance Spectrum, {}".format(e))
-    #         self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
-
     def processImageSequence(self):
         super(AbsWid, self).processImageSequence()
         if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
@@ -1878,6 +1732,7 @@ class AbsWid(BaseExpWidget):
             oh = self.prevRefEMCCD.origin_import.splitlines()
             oh[1] += ",error"
             oh[2] += ",arb.u."
+            oh.append(",{},".format(self.prevRefEMCCD.equipment_dict["series"]))
             oh = "\n".join(oh)
 
             self.prevRefEMCCD.save_spectrum(
@@ -1966,15 +1821,6 @@ class AbsWid(BaseExpWidget):
         super(AbsWid, self).toggleUIElements(enabled)
         self.ui.bCCDReference.setEnabled(enabled)
 
-    # def updateSignalImage(self, data = None):
-        # title = "Transmission"
-        # if id(data) == id(self.curRefEMCCD):
-        #     data = self.curRefEMCCD.clean_array
-        #     title = "Blank"
-        # super(AbsWid, self).updateSignalImage(data)
-        # pi = self.ui.gCCDImage.view
-        # pi.setTitle(title)
-
     def updateSpectrum(self, data = None):
         title = "Transmission"
         # Need to use id() because we've overloaded __eq__ for the
@@ -2010,7 +1856,7 @@ class AbsWid(BaseExpWidget):
 
     def genEquipmentDict(self):
         s = super(AbsWid, self).genEquipmentDict()
-        s["led_current"] = float(self.ui.tCCDLEDCurrent.text())
+        s["led_current"] = str(self.ui.tCCDLEDCurrent.text())
         s["led_temp"] = float(self.ui.tCCDLEDTemp.text())
         s["led_power"] = float(self.ui.tCCDLEDPower.text())
         return s

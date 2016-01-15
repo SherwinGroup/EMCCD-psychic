@@ -545,7 +545,10 @@ class EMCCD_image(object):
 
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
-        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
+        eq_dict = self.equipment_dict.copy()
+        eq_dict.update({"comments":self.description})
+        equipment_str = json.dumps(eq_dict, separators=(',', ': '),
+                      sort_keys=True, indent=4 )
         if origin_header is None:
             origin_import = self.origin_import
         else:
@@ -556,7 +559,7 @@ class EMCCD_image(object):
 
 
         filename += "_spectrum.txt"
-        my_header = '#' + equipment_str + '\n' + '#' + self.description.replace('\n','\n#') + origin_import
+        my_header = '#' + equipment_str.replace('\n', '\n#') + '\n' + origin_import
         np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
 
@@ -1021,6 +1024,59 @@ class Abs_image(EMCCD_image):
         ret.spectrum = np.concatenate((wavelengths, self.spectrum[:,1].T,
                                         other.spectrum[:,1].T, abs_spec)).reshape(4,1600).T
         return ret
+
+    def setAsSequence(self):
+        """
+        This function is called by the expwidget when this object
+        becomes a sequence image. Sets things up to be ready to take multiple
+        images. Updates things such as FEL pulses/stats in the equipment dict
+        to be lists to append to.
+
+        Need to subclass here to force no norm factor. This prevents
+        normalization to FEL pulses, which isn't good for abs (especially
+        if reference doesn't have FEL on and is normalized differently)
+        :return:
+        """
+        self.imageSequence.clearImages()
+        self.imageSequence.addImage(self, normFactor=1)
+        self.isSequence = True
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"] = [
+                self.equipment_dict["fieldStrength"]
+            ]
+
+            self.equipment_dict["fieldInt"] = [
+                self.equipment_dict["fieldInt"]
+            ]
+
+            self.equipment_dict["fel_pulses"] = [
+                self.equipment_dict["fel_pulses"]
+            ]
+
+    def addNewImage(self, newImage):
+        """
+        This function should be called by an object
+        which serves to act as a collection of multiple images.
+
+        This will collect the FEL changes (pulses, strength, etc)
+        :param newImage:
+        :type newImage: EMCCD_image
+        :return:
+        """
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"].append(
+                newImage.equipment_dict["fieldStrength"]
+            )
+
+            self.equipment_dict["fieldInt"].append(
+                newImage.equipment_dict["fieldInt"]
+            )
+
+            self.equipment_dict["fel_pulses"].append(
+                newImage.equipment_dict["fel_pulses"]
+            )
+        self.imageSequence.addImage(newImage, normFactor=1)
+
 
 
 
