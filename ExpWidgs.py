@@ -1,12 +1,8 @@
-
 from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
-import numpy as np
-import scipy.integrate as spi
 from scipy.interpolate import interp1d
-import scipy.stats as spt # for calculating FEL pulse information
-import re
 import time
+import hsganalysis as hsg
 from UIs.Abs_ui import Ui_Abs
 from UIs.HSG_ui import Ui_HSG
 from UIs.PL_ui import Ui_PL
@@ -14,6 +10,7 @@ from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
 from UIs.Alignment_ui import Ui_Alignment
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
+import hsganalysis as hsg
 from image_spec_for_gui import *
 from InstsAndQt.customQt import *
 
@@ -218,54 +215,13 @@ class BaseExpWidget(QtGui.QWidget):
                                                        str(self.ui.tCCDNIRPol.text()))
             )
 
-        """
-        if self.hasFEL:
-            self.ui.tCCDFELP.textAccepted.connect(
-                lambda v: self.papa.settings.__setitem__('fel_power', v))
-            self.ui.tCCDFELFreq.textAccepted.connect(
-                lambda v: self.papa.settings.__setitem__('fel_lambda', v))
-            self.ui.tCCDFELRR.editingFinished.connect(
-                lambda: self.papa.settings.__setitem__('fel_reprate',
-                                                       str(self.ui.tCCDFELRR.text())))
-            self.ui.tCCDSpotSize.textAccepted.connect(
-                lambda v: self.papa.settings.__setitem__('sample_spot_size', v))
-            self.ui.tCCDWindowTransmission.textAccepted.connect(
-                lambda v: self.papa.settings.__setitem__('window_trans', v))
-            self.ui.tCCDEffectiveField.textAccepted.connect(
-                lambda v: self.papa.settings.__setitem__('eff_field', v))
-            self.ui.tCCDFELPol.editingFinished.connect(
-                lambda: self.papa.settings.__setitem__("fel_pol",
-                                                       str(self.ui.tCCDFELPol.text()))
-            )
-        """
-
         # add autocompleter functionality so you
         # know what series tags can automatically be used
         words = ["{"+ii+"}" for ii in seriesTags]
         comp = QtGui.QCompleter(words, self)
         self.ui.tCCDSeries.setCompleter(comp)
 
-        """
-        11/6/15 Should be uncessary code
-        after migrating from qgraphicslayoutwidget
-        to imageview
-        # Follow the pyqtgraph example for how to set up
-        # an image plot and histogram, without the other obnoxious stuff
-        # included in a plain ImageView
-        self.p1 = self.ui.gCCDImage.addPlot()
-        self.pSigImage = pg.ImageItem()
-        self.p1.addItem(self.pSigImage)
-        self.pSigHist = pg.HistogramLUTItem()
-        self.pSigHist.setImageItem(self.pSigImage)
-        self.ui.gCCDImage.addItem(self.pSigHist)
 
-        self.p2 = self.ui.gCCDBack.addPlot()
-        self.pBackImage = pg.ImageItem()
-        self.p2.addItem(self.pBackImage)
-        self.pBackHist = pg.HistogramLUTItem()
-        self.pBackHist.setImageItem(self.pBackImage)
-        self.ui.gCCDBack.addItem(self.pBackHist)
-        """
         self.ui.gCCDBack.view.setAspectLocked(False)
         self.ui.gCCDBack.view.invertY(False)
 
@@ -450,7 +406,8 @@ class BaseExpWidget(QtGui.QWidget):
         ret = self.papa.CCD.dllWaitForAcquisition()
         log.debug("Finished Waiting for Acquisition")
         self.runSettings["exposing"] = False
-        self.papa.oscWidget.stopExposure()
+        if self.hasFEL:
+            self.papa.oscWidget.stopExposure()
         self.sigMakeGui.emit(self.updateProgressBar, None)
         if self.hasFEL and not self.papa.ui.mFileTakeContinuous.isChecked():
             try:
@@ -1031,7 +988,7 @@ class BaseExpWidget(QtGui.QWidget):
             self.prevDataEMCCD.equipment_dict["background_file"] = "NoneTaken"
 
         d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
-            self.curBackEMCCD.imageSequence
+            self.curBackEMCCD
         )
         self.prevDataEMCCD.clean_array = d
         self.updateSignalImage(d)
@@ -1233,12 +1190,52 @@ class BaseExpWidget(QtGui.QWidget):
     @staticmethod
     def __RELOADING_FILES(): pass
     def reloadBackgroundFiles(self):
-        print self.papa.settings["saveDir"]
         files = QtGui.QFileDialog.getOpenFileNames(
             self, "Choose background files",
-            str(self.papa.settings["saveDir"])
+            os.path.join(self.papa.settings["saveDir"], "Images")
         )
-        print "chosen files:", files
+        files = [str(i) for i in files]
+        files = [i for i in files if '.txt' in i]
+        if not files:
+            return
+
+        print [i for i in files]
+        if len(files) == 2 and any(['seq' in os.path.basename(ii) for ii in files]):
+            self.reloadFullSequenceBackground(files)
+        else:
+            self.reloadPartialSequenceBackground(files)
+
+    def reloadFullSequenceBackground(self, files):
+        log.debug("Loading background sequence files...")
+        seqFile = [ii for ii in files if 'seq' in os.path.basename(ii)][0]
+        stdFile = [ii for ii in files if 'std' in os.path.basename(ii)][0]
+        bg = loadImageFile(seqFile, cls=self.DataClass)
+        log.debug("Loaded background sequence file")
+        std, _ = loadImageFile(stdFile)
+
+        log.debug("Loaded background std file")
+        bg.std_array = std
+        self.updateBackgroundImage(bg.clean_array)
+        self.curBackEMCCD = bg
+        self.prevBackEMCCD = None
+        lenBG = bg.equipment_dict["noImages"]
+
+        curBGtitle = str(self.ui.groupBox_38.title())
+        curBGtitle = curBGtitle.split('(')[0] + "({})".format(
+                    lenBG)
+        self.ui.groupBox_38.setTitle(
+            curBGtitle
+        )
+
+    def reloadPartialSequenceBackground(self, files):
+        self.prevBackEMCCD = None
+        bgs = [loadImageFile(ii, self.DataClass) for ii in files]
+        bgs = sorted(bgs, key=lambda x:x.equipment_dict["fileno"])
+        for bg in bgs:
+            self.curBackEMCCD = bg
+            self.addBackgroundSequence()
+        # update images
+        self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.prevBackEMCCD.imageSequence.getImages())
 
     @staticmethod
     def __BASIC_UI_CHANGES(): pass
@@ -1381,11 +1378,17 @@ class BaseHSGWid(BaseExpWidget):
         self.ui.gCCDBin.addItem(self.ilSpec)
         self.ui.tCCDSidebandNumber.textAccepted.connect(self.updateSBfromValue)
 
+        self.freqInfoText = pg.TextItem('', color=(0,0,0))
+        self.freqInfoText.setPos(0,0)
+        self.freqInfoText.setFont(QtGui.QFont("", 15))
+        self.ui.gCCDBin.addItem(self.freqInfoText)
+        self.ui.gCCDBin.sigRangeChanged.connect(self.updateFreqText)
+
     def updateSBfromLine(self):
         try:
             wn = 10000000./self.ui.tCCDNIRwavelength.value()
             wanted = 10000000./self.ilSpec.value()
-            sbn = (wanted-wn)/self.ui.tCCDFELFreq.value()
+            sbn = (wanted-wn)/self.papa.oscWidget.ui.tFELFreq.value()
             # Need to disconnect/reconnect here, otherwise they call each other infinitely
             self.ui.tCCDSidebandNumber.textAccepted.disconnect(self.updateSBfromValue)
             self.ui.tCCDSidebandNumber.setText("{:.3f}".format(sbn))
@@ -1395,11 +1398,10 @@ class BaseHSGWid(BaseExpWidget):
                 return
             log.warning("Could not update SB line, {}".format(e))
 
-
     def updateSBfromValue(self):
         try:
             wn = 10000000./self.ui.tCCDNIRwavelength.value()
-            wanted = wn + self.ui.tCCDSidebandNumber.value()*self.ui.tCCDFELFreq.value()
+            wanted = wn + self.ui.tCCDSidebandNumber.value()*self.papa.oscWidget.ui.tFELFreq.value()
             wanted = 10000000./wanted
             # Need to disconnect/reconnect here, otherwise they call each other infinitely
             self.ilSpec.sigPositionChanged.disconnect(self.updateSBfromLine)
@@ -1407,6 +1409,43 @@ class BaseHSGWid(BaseExpWidget):
             self.ilSpec.sigPositionChanged.connect(self.updateSBfromLine)
         except Exception as e:
             log.warning("Could not update SB line from inputted value, {}".format(e))
+
+    def updateFreqText(self, pw, range):
+        self.freqInfoText.setPos(range[0][0], range[1][1])
+
+    def processImage(self):
+        super(BaseHSGWid, self).processImage()
+        # need to emit cause thsi is called
+        self.sigMakeGui.emit(self.freqInfoText.setText, ('', ))
+
+    def processImageSequence(self):
+        super(BaseHSGWid, self).processImageSequence()
+        spec = hsg.HighSidebandCCD(self.curDataEMCCD.spectrumFileName)
+        spec.guess_sidebands()
+        spec.fit_sidebands()
+        # fit the positions up to the last two (generally noisy points
+        # which throw off the fits
+        p = np.polyfit(spec.sb_results[:-2,0], spec.sb_results[:-2,1], deg=1)
+        fel = p[0]*8065.54429 # get fel freq in cm-1
+        nir = p[1] * 8065.54429# get nir freq in cm-1
+
+        g = '#00FF00'
+        r = '#FF0000'
+
+        felcolor = g
+        nircolor = g
+        if np.abs(1e7/self.ui.tCCDNIRwavelength.value() - nir) > 8:
+            nircolor = r
+        if np.abs(self.papa.oscWidget.ui.tFELFreq.value()-fel)>0.1:
+            felcolor = r
+        self.freqInfoText.setHtml(
+            "<font color={}>FEL: {:.1f} GHz ({:.2f} cm<sup>-1</sup>)</font><br>".format(
+                felcolor, fel*29.97925, fel
+            )+\
+            "<font color={}>NIR: {:.3f} nm ({:.1f} cm<sup>-1</sup>)</font>".format(
+                nircolor, 1e7/nir, nir
+            )
+        )
 
 class HSGImageWid(BaseHSGWid):
     pass
@@ -1559,6 +1598,10 @@ class AbsWid(BaseExpWidget):
 
     def experimentOpen(self):
         self.ui.tCCDRefNum.setText(str(self.papa.settings["rfNumber"]))
+        self.papa.ui.mLoadReferences.setVisible(True)
+
+    def experimentClose(self):
+        self.papa.ui.mLoadReferences.setVisible(False)
 
     def takeReference(self):
         self.takeImage(isBackground = self.processReference)
@@ -1569,9 +1612,61 @@ class AbsWid(BaseExpWidget):
         if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
             return
         else:
-            self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
-            self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
+            try:
+                self.curAbsEMCCD = self.curRefEMCCD/(self.curDataEMCCD-self.curBackEMCCD)
+                self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
+            except Exception as e:
+                log.warning("Error updating abs spectrum", e)
 
+    def reloadReferenceFiles(self):
+        files = QtGui.QFileDialog.getOpenFileNames(
+            self, "Choose reference files",
+            os.path.join(self.papa.settings["saveDir"], "Images")
+        )
+        files = [str(i) for i in files]
+        files = [i for i in files if '.txt' in i]
+        if not files:
+            return
+
+        print [i for i in files]
+        if len(files) == 2 and any(['seq' in os.path.basename(ii) for ii in files]):
+            self.reloadFullSequenceReference(files)
+        else:
+            self.reloadPartialSequenceReference(files)
+
+    def reloadFullSequenceReference(self, files):
+        log.debug("Loading reference sequence files...")
+        seqFile = [ii for ii in files if 'seq' in os.path.basename(ii)][0]
+        stdFile = [ii for ii in files if 'std' in os.path.basename(ii)][0]
+        ref = loadImageFile(seqFile, cls=self.DataClass)
+        log.debug("Loaded reference sequence file")
+        std, _ = loadImageFile(stdFile)
+
+        log.debug("Loaded reference std file")
+        ref.std_array = std
+        self.curRefEMCCD = ref
+        self.prevRefEMCCD = None
+        lenref = ref.equipment_dict["noImages"]
+
+        curReftitle = str(self.ui.groupBox.title())
+        curReftitle = curReftitle.split('(')[0] + "({})".format(
+                    lenref)
+        self.ui.groupBox.setTitle(
+            curReftitle
+        )
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.curRefEMCCD)
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevRefEMCCD.imageSequence.getImages())
+
+    def reloadPartialSequenceReference(self, files):
+        self.prevRefEMCCD = None
+        refs = [loadImageFile(ii, self.DataClass) for ii in files]
+        refs = sorted(refs, key=lambda x:x.equipment_dict["fileno"])
+        for ref in refs:
+            self.curRefEMCCD = ref
+            self.addReferenceSequence()
+        # update images
+        self.sigUpdateGraphs.emit(self.updateSpectrum, self.curRefEMCCD)
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevRefEMCCD.imageSequence.getImages())
 
     def processImageSequence(self):
         super(AbsWid, self).processImageSequence()
@@ -1672,7 +1767,7 @@ class AbsWid(BaseExpWidget):
         except AttributeError:
             self.prevRefEMCCD.equipment_dict["background_file"] = "NoneTaken"
         d, sigpost, sigT = self.prevRefEMCCD.imageSequence.subtractImage(
-            self.curBackEMCCD.imageSequence
+            self.curBackEMCCD
         )
         self.prevRefEMCCD.clean_array = d
         self.updateSignalImage(d)
@@ -1849,6 +1944,9 @@ class AbsWid(BaseExpWidget):
                 )
                 self.ui.gCCDBin.plotItem.vb.enableAutoRange(x=True)
             self.updateGraphViews()
+
+        # set top axis to pixel number
+        self.ui.gCCDBin.plotItem.getAxis('top').setDataSet(data[:,0])
 
         # super(AbsWid, self).updateSpectrum(data)
         # pi = self.ui.gCCDBin.getPlotItem()

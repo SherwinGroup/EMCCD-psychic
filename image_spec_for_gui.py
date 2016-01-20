@@ -253,11 +253,15 @@ class ConsecutiveImageAnalyzer(object):
         """
 
         :param other:
-        :type other: ConsecutiveImageAnalyzer
+        :type other: EMCCD_image
         :return:
         """
-        back = np.mean(other.getImages().astype(float), axis=0)
-        sigb = np.std(other.getImages(), axis=0)
+        if other.std_array is not None:
+            back = other.clean_array
+            sigb = other.std_array
+        else:
+            back = np.mean(other.imageSequence.getImages().astype(float), axis=0)
+            sigb = np.std(other.imageSequence.getImages(), axis=0)
         normfact = np.array(self._normFactors)
 
         img = np.array(self.getImages()).astype(float)
@@ -301,9 +305,47 @@ class ConsecutiveImageAnalyzer(object):
                 (self._stackedImages, newImage[None,:,:]), axis=0
             )
         return self._stackedImages
+
     def numImages(self):
         return len(self._rawImages)
 
+def loadImageFile(fname, cls = None):
+    """
+    Given the filename of an image file, will open it up,
+    get the equipment dict and data out of it. If cls is
+    not None, will return an instantiated image data class
+    of the data. Otherwise, will return the data/equip dict
+    :param fname:
+    :param cls:
+    :return:
+    """
+    with open(fname) as fh:
+        param_str = ''
+        line = fh.readline()
+        while line[0] == '#':
+            param_str += line[1:]
+            line = fh.readline()
+            # new = fh.readline()
+            # initial = new[0]
+            # param_str += new[1:]
+        parameters = json.loads(param_str)
+    data = np.genfromtxt(fname, delimiter=',')
+    if cls is None:
+        return data, parameters
+    else:
+        obj = cls(data,
+                  file_name = parameters.get('filename', ''),
+                  file_no = parameters.get('fileno', ''),
+                  description = parameters.get('comments', ''),
+                  equipment_dict = parameters.copy()
+                  )
+        obj.clean_array = obj.raw_array # it's been saved so it's been cleaned
+        obj.addenda = parameters["addenda"]
+        obj.subtrahenda = parameters["subtrahenda"]
+        obj.equipment_dict["background_darkcount_std"] = parameters["background_darkcount_std"]
+        obj.equipment_dict["background_file"] = parameters["background_file"]
+
+        return obj
 
 class EMCCD_image(object):
     origin_import = '\nWavelength,Signal\nnm,arb. u.'
@@ -353,6 +395,11 @@ class EMCCD_image(object):
         self.imageSequence = ConsecutiveImageAnalyzer()
 
         self.isSequence = False
+        # keep a reference to the full file name of the
+        # spectrum file which is saved
+        # (used by the gui to load the file and fit the
+        # sb to find frequencies)
+        self.spectrumFileName = ''
 
     def __str__(self):
         '''
@@ -500,22 +547,6 @@ class EMCCD_image(object):
                                           self.equipment_dict['grating'])
             self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
 
-        # elif isinstance(background, EMCCD_image):
-            # self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
-            # self.spectrum -= background.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
-            #
-            # spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
-            # back_std = np.mean(background.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
-            # spec_std = np.sqrt(spec_std**2 + back_std**2)
-            #
-            #
-            # wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
-            #                               self.equipment_dict['grating'])
-            # self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
-
-
-        # else:
-        #     raise RuntimeError("What the fuck are you trying to do? I don't want to handle this right now")
 
         
     def inspect_dark_regions(self):
@@ -559,8 +590,9 @@ class EMCCD_image(object):
 
 
         filename += "_spectrum.txt"
-        my_header = '#' + equipment_str.replace('\n', '\n#') + '\n' + origin_import
-        np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
+        my_header = '#' + equipment_str.replace('\n', '\n#') + origin_import
+        self.spectrumFileName = os.path.join(folder_str, 'Spectra', self.file_name, filename)
+        np.savetxt(self.spectrumFileName, self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
 
     def getFileName(self, prefix=None):
@@ -602,46 +634,35 @@ class EMCCD_image(object):
         '''
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
+        eq_dict = self.equipment_dict.copy()
+        eq_dict.update({"comments":self.description,
+                        "filename": self.file_name,
+                        "fileno": self.file_no,
+                        "noImages": self.imageSequence.numImages()})
         try:
-            equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-        except:
-            print "Source: EMCCD_image.save_images\nJSON FAILED"
-            print self.equipment_dict
-            return
-        
-        my_header = "#" + equipment_str + '\n#' +  self.description.replace('\n','\n#')
+            equipment_str = json.dumps(eq_dict, separators=(',', ': '),
+                          sort_keys=True, indent=4 )
+        except Exception as e:
+            print "Exception jsoning"
+            print e
+            print eq_dict
 
 
+        my_header = '#' + equipment_str.replace('\n', '\n#')
 
-        # All the data will end up doig the same thing,
-        # only difference is the preffix to the name (?)
-        # which can also be set specifically with the function call
-        if prefix is None:
-            name = type(self).__name__.lower()
-            if "hsg" in name:
-                filename = "hsg_"
-                if "fvb" in name:
-                    filename += 'fvb_'
-            elif "pl" in name:
-                filename = "pl_"
-            elif "abs" in name:
-                filename = "absRaw_"
-            else:
-                filename = ""
-        else:
-            filename = str(prefix)
+
+        filename = self.getFileName(prefix)
+        filename += postfix + '.txt'
 
         if data is None:
             data = self.raw_array
 
-
-        filename += self.file_name + postfix + self.file_no + '.txt'
         self.saveFileName = filename
         np.savetxt(os.path.join(folder_str, "Images", filename), data,
-               delimiter=',', header=my_header, comments = '#', fmt=fmt)
-        print "Saved image\nDirectory: {}".format(
-            os.path.join(folder_str, "Images", filename)
-        )
+               delimiter=',', header=my_header, comments = '', fmt=fmt)
+        # print "Saved image\nDirectory: {}".format(
+        #     os.path.join(folder_str, "Images", filename)
+        # )
 
     def setAsSequence(self):
         """
@@ -667,6 +688,24 @@ class EMCCD_image(object):
                 self.equipment_dict["fel_pulses"]
             ]
 
+
+
+            self.equipment_dict["pyroVoltage"] = [
+                self.equipment_dict["pyroVoltage"]
+            ]
+            if "fpTime" in self.equipment_dict:
+                self.equipment_dict["fpTime"] = [
+                    self.equipment_dict["fpTime"]
+                ]
+                self.equipment_dict["cdRatios"] = [
+                    self.equipment_dict["cdRatios"]
+                ]
+            else:
+                self.equipment_dict["pulseDuration"] = [
+                    self.equipment_dict["pulseDuration"]
+                ]
+
+
     def addNewImage(self, newImage):
         """
         This function should be called by an object
@@ -689,6 +728,21 @@ class EMCCD_image(object):
             self.equipment_dict["fel_pulses"].append(
                 newImage.equipment_dict["fel_pulses"]
             )
+
+            self.equipment_dict["pyroVoltage"].append(
+                newImage.equipment_dict["pyroVoltage"]
+            )
+            if "fpTime" in self.equipment_dict:
+                self.equipment_dict["fpTime"].append(
+                    newImage.equipment_dict["fpTime"]
+                )
+                self.equipment_dict["cdRatios"].append(
+                    newImage.equipment_dict["cdRatios"]
+                )
+            else:
+                self.equipment_dict["pulseDuration"].append(
+                    newImage.equipment_dict["pulseDuration"]
+                )
         self.imageSequence.addImage(newImage)
 
     def removeImageBySequence(self, index):
@@ -697,6 +751,12 @@ class EMCCD_image(object):
                 self.equipment_dict["fieldStrength"].pop(index)
                 self.equipment_dict["fieldInt"].pop(index)
                 self.equipment_dict["fel_pulses"].pop(index)
+                self.equipment_dict["pyroVoltage"].pop(index)
+                if "fpTime" in self.equipment_dict:
+                    self.equipment_dict["fpTime"].pop(index)
+                    self.equipment_dict["cdRatios"].pop(index)
+                else:
+                    self.equipment_dict["pulseDuration"].pop(index)
             self.imageSequence.removeImageByIdx(index)
         except Exception as e:
             log.warning("Exception trying to remove an image")
@@ -875,6 +935,7 @@ class HSG_FVB_image(HSG_image):
             newSpec /= pulse
             self.equipment_dict["fieldStrength"].append(other.equipment_dict["fieldStrength"])
             self.equipment_dict["fieldInt"].append(other.equipment_dict["fieldInt"])
+            self.equipment_dict["fel_pulses"].append(other.equipment_dict["fel_pulses"])
             self.equipment_dict["fel_pulses"].append(other.equipment_dict["fel_pulses"])
             self.raw_array = np.row_stack((self.raw_array, newSpec))
 

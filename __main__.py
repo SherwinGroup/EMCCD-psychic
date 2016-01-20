@@ -99,7 +99,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = False)
+            self.CCD = AndorEMCCD(wantFake = True)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -490,9 +490,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.consec.triggered.connect(self.startConsecutiveImages)
         self.consec.setEnabled(False)
 
-        self.ui.menuLive_Series.addSeparator()
-        addbg = self.ui.menuLive_Series.addAction("Load Background")
-        addbg.triggered.connect(lambda x:self.getCurExp().reloadBackgroundFiles())
+        self.ui.mLoadBackgrounds.triggered.connect(lambda x:self.getCurExp().reloadBackgroundFiles())
+        self.ui.mLoadReferences.triggered.connect(lambda x:self.getCurExp().reloadReferenceFiles())
+        self.ui.mLoadReferences.setVisible(False)
 
 
 
@@ -1321,7 +1321,7 @@ class CCDWindow(QtGui.QMainWindow):
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
         saveDict['curExp'] = [str(ii.text()) for ii in self.expMenuActions if ii.isChecked()][0]
-        # saveDict['comments'] = str(self.ui.tCCDComments.toPlainText())
+        # saveDict['comments'] = str(self.getCurExp().ui.tCCDComments.toPlainText())
 
         # print "saving curvss", saveDict["curVSS"]
         with open('Settings.txt', 'w') as fh:

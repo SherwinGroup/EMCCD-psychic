@@ -1161,6 +1161,9 @@
     </property>
     <addaction name="mRemoveImageSequence"/>
     <addaction name="mRemoveBackgroundSequence"/>
+    <addaction name="separator"/>
+    <addaction name="mLoadBackgrounds"/>
+    <addaction name="mLoadReferences"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">
@@ -1403,6 +1406,16 @@
   <action name="mFIleAbortAcquisition">
    <property name="text">
     <string>Abort Acquisition</string>
+   </property>
+  </action>
+  <action name="mLoadBackgrounds">
+   <property name="text">
+    <string>Load Background</string>
+   </property>
+  </action>
+  <action name="mLoadReferences">
+   <property name="text">
+    <string>Load Reference</string>
    </property>
   </action>
  </widget>

@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
+# Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created: Wed Nov 11 10:29:30 2015
-#      by: PyQt4 UI code generator 4.10.4
+# Created by: PyQt4 UI code generator 4.11.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -538,6 +537,10 @@ class Ui_MainWindow(object):
         self.mProcessBackgroundSequence.setObjectName(_fromUtf8("mProcessBackgroundSequence"))
         self.mFIleAbortAcquisition = QtGui.QAction(MainWindow)
         self.mFIleAbortAcquisition.setObjectName(_fromUtf8("mFIleAbortAcquisition"))
+        self.mLoadBackgrounds = QtGui.QAction(MainWindow)
+        self.mLoadBackgrounds.setObjectName(_fromUtf8("mLoadBackgrounds"))
+        self.mLoadReferences = QtGui.QAction(MainWindow)
+        self.mLoadReferences.setObjectName(_fromUtf8("mLoadReferences"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
@@ -550,6 +553,9 @@ class Ui_MainWindow(object):
         self.menuOther_Settings.addAction(self.mFileOpenDebugConsole)
         self.menuLive_Series.addAction(self.mRemoveImageSequence)
         self.menuLive_Series.addAction(self.mRemoveBackgroundSequence)
+        self.menuLive_Series.addSeparator()
+        self.menuLive_Series.addAction(self.mLoadBackgrounds)
+        self.menuLive_Series.addAction(self.mLoadReferences)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_FVB)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_Image)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_PhotonCounting)
@@ -704,6 +710,8 @@ class Ui_MainWindow(object):
         self.mProcessImageSequence.setText(_translate("MainWindow", "Process Image Sequence", None))
         self.mProcessBackgroundSequence.setText(_translate("MainWindow", "Process Background Sequence", None))
         self.mFIleAbortAcquisition.setText(_translate("MainWindow", "Abort Acquisition", None))
+        self.mLoadBackgrounds.setText(_translate("MainWindow", "Load Background", None))
+        self.mLoadReferences.setText(_translate("MainWindow", "Load Reference", None))
 
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc
