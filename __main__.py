@@ -99,7 +99,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -115,7 +115,11 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.initUI()
         if self.checkSaveFile():
-            self.loadOldSettings()
+            try:
+                self.loadOldSettings()
+            except Exception as e:
+                log.critical("ERRER LOADING OLD SETTINGS", e)
+                self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
         else:
             self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
@@ -630,6 +634,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.oscWidget = None
 
     def getCurExp(self):
+        """
+
+        :return:
+        :rtype: BaseExpWidget
+        """
         # I need this function for an easy fix
         # I want to connect a signal/slot at initialization
         # but that corresponds to the curExp at that time,
@@ -1075,10 +1084,17 @@ class CCDWindow(QtGui.QMainWindow):
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]], e))
             self.Spectrometer = ActonSP("Fake")
         try:
-            self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
-            self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
-            self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
-            self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+            wl = self.Spectrometer.getWavelength()
+            if wl is None:
+                raise Exception("Could not get Spectrometer wavelength!")
+            self.ui.tSpecCurWl.setText(str(wl))
+            self.ui.sbSpecWavelength.setValue(wl)
+
+            grat = self.Spectrometer.getGrating()
+            if grat is None:
+                raise Exception("Could not get Spectrometer grating!")
+            self.ui.tSpecCurGr.setText(str(grat))
+            self.ui.sbSpecGrating.setValue(grat)
         except Exception as e:
             log.warning("Could not get spectrometer values, {}".format(e))
 
@@ -1476,12 +1492,14 @@ class CCDWindow(QtGui.QMainWindow):
                 event.ignore()
                 return
             fastExit = True
-        try:
-            log.info("Waiting for temperature set thread")
-            self.setTempThread.wait()
-        except:
-            log.info("No temperature thread to wait for")
-            pass
+        # try:
+        #     log.info("Waiting for temperature set thread")
+        #     self.sigUpdateStatusBar.emit("Please wait for temperature to set")
+        #     return
+        #     # self.setTempThread.wait()
+        # except:
+        #     log.info("No temperature thread to wait for")
+        #     pass
         try:
             log.info("Stopping temp timer")
             self.getTempTimer.stop()
@@ -1497,8 +1515,11 @@ class CCDWindow(QtGui.QMainWindow):
                 log.debug("Error waiting for continuous taking {}".format(e))
 
         try:
-            log.info("Waiting for image collection to finish")
-            self.curExp.thDoExposure.wait()
+            if self.getCurExp().thDoExposure.isRunning():
+                log.info("Waiting for image collection to finish")
+                self.sigUpdateStatusBar.emit("Please wait for exposure to complete")
+                return
+
         except:
             log.info("No image being collected.")
 
@@ -1506,6 +1527,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             if self.setTempThread.isRunning():
                 log.info("Please wait for detector to warm")
+                self.sigUpdateStatusBar.emit("Please wait for exposure to complete")
                 return
         except:
             pass

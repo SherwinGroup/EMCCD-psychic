@@ -10,7 +10,7 @@ import time
 import logging
 import scipy.signal as sps
 log = logging.getLogger("Andor")
-import interactivePG as pg
+# import interactivePG as pg
 
 
 class myCallable(object):

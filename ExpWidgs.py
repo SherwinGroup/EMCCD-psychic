@@ -686,7 +686,28 @@ class BaseExpWidget(QtGui.QWidget):
         :return: Boolean of whether or not to accept.
         """
         loop = QtCore.QEventLoop()
-        self.sigKillEventLoop.connect(loop.exit)
+
+
+        # I think there's an asynchronicity issue going on
+        # with the sigKillEventLoop being emitted by the
+        # makeGui function, as several different threads
+        # call it. This causes this waiting loop leave too
+        # early and not get the return value of the dialog
+        # and it freaks out. I realized it's better to use
+        # the QMessageBox.buttonClicked signal since that
+        # will only be emitted by this dialog and with
+        # either button. The problem is that some weird scoping
+        # issue seems to happen such that the makr func
+        # doesn't see the loop, thus won't close it (but
+        # it doens't throw a NameError as if it didn't
+        # exist...) but it will work if it calls another
+        # function which will call the loop.exit Thus,
+        # I need to make an inline function to close it.
+        # I'm begining to be aware that this is
+        # not at all the correct way to handle things...
+
+        def quitr():
+            loop.exit()
 
         # As mentioned in other places, you can't make gui elements
         # in non-main thread, so you need to use a signal to tell
@@ -701,6 +722,7 @@ class BaseExpWidget(QtGui.QWidget):
             prompt.setDefaultButton(QtGui.QMessageBox.Save)
             prompt.setModal(False)
             prompt.setWindowModality(QtCore.Qt.NonModal)
+            prompt.buttonClicked.connect(quitr)
             prompt.show()
             return prompt
 
@@ -714,12 +736,14 @@ class BaseExpWidget(QtGui.QWidget):
         # Unfortunately, python doesn't do pass by reference, so
         #
         p = []
-        self.sigMakeGui.emit(makr, p)
+        # self.sigMakeGui.emit(makr, p)
 
         # Need to have a waiting loop to wait for the
         # main thread to process the signal and make the
         # dialog box
-        loop.exec_()
+
+
+        # loop.exec_()
 
         try:
             p = p[0]
