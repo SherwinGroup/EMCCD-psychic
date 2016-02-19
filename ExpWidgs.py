@@ -90,6 +90,13 @@ class BaseExpWidget(QtGui.QWidget):
     # spawn threads willy-nilly, things end up breaking
     # bad.
     progressTimer = QtCore.QTimer()
+
+
+    # eventLoop which will be used to wait for
+    # confirmation of the image.
+    # (pretty sure it needs to be instantiated in
+    # the thread it'll be used in, not here)
+    eloopConfirmImage = None
     def __init__(self, parent = None, UI=None):
         super(BaseExpWidget, self).__init__(parent)
         self.baseInitUI(UI)
@@ -643,8 +650,6 @@ class BaseExpWidget(QtGui.QWidget):
 
     def processBackground(self):
         # self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
-        log.debug("Reenabling after background")
-        self.toggleUIElements(True)
         # return
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
@@ -679,35 +684,16 @@ class BaseExpWidget(QtGui.QWidget):
         log.debug("Emitting background update")
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.prevBackEMCCD.imageSequence.getImages())
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
+        log.debug("Reenabling after background")
+        self.sigMakeGui.emit(self.toggleUIElements, (True, ))
 
     def confirmImage(self):
         """
         Prompts the user to ensure the most recent image is acceptable.
         :return: Boolean of whether or not to accept.
         """
-        loop = QtCore.QEventLoop()
+        self.eloopConfirmImage = QtCore.QEventLoop()
 
-
-        # I think there's an asynchronicity issue going on
-        # with the sigKillEventLoop being emitted by the
-        # makeGui function, as several different threads
-        # call it. This causes this waiting loop leave too
-        # early and not get the return value of the dialog
-        # and it freaks out. I realized it's better to use
-        # the QMessageBox.buttonClicked signal since that
-        # will only be emitted by this dialog and with
-        # either button. The problem is that some weird scoping
-        # issue seems to happen such that the makr func
-        # doesn't see the loop, thus won't close it (but
-        # it doens't throw a NameError as if it didn't
-        # exist...) but it will work if it calls another
-        # function which will call the loop.exit Thus,
-        # I need to make an inline function to close it.
-        # I'm begining to be aware that this is
-        # not at all the correct way to handle things...
-
-        def quitr():
-            loop.exit()
 
         # As mentioned in other places, you can't make gui elements
         # in non-main thread, so you need to use a signal to tell
@@ -722,7 +708,7 @@ class BaseExpWidget(QtGui.QWidget):
             prompt.setDefaultButton(QtGui.QMessageBox.Save)
             prompt.setModal(False)
             prompt.setWindowModality(QtCore.Qt.NonModal)
-            prompt.buttonClicked.connect(quitr)
+            prompt.buttonClicked.connect(self.eloopConfirmImage.quit)
             prompt.show()
             return prompt
 
@@ -736,14 +722,14 @@ class BaseExpWidget(QtGui.QWidget):
         # Unfortunately, python doesn't do pass by reference, so
         #
         p = []
-        # self.sigMakeGui.emit(makr, p)
+        self.sigMakeGui.emit(makr, p)
 
         # Need to have a waiting loop to wait for the
         # main thread to process the signal and make the
         # dialog box
 
 
-        # loop.exec_()
+        self.eloopConfirmImage.exec_()
 
         try:
             p = p[0]
@@ -751,11 +737,6 @@ class BaseExpWidget(QtGui.QWidget):
             log.critical("Something is wrong with getting the reference to the"
                          "dialog box")
             return True
-
-        # now I need to wait for a button to be clicked
-        p.buttonClicked.connect(loop.exit)
-        loop.exec_()
-
 
         return p.buttonRole(p.clickedButton())==QtGui.QMessageBox.AcceptRole
         # return True
@@ -1052,7 +1033,8 @@ class BaseExpWidget(QtGui.QWidget):
             self.prevDataEMCCD.save_images(
                 folder_str=self.papa.settings["saveDir"],
                 data = d,
-                postfix="_seq"
+                postfix="_seq",
+                fmt='%f'
             )
             log.debug("Saved proccesed sequence image, {}".format(
                 self.prevDataEMCCD.saveFileName
@@ -1440,13 +1422,18 @@ class BaseHSGWid(BaseExpWidget):
     def processImage(self):
         super(BaseHSGWid, self).processImage()
         # need to emit cause thsi is called
-        self.sigMakeGui.emit(self.freqInfoText.setText, ('', ))
+        # self.sigMakeGui.emit(self.freqInfoText.setText, ('', ))
+        self.sigMakeGui.emit(self.calculateFrequencies, ())
 
     def processImageSequence(self):
         super(BaseHSGWid, self).processImageSequence()
-        spec = hsg.HighSidebandCCD(self.curDataEMCCD.spectrumFileName)
-        spec.guess_sidebands()
-        spec.fit_sidebands()
+        try:
+            spec = hsg.HighSidebandCCD(str(self.curDataEMCCD.spectrumFileName))
+            spec.guess_sidebands()
+            spec.fit_sidebands()
+        except Exception as e:
+            log.exception("Bad fitting {}".format(e))
+            return
         # fit the positions up to the last two (generally noisy points
         # which throw off the fits
         p = np.polyfit(spec.sb_results[:-2,0], spec.sb_results[:-2,1], deg=1)
@@ -1470,6 +1457,38 @@ class BaseHSGWid(BaseExpWidget):
                 nircolor, 1e7/nir, nir
             )
         )
+
+    def calculateFrequencies(self):
+        try:
+            spec = hsg.HighSidebandCCD(self.curDataEMCCD.spectrum,
+                                       self.curDataEMCCD.equipment_dict)
+            spec.guess_sidebands()
+            spec.fit_sidebands()
+
+            nir, fel = spec.infer_frequencies(nir_units="wavenumber",
+                                              thz_units="wavenumber")
+        except Exception as e:
+            log.exception("Bad fitting {}".format(e))
+            return
+
+        g = '#00FF00'
+        r = '#FF0000'
+
+        felcolor = g
+        nircolor = g
+        if np.abs(1e7/self.ui.tCCDNIRwavelength.value() - nir) > 8:
+            nircolor = r
+        if np.abs(self.papa.oscWidget.ui.tFELFreq.value()-fel)>0.1:
+            felcolor = r
+        self.freqInfoText.setHtml(
+            "<font color={}>FEL: {:.1f} GHz ({:.2f} cm<sup>-1</sup>)</font><br>".format(
+                felcolor, fel*29.97925, fel
+            )+\
+            "<font color={}>NIR: {:.3f} nm ({:.1f} cm<sup>-1</sup>)</font>".format(
+                nircolor, 1e7/nir, nir
+            )
+        )
+
 
 class HSGImageWid(BaseHSGWid):
     pass
@@ -1505,12 +1524,12 @@ class HSGFVBWid(BaseHSGWid):
                 self.prevDataEMCCD.save_spectrum(self.papa.settings["saveDir"])
             except IOError as e:
                 self.papa.sigUpdateStatusBar.emit("Error Saving Series")
-                log.debug("Error saving series data, {}".format(e))
+                log.exception("Error saving series data, {}".format(e))
             try:
                 self.prevDataEMCCD.save_images(self.papa.settings["saveDir"])
             except IOError as e:
                 self.papa.sigUpdateStatusBar.emit("Error Saving Image")
-                log.warning("Error saving FVB series image, {}".format(e))
+                log.exception("Error saving FVB series image, {}".format(e))
 
 
             self.runSettings["seriesNo"] += 1
@@ -1637,10 +1656,10 @@ class AbsWid(BaseExpWidget):
             return
         else:
             try:
-                self.curAbsEMCCD = self.curRefEMCCD/(self.curDataEMCCD-self.curBackEMCCD)
+                self.curAbsEMCCD = (self.curDataEMCCD-self.curBackEMCCD)/self.curRefEMCCD
                 self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
             except Exception as e:
-                log.warning("Error updating abs spectrum", e)
+                log.warning("Error updating abs spectrum {}".format(e))
 
     def reloadReferenceFiles(self):
         files = QtGui.QFileDialog.getOpenFileNames(
@@ -1679,7 +1698,7 @@ class AbsWid(BaseExpWidget):
             curReftitle
         )
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.curRefEMCCD)
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevRefEMCCD.imageSequence.getImages())
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curRefEMCCD.imageSequence.getImages())
 
     def reloadPartialSequenceReference(self, files):
         self.prevRefEMCCD = None
@@ -1700,7 +1719,7 @@ class AbsWid(BaseExpWidget):
             return
         else:
             self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
-            self.curAbsEMCCD = self.curRefEMCCD/self.curDataEMCCD
+            self.curAbsEMCCD = self.curDataEMCCD/self.curRefEMCCD
             self.curAbsEMCCD.origin_import = \
                 '\nWavelength,Raw Blank,Raw Trans,Abs\nnm,arb.u.,arb.u.,bels'
             try:
@@ -1907,7 +1926,7 @@ class AbsWid(BaseExpWidget):
             log.warning("Error subtracting background {}".format(e))
 
         self.curRefEMCCD.make_spectrum()
-        self.curRefEMCCD.inspect_dark_regions()
+        # self.curRefEMCCD.inspect_dark_regions()
         try:
             self.curRefEMCCD.save_spectrum(self.papa.settings["saveDir"], prefix="absBlank_")
             self.papa.sigUpdateStatusBar.emit("Saved Spectrum: {}".format(self.ui.tCCDRefNum.value()+1))
@@ -1949,6 +1968,7 @@ class AbsWid(BaseExpWidget):
             self.pSpec.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,3])
             self.pRawBlank.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,1])
             self.pRawTrans.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,2])
+            data = self.curAbsEMCCD.spectrum # for updating pixel axis on top of graph
         elif id(data)==id(self.curRefEMCCD):
             title = "Blank"
             data = self.curRefEMCCD.spectrum

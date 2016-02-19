@@ -576,8 +576,34 @@ class EMCCD_image(object):
 
         self.equipment_dict['addenda'] = self.addenda
         self.equipment_dict['subtrahenda'] = self.subtrahenda
+
+        # take the dark_region to be the std of the bottom row
+        self.equipment_dict["dark_region"] = np.std(
+            self.clean_array[1,:]
+        )
+
+        condensedFEL = {}
+        try:
+            if self.isSequence and "fieldStrength" in self.equipment_dict:
+                keys = ["fieldStrength", "cdRatios",
+                        "fieldInt", "fpTime",
+                        "pyroVoltage"]
+                for k in keys:
+                    condensedFEL[k] = {
+                        "mean": np.mean([ii["mean"] for ii in self.equipment_dict[k]]),
+                        "std": np.mean([ii["std"] for ii in self.equipment_dict[k]])
+                    }
+                condensedFEL["fel_pulses"] = np.sum(self.equipment_dict["fel_pulses"])
+        except Exception as e:
+            log.warning("Something fucked up trying to condense FEL settings {}".format(e))
+
+
+
         eq_dict = self.equipment_dict.copy()
         eq_dict.update({"comments":self.description})
+        eq_dict.update(condensedFEL)
+
+
         equipment_str = json.dumps(eq_dict, separators=(',', ': '),
                       sort_keys=True, indent=4 )
         if origin_header is None:
@@ -594,31 +620,6 @@ class EMCCD_image(object):
         self.spectrumFileName = os.path.join(folder_str, 'Spectra', self.file_name, filename)
         np.savetxt(self.spectrumFileName, self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
-
-    def getFileName(self, prefix=None):
-        """
-        Convenience function to get the name used for saving.
-        """
-        # All the data will end up doig the same thing,
-        # only difference is the preffix to the name (?)
-        # which can also be set specifically with the function call
-        if prefix is None:
-            # Get the name of the class calling it
-            name = type(self).__name__.lower()
-            if "hsg" in name:
-                filename = "hsg_"
-            elif "pl" in name:
-                filename = "pl_"
-            elif "abs" in name:
-                filename = "absRaw_"
-            else:
-                filename = ""
-        else:
-            filename = str(prefix)
-
-
-        filename += self.file_name + self.file_no
-        return filename
     
     def save_images(self, folder_str='Raw files', prefix=None, data = None,
                     fmt = '%d', postfix = ''):
@@ -664,6 +665,31 @@ class EMCCD_image(object):
         #     os.path.join(folder_str, "Images", filename)
         # )
 
+    def getFileName(self, prefix=None):
+        """
+        Convenience function to get the name used for saving.
+        """
+        # All the data will end up doig the same thing,
+        # only difference is the preffix to the name (?)
+        # which can also be set specifically with the function call
+        if prefix is None:
+            # Get the name of the class calling it
+            name = type(self).__name__.lower()
+            if "hsg" in name:
+                filename = "hsg_"
+            elif "pl" in name:
+                filename = "pl_"
+            elif "abs" in name:
+                filename = "absRaw_"
+            else:
+                filename = ""
+        else:
+            filename = str(prefix)
+
+
+        filename += self.file_name + self.file_no
+        return filename
+
     def setAsSequence(self):
         """
         This function is called by the expwidget when this object
@@ -675,6 +701,7 @@ class EMCCD_image(object):
         self.imageSequence.clearImages()
         self.imageSequence.addImage(self)
         self.isSequence = True
+        self.equipment_dict["images_in_sequence"] = [self.saveFileName]
         if "fieldStrength" in self.equipment_dict:
             self.equipment_dict["fieldStrength"] = [
                 self.equipment_dict["fieldStrength"]
@@ -744,6 +771,7 @@ class EMCCD_image(object):
                     newImage.equipment_dict["pulseDuration"]
                 )
         self.imageSequence.addImage(newImage)
+        self.equipment_dict["images_in_sequence"].append(newImage.saveFileName)
 
     def removeImageBySequence(self, index):
         try:
@@ -1076,7 +1104,7 @@ class Abs_image(EMCCD_image):
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))
         ret = copy.deepcopy(other)
-        abs_spec = np.log10(self.spectrum[:,1] / other.spectrum[:,1])
+        abs_spec = -np.log10(self.spectrum[:,1] / other.spectrum[:,1])
         wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
                                       self.equipment_dict['grating'])
 
