@@ -340,9 +340,6 @@ def loadImageFile(fname, cls = None):
                   equipment_dict = parameters.copy()
                   )
         obj.clean_array = obj.raw_array # it's been saved so it's been cleaned
-        obj.addenda = parameters["addenda"]
-        obj.subtrahenda = parameters["subtrahenda"]
-        obj.equipment_dict["background_darkcount_std"] = parameters["background_darkcount_std"]
         obj.equipment_dict["background_file"] = parameters["background_file"]
 
         return obj
@@ -369,8 +366,7 @@ class EMCCD_image(object):
                              grating = spectrometer grating
                              center_lambda = spectrometer wavelength setting
                              slits = width of slits in microns
-                             dark_region (maybe not that useful if can look at y_max + n) 
-                             bg_file_name = name of background file
+                             dark_region (maybe not that useful if can look at y_max + n)
 							 series = name for series
         """
         self.raw_array = np.array(raw_array)
@@ -387,9 +383,6 @@ class EMCCD_image(object):
         self.clean_array = None
         self.std_array = None # for holding the std of pixels
         self.spectrum = None
-        self.addenda = [0, file_name + str(file_no)] # This is important for keeping track of addition and subtraction
-        self.subtrahenda = []
-        self.equipment_dict["background_darkcount_std"] = -1
         self.equipment_dict["background_file"] = ''
 
         self.imageSequence = ConsecutiveImageAnalyzer()
@@ -426,16 +419,12 @@ class EMCCD_image(object):
         # Add a constant offset to the data
         if type(other) in (int, float):
             ret.clean_array = self.clean_array + other
-            ret.addenda[0] = ret.addenda[0] + other
         
         # or add the two clean_arrays together
         else:
             if np.isclose(ret.equipment_dict['center_lambda'], 
                           other.equipment_dict['center_lambda']):
                 ret.clean_array = self.clean_array + other.clean_array
-                ret.addenda[0] = ret.addenda[0] + other.addenda[0]
-                ret.addenda.extend(other.addenda[1:])
-                ret.subtrahenda.extend(other.subtrahenda)
             else:
                 print "self:{}, ret:{}, other:{}".format(
                     self.equipment_dict['center_lambda'],
@@ -461,15 +450,10 @@ class EMCCD_image(object):
         
         if type(other) in (int, float):
             ret.clean_array = self.clean_array - other
-            ret.addenda[0] = ret.addenda[0] - other
         else:
             if np.isclose(ret.equipment_dict['center_lambda'], 
                           other.equipment_dict['center_lambda']):
                 ret.clean_array = self.clean_array - other.clean_array
-                ret.addenda[0] = ret.addenda[0] - other.addenda[0]
-                ret.subtrahenda.extend(other.addenda[1:])
-                ret.addenda.extend(other.subtrahenda)
-
 
             else:
                 raise Exception('Source: EMCCD_image.__sub__\nThese are not from the same grating settings')
@@ -565,7 +549,6 @@ class EMCCD_image(object):
             log.warn("Integrating full image, cannot do dark count subtraction!")
             return
         self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
-        self.addenda[0] += self.dark_mean*height
         self.clean_array -= self.dark_mean
     
     def save_spectrum(self, folder_str='Spectrum files', prefix=None, postfix = '', origin_header = None):
@@ -574,12 +557,12 @@ class EMCCD_image(object):
         useful for novel, basic stuff.
         '''
 
-        self.equipment_dict['addenda'] = self.addenda
-        self.equipment_dict['subtrahenda'] = self.subtrahenda
-
         # take the dark_region to be the std of the bottom row
+        # data shape in np array is not the same as on the pyqtgraph images
+        # The 0th index corresponds to the lowest row as seen in
+        # the live image.
         self.equipment_dict["dark_region"] = np.std(
-            self.clean_array[1,:]
+            self.clean_array[0,:]
         )
 
         condensedFEL = {}
@@ -633,13 +616,23 @@ class EMCCD_image(object):
         
         Also, I'm pretty sure self.raw_array is still ints?
         '''
-        self.equipment_dict['addenda'] = self.addenda
-        self.equipment_dict['subtrahenda'] = self.subtrahenda
         eq_dict = self.equipment_dict.copy()
         eq_dict.update({"comments":self.description,
                         "filename": self.file_name,
                         "fileno": self.file_no,
                         "noImages": self.imageSequence.numImages()})
+
+
+        filename = self.getFileName(prefix)
+        filename += postfix + '.txt'
+
+        if data is None:
+            data = self.raw_array
+        eq_dict["dark_region"] = np.std(
+            data[0,:]
+        )
+
+
         try:
             equipment_str = json.dumps(eq_dict, separators=(',', ': '),
                           sort_keys=True, indent=4 )
@@ -650,13 +643,6 @@ class EMCCD_image(object):
 
 
         my_header = '#' + equipment_str.replace('\n', '\n#')
-
-
-        filename = self.getFileName(prefix)
-        filename += postfix + '.txt'
-
-        if data is None:
-            data = self.raw_array
 
         self.saveFileName = filename
         np.savetxt(os.path.join(folder_str, "Images", filename), data,

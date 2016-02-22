@@ -757,7 +757,6 @@ class BaseExpWidget(QtGui.QWidget):
         s["center_lambda"] = float(self.papa.ui.sbSpecWavelength.value())
         s["slits"] = str(self.ui.tCCDSlits.text())
         s["dark_region"] = None
-        s["bg_file_name"] = str(self.papa.ui.tBackgroundName.text()) + str(self.ui.tCCDBGNum.value())
         s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
         s["sample_name"] = str(self.ui.tSampleName.text())
         s["spec_step"] = str(self.ui.tSpectrumStep.text())
@@ -1678,6 +1677,11 @@ class AbsWid(BaseExpWidget):
             self.reloadPartialSequenceReference(files)
 
     def reloadFullSequenceReference(self, files):
+        """
+
+        :param files:
+        :return:
+        """
         log.debug("Loading reference sequence files...")
         seqFile = [ii for ii in files if 'seq' in os.path.basename(ii)][0]
         stdFile = [ii for ii in files if 'std' in os.path.basename(ii)][0]
