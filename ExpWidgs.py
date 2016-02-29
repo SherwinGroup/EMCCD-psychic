@@ -26,7 +26,8 @@ seriesTags = {"SLITS": "slits",
               "FELP": "fel_power",
               "NIRP": "nir_power",
               "NIRW": "nir_lambda",
-              "FELTRANS": "fel_transmission"}
+              "FELTRANS": "fel_transmission",
+              "DETHWP": "detectorHWP"}
 
 
 class CustomAxis(pg.AxisItem):
@@ -779,6 +780,13 @@ class BaseExpWidget(QtGui.QWidget):
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
             s["nir_pol"] = str(self.ui.tCCDNIRPol.text())
+
+        try:
+            detHWP = self.papa.newportController.detHWPWidget.ui.sbPosition.value()
+            s["detectorHWP"] = detHWP
+        except Exception as e:
+            log.warning("Error getting detector HWP setting, {}".format(e))
+            s["detectorHWP"] = "NotConnected"
 
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value

@@ -14,6 +14,7 @@ from InstsAndQt.Instruments import *
 from InstsAndQt.PyroOscope.OscWid import OscWid
 from InstsAndQt.customQt import *
 
+
 import os
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -480,6 +481,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
+
+
+        self.detHWPsweep = self.ui.menuOther_Settings.addAction("Do HWP Sweep")
+        self.detHWPsweep.setCheckable(True)
+        self.detHWPsweep.triggered.connect(self.startHWPSweep)
+        self.detHWPsweep.setEnabled(False)
+
         # self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
         self.neCal = self.ui.mFileScanNeLines
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
@@ -511,6 +519,7 @@ class CCDWindow(QtGui.QMainWindow):
         #
         ###########################
         self.addPolarizerMotorDriver()
+        self.addNewportController()
         self.ui.miscToolsLayout.addStretch(10)
 
 
@@ -663,6 +672,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
         self.neCal.setEnabled(val)
+        self.detHWPsweep.setEnabled(val)
 
         self.consec.setEnabled(val)
 
@@ -1060,6 +1070,23 @@ class CCDWindow(QtGui.QMainWindow):
         #                              |_______________________motordriver groupbox is the first thing in the layout
 
         self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
+
+
+    def addNewportController(self):
+        try:
+            from InstsAndQt.NewportMotorDriver.espMainPanel import ESPMainPanel
+        except ImportError:
+            MessageDialog(self, "Error importing module for ESP300")
+            return
+        motorDriverGB = QtGui.QGroupBox("Detector HWP", self)
+        motorDriverGB.setFlat(True)
+        layout = QtGui.QVBoxLayout()
+        self.newportController = ESPMainPanel()
+        layout.addWidget(self.newportController)
+        motorDriverGB.setLayout(layout)
+        self.ui.miscToolsLayout.addWidget(motorDriverGB)
+
+
     @staticmethod
     def _______________ER(): pass
     @staticmethod
@@ -1108,6 +1135,42 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer.setGrating(desired)
         new = self.Spectrometer.getGrating()
         self.ui.tSpecCurGr.setText(str(new))
+
+    def startHWPSweep(self, val):
+        if val:
+            log.debug("Starting HWP sweep")
+            self.thDoSpectrometerSweep.target = self.hwpSweepLoop
+            self.thDoSpectrometerSweep.start()
+        else:
+            pass
+
+    def hwpSweepLoop(self):
+        oldConfirmation = self.curExp.confirmImage
+        self.curExp.confirmImage = lambda : True
+        for hwpAngle in np.arange(0, 370, 10):
+            log.debug("At hwp angle {}".format(hwpAngle))
+            self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
+            if not self.detHWPsweep.isChecked(): break
+            self.newportController.detHWPWidget.ui.sbPosition.setValue(hwpAngle)
+            self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
+            time.sleep(0.2)
+            self.newportController.detHWPWidget.thWaitForMotor.wait()
+
+            for ii in range(4):
+                if not self.detHWPsweep.isChecked(): break
+                self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+                log.debug("\tCalled Take image, {}".format(ii))
+                self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
+                time.sleep(0.1)
+                self.curExp.thDoExposure.wait()
+            else:
+                self.curExp.ui.bProcessImageSequence.clicked.emit(False)
+                time.sleep(4)
+
+
+        self.curExp.confirmImage = oldConfirmation
+        self.updateElementSig.emit(lambda : self.sweep.setChecked(False), None)
+        log.debug("Done with scan")
 
     def startSweepLoop(self, val):
         if hasattr(val, '__iter__'):
