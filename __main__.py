@@ -174,6 +174,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             rm = visa.ResourceManager()
             ar = [i.encode('ascii') for i in rm.list_resources()]
+            log.debug("Got resources list")
             ar.append('Fake')
             s['GPIBlist'] = ar
         except:
@@ -1139,37 +1140,63 @@ class CCDWindow(QtGui.QMainWindow):
     def startHWPSweep(self, val):
         if val:
             log.debug("Starting HWP sweep")
+            start, ok = QtGui.QInputDialog.getDouble(self, "Starting val", "Start",
+                                                 0)
+            if not ok: return
+
+            stop, ok = QtGui.QInputDialog.getDouble(self, "Stopping val", "Stop",
+                                                 360)
+            if not ok: return
+
+            step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
+                                                 5)
+            if not ok: return
+
+            numIm, ok = QtGui.QInputDialog.getInt(self, "Number of images", "Number of images",
+                                                 4)
+            if not ok: return
+
+            self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
             self.thDoSpectrometerSweep.target = self.hwpSweepLoop
             self.thDoSpectrometerSweep.start()
         else:
             pass
 
-    def hwpSweepLoop(self):
+    def hwpSweepLoop(self, args=[0, 365, 5, 4]):
+        start, stop, step, numImages = args
+        print "starting hwp sweep loop", start, stop, step, numImages
         oldConfirmation = self.curExp.confirmImage
         self.curExp.confirmImage = lambda : True
-        for hwpAngle in np.arange(0, 370, 10):
+        for hwpAngle in np.arange(start, stop, step):
             log.debug("At hwp angle {}".format(hwpAngle))
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
             if not self.detHWPsweep.isChecked(): break
-            self.newportController.detHWPWidget.ui.sbPosition.setValue(hwpAngle)
+            self.updateElementSig.emit(lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x), hwpAngle)
+            # self.newportController.detHWPWidget.ui.sbPosition.setValue(hwpAngle)
             self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
             time.sleep(0.2)
             self.newportController.detHWPWidget.thWaitForMotor.wait()
 
-            for ii in range(4):
+            for ii in range(numImages):
                 if not self.detHWPsweep.isChecked(): break
                 self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
                 log.debug("\tCalled Take image, {}".format(ii))
                 self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
-                time.sleep(0.1)
+                time.sleep(0.2)
+                log.debug("waiting on thread")
                 self.curExp.thDoExposure.wait()
+                log.debug("done waiting")
             else:
-                self.curExp.ui.bProcessImageSequence.clicked.emit(False)
-                time.sleep(4)
+                log.debug("emulating process button click")
+                # self.curExp.ui.bProcessImageSequence.clicked.emit(False)
+                self.updateElementSig.emit(self.getCurExp().processImageSequence, None)
+                log.debug("button clicked")
+                time.sleep(2)
+                log.debug("done sleeping")
 
 
         self.curExp.confirmImage = oldConfirmation
-        self.updateElementSig.emit(lambda : self.sweep.setChecked(False), None)
+        self.updateElementSig.emit(self.sweep.setChecked, False)
         log.debug("Done with scan")
 
     def startSweepLoop(self, val):
@@ -1523,7 +1550,10 @@ class CCDWindow(QtGui.QMainWindow):
         # In that case, let them jsut pass a lambda and this will call
         # it from the main thread, avoiding threading issues
         if hasattr(element, "__call__"):
-            element()
+            if val is None:
+                element()
+            else:
+                element(val)
             return
 
         element.setText(str(val))
