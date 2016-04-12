@@ -30,6 +30,19 @@ seriesTags = {"SLITS": "slits",
 
 
 class CustomAxis(pg.AxisItem):
+    """
+    I want the binned spectra at the bottom of the widgets to display the rough pixel number
+     in addition to the wavelength. This allows you to quickly see a feature on the image
+     or spectra and compare it with the other more easily.
+
+     pyqtgraph does not natively support this. I've had to subclas AxisItem to do this.
+     What it does is overloads the tickStrings to provide new strings to be displayed
+     on the axis.
+
+     The tickStrings funcction gets passed an array of number and should return the
+     strings which should be displayed for those numbers. setDataSet should be
+     called to specify how to convert typical x-values to a new string value
+    """
     def __init__(self, *args, **kwargs):
         super(CustomAxis, self).__init__(*args, **kwargs)
         self.dataSet = None
@@ -46,6 +59,16 @@ class CustomAxis(pg.AxisItem):
             return ['{:.0f}'.format(float(self.dataSetInterp(i))) for i in values]
 
     def setDataSet(self, data):
+        """
+        Set a callable which will be passed a typical x-value for the data, and should
+        return a new number which should be displayed instead.
+
+        if data is a callable, it should handle this directly.
+        otherwise, it assumes data is a 1D array and assumes that you want it to return
+        the pixel/index value corresponding to the x-value.
+        :param data:
+        :return:
+        """
         self.dataSet = data
         if callable(data):
             # let you pass a function
@@ -780,6 +803,20 @@ class BaseExpWidget(QtGui.QWidget):
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
             s["nir_pol"] = str(self.ui.tCCDNIRPol.text())
 
+        st = self.getSeriesName(s)
+        s["series"] = st
+        return s
+
+    @staticmethod
+    def __SERIES_METHODS(): pass
+
+    def getSeriesName(self, equipmentDict):
+        """
+        Get the series name from the lineedit and
+        properly parse the formatting
+        :return:
+        """
+
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value
         # Potentially unnecessary at this point...
@@ -793,13 +830,8 @@ class BaseExpWidget(QtGui.QWidget):
         # fill the role, use dict.get() so that a key error isn't thrown
         # when trying to access FEL/NIR only keys
         st = str(self.ui.tCCDSeries.text())
-        st = st.format(**{k: s.get(v, -1.1) for k, v in seriesTags .items()})
-
-        s["series"] = st
-        return s
-
-    @staticmethod
-    def __SERIES_METHODS(): pass
+        st = st.format(**{k: equipmentDict.get(v, -1.1) for k, v in seriesTags.items()})
+        return st
 
     def analyzeSeries(self):
         #######################
@@ -1220,6 +1252,9 @@ class BaseExpWidget(QtGui.QWidget):
 
         log.debug("Loaded background std file")
         bg.std_array = std
+
+        bg.saveFileName = os.path.basename(seqFile)
+
         self.updateBackgroundImage(bg.clean_array)
         self.curBackEMCCD = bg
         self.prevBackEMCCD = None
@@ -1457,6 +1492,10 @@ class BaseHSGWid(BaseExpWidget):
             )
         )
 
+    def confirmImage(self):
+        self.sigMakeGui.emit(self.calculateFrequencies, ())
+        return super(BaseHSGWid, self).confirmImage()
+
     def calculateFrequencies(self):
         try:
             spec = hsg.HighSidebandCCD(self.curDataEMCCD.spectrum,
@@ -1466,6 +1505,7 @@ class BaseHSGWid(BaseExpWidget):
 
             nir, fel = spec.infer_frequencies(nir_units="wavenumber",
                                               thz_units="wavenumber")
+
         except Exception as e:
             log.exception("Bad fitting {}".format(e))
             return
@@ -1676,10 +1716,13 @@ class AbsWid(BaseExpWidget):
         else:
             self.reloadPartialSequenceReference(files)
 
-    def reloadFullSequenceReference(self, files):
+    def reloadFullSequenceReference(self, files, *args, **kwargs):
+
         """
 
         :param files:
+        :param args:
+        :param kwargs:
         :return:
         """
         log.debug("Loading reference sequence files...")
@@ -1691,6 +1734,7 @@ class AbsWid(BaseExpWidget):
 
         log.debug("Loaded reference std file")
         ref.std_array = std
+        ref.make_spectrum(std)
         self.curRefEMCCD = ref
         self.prevRefEMCCD = None
         lenref = ref.equipment_dict["noImages"]
@@ -1702,7 +1746,7 @@ class AbsWid(BaseExpWidget):
             curReftitle
         )
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.curRefEMCCD)
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curRefEMCCD.imageSequence.getImages())
+        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curRefEMCCD.clean_array)
 
     def reloadPartialSequenceReference(self, files):
         self.prevRefEMCCD = None
@@ -1725,15 +1769,14 @@ class AbsWid(BaseExpWidget):
             self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curDataEMCCD/self.curRefEMCCD
             self.curAbsEMCCD.origin_import = \
-                '\nWavelength,Raw Blank,Raw Trans,Abs\nnm,arb.u.,arb.u.,bels'
+                '\nWavelength,Raw Blank,Raw Trans,Abs\nnm,arb.u.,arb.u.,dB\n' \
+                'Wavelength,,,{}'.format(self.getSeriesName(self.curAbsEMCCD.equipment_dict))
             try:
                 self.curAbsEMCCD.save_spectrum(folder_str=self.papa.settings["saveDir"], prefix="abs_")
             except Exception as e:
                 self.papa.sigUpdateStatusBar.emit("Error saving Absorbance")
                 log.warning("Error saving Absorbance Spectrum, {}".format(e))
             self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
-
-
 
     def processReference(self):
         if not self.papa.ui.mLivePlotsDisableRawPlots.isChecked():
@@ -1745,6 +1788,7 @@ class AbsWid(BaseExpWidget):
                                            str(self.ui.tCCDRefNum.value()+1),
                                            str(self.ui.tCCDComments.toPlainText()),
                                            self.genEquipmentDict())
+        self.curRefEMCCD.origin_import = '\nWavelength,Blank Trans\nnm,arb. u.'
 
         self.curRefEMCCD.make_spectrum()
         log.debug("Emitting image updates")
@@ -2003,8 +2047,13 @@ class AbsWid(BaseExpWidget):
     def genEquipmentDict(self):
         s = super(AbsWid, self).genEquipmentDict()
         s["led_current"] = str(self.ui.tCCDLEDCurrent.text())
-        s["led_temp"] = float(self.ui.tCCDLEDTemp.text())
-        s["led_power"] = float(self.ui.tCCDLEDPower.text())
+        s["led_temp"] = str(self.ui.tCCDLEDTemp.text())
+        s["led_power"] = str(self.ui.tCCDLEDPower.text())
+
+        if self.curRefEMCCD is not None:
+            s["referenceFile"] = self.curRefEMCCD.spectrumFileName
+        else:
+            s["referenceFile"] = "None?"
         return s
 
 class TwoColorAbsWid(AbsWid):

@@ -315,9 +315,10 @@ def loadImageFile(fname, cls = None):
     get the equipment dict and data out of it. If cls is
     not None, will return an instantiated image data class
     of the data. Otherwise, will return the data/equip dict
-    :param fname:
-    :param cls:
-    :return:
+    :param fname: The filename of the file to be loaded
+    :param cls: Class of the object to be returned
+    :return: An instantiated class of the filename
+    :rtype: cls
     """
     with open(fname) as fh:
         param_str = ''
@@ -597,10 +598,14 @@ class EMCCD_image(object):
         filename = self.getFileName(prefix)
         filename += postfix
 
+        num_lines = equipment_str.count('\n')  # Make the number of lines constant so importing is easier
+        for num in range(99 - num_lines): equipment_str += '\n'
 
         filename += "_spectrum.txt"
         my_header = '#' + equipment_str.replace('\n', '\n#') + origin_import
         self.spectrumFileName = os.path.join(folder_str, 'Spectra', self.file_name, filename)
+
+
         np.savetxt(self.spectrumFileName, self.spectrum,
                    delimiter=',', header=my_header, comments = '', fmt='%f')
     
@@ -1068,7 +1073,6 @@ class Abs_image(EMCCD_image):
     def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None
-        self.equipment_dict["reference_file"] = ""
     def __eq__(self, other):
         if type(other) is not type(self):
             print "not same type: {}/{}/{}".format(type(other), type(self), type(Abs_image()))
@@ -1089,8 +1093,8 @@ class Abs_image(EMCCD_image):
 
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))
-        ret = copy.deepcopy(other)
-        abs_spec = -np.log10(self.spectrum[:,1] / other.spectrum[:,1])
+        ret = copy.deepcopy(self)
+        abs_spec = -10*np.log10(self.spectrum[:,1] / other.spectrum[:,1])
         wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
                                       self.equipment_dict['grating'])
 
