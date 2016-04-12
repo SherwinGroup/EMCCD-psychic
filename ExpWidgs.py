@@ -26,7 +26,8 @@ seriesTags = {"SLITS": "slits",
               "FELP": "fel_power",
               "NIRP": "nir_power",
               "NIRW": "nir_lambda",
-              "FELTRANS": "fel_transmission"}
+              "FELTRANS": "fel_transmission",
+              "DETHWP": "detectorHWP"}
 
 
 class CustomAxis(pg.AxisItem):
@@ -649,6 +650,7 @@ class BaseExpWidget(QtGui.QWidget):
         try:
             log.debug("Saving CCD Image")
             self.curDataEMCCD.save_images(self.papa.settings["saveDir"])
+            log.debug("saved CCD Image")
             self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDImageNum.value()+1))
             self.papa.updateElementSig.emit(self.ui.tCCDImageNum, self.ui.tCCDImageNum.value()+1)
         except Exception as e:
@@ -659,17 +661,22 @@ class BaseExpWidget(QtGui.QWidget):
             log.warning("Error saving Data image, {}".format(e))
 
         if self.papa.ui.mFileDoCRR.isChecked():
+            log.debug("Doing CRR")
             self.curDataEMCCD.cosmic_ray_removal()
         else:
+            log.debug("Skipped CRR")
             self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
 
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing Up...")
 
         # self.analyzeSeries()
+        log.debug("Adding image to sequence")
         self.addImageSequence()
+        log.debug("Image succesfully added")
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.prevDataEMCCD.imageSequence.getImages())
         self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+        log.debug("finished processing image")
 
     def processBackground(self):
         # self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.rawData)
@@ -803,6 +810,12 @@ class BaseExpWidget(QtGui.QWidget):
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
             s["nir_pol"] = str(self.ui.tCCDNIRPol.text())
 
+        try:
+            detHWP = self.papa.newportController.detHWPWidget.ui.sbPosition.value()
+            s["detectorHWP"] = detHWP
+        except Exception as e:
+            log.warning("Error getting detector HWP setting, {}".format(e))
+            s["detectorHWP"] = "NotConnected"
         st = self.getSeriesName(s)
         s["series"] = st
         return s
@@ -816,7 +829,6 @@ class BaseExpWidget(QtGui.QWidget):
         properly parse the formatting
         :return:
         """
-
         # If the user has the series box as {<variable>} where variable is
         # any of the keys below, we want to replace it with the relavent value
         # Potentially unnecessary at this point...
@@ -1013,19 +1025,26 @@ class BaseExpWidget(QtGui.QWidget):
         )
 
     def processImageSequence(self):
+        log.debug("Begining image processing")
         d, std = self.confirmCosmicRemoval(self.prevDataEMCCD.imageSequence)
+        log.debug("Performed cosmic removal of image sequence")
         if d is None:
             return
 
         try:
             self.prevDataEMCCD.equipment_dict["background_file"] = \
                 self.curBackEMCCD.saveFileName
-        except AttributeError:
-            self.prevDataEMCCD.equipment_dict["background_file"] = "NoneTaken"
 
-        d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
-            self.curBackEMCCD
-        )
+            log.debug("Subtracting background image sequence")
+            d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
+                self.curBackEMCCD
+            )
+            log.debug("Image successfully subtracted")
+        except AttributeError:
+            log.warning("You didn't take a background image!")
+            self.prevDataEMCCD.equipment_dict["background_file"] = "NoneTaken"
+            sigpost = sigT = std
+
         self.prevDataEMCCD.clean_array = d
         self.updateSignalImage(d)
         self.prevDataEMCCD.std_array = sigpost
@@ -1466,6 +1485,8 @@ class BaseHSGWid(BaseExpWidget):
             spec.guess_sidebands()
             spec.fit_sidebands()
         except Exception as e:
+            if type(e) is ZeroDivisionError:
+                return
             log.exception("Bad fitting {}".format(e))
             return
         # fit the positions up to the last two (generally noisy points
@@ -1507,6 +1528,8 @@ class BaseHSGWid(BaseExpWidget):
                                               thz_units="wavenumber")
 
         except Exception as e:
+            if type(e) is ZeroDivisionError:
+                return
             log.exception("Bad fitting {}".format(e))
             return
 

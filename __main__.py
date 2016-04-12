@@ -14,6 +14,7 @@ from InstsAndQt.Instruments import *
 from InstsAndQt.PyroOscope.OscWid import OscWid
 from InstsAndQt.customQt import *
 
+
 import os
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -173,6 +174,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             rm = visa.ResourceManager()
             ar = [i.encode('ascii') for i in rm.list_resources()]
+            log.debug("Got resources list")
             ar.append('Fake')
             s['GPIBlist'] = ar
         except:
@@ -480,6 +482,13 @@ class CCDWindow(QtGui.QMainWindow):
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
+
+
+        self.detHWPsweep = self.ui.menuOther_Settings.addAction("Do HWP Sweep")
+        self.detHWPsweep.setCheckable(True)
+        self.detHWPsweep.triggered.connect(self.startHWPSweep)
+        self.detHWPsweep.setEnabled(False)
+
         # self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
         self.neCal = self.ui.mFileScanNeLines
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
@@ -511,6 +520,7 @@ class CCDWindow(QtGui.QMainWindow):
         #
         ###########################
         self.addPolarizerMotorDriver()
+        self.addNewportController()
         self.ui.miscToolsLayout.addStretch(10)
 
 
@@ -663,6 +673,7 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
         self.neCal.setEnabled(val)
+        self.detHWPsweep.setEnabled(val)
 
         self.consec.setEnabled(val)
 
@@ -1060,6 +1071,23 @@ class CCDWindow(QtGui.QMainWindow):
         #                              |_______________________motordriver groupbox is the first thing in the layout
 
         self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
+
+
+    def addNewportController(self):
+        try:
+            from InstsAndQt.NewportMotorDriver.espMainPanel import ESPMainPanel
+        except ImportError:
+            MessageDialog(self, "Error importing module for ESP300")
+            return
+        motorDriverGB = QtGui.QGroupBox("Detector HWP", self)
+        motorDriverGB.setFlat(True)
+        layout = QtGui.QVBoxLayout()
+        self.newportController = ESPMainPanel()
+        layout.addWidget(self.newportController)
+        motorDriverGB.setLayout(layout)
+        self.ui.miscToolsLayout.addWidget(motorDriverGB)
+
+
     @staticmethod
     def _______________ER(): pass
     @staticmethod
@@ -1108,6 +1136,68 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer.setGrating(desired)
         new = self.Spectrometer.getGrating()
         self.ui.tSpecCurGr.setText(str(new))
+
+    def startHWPSweep(self, val):
+        if val:
+            log.debug("Starting HWP sweep")
+            start, ok = QtGui.QInputDialog.getDouble(self, "Starting val", "Start",
+                                                 0)
+            if not ok: return
+
+            stop, ok = QtGui.QInputDialog.getDouble(self, "Stopping val", "Stop",
+                                                 360)
+            if not ok: return
+
+            step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
+                                                 5)
+            if not ok: return
+
+            numIm, ok = QtGui.QInputDialog.getInt(self, "Number of images", "Number of images",
+                                                 4)
+            if not ok: return
+
+            self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
+            self.thDoSpectrometerSweep.target = self.hwpSweepLoop
+            self.thDoSpectrometerSweep.start()
+        else:
+            pass
+
+    def hwpSweepLoop(self, args=[0, 365, 5, 4]):
+        start, stop, step, numImages = args
+        print "starting hwp sweep loop", start, stop, step, numImages
+        oldConfirmation = self.curExp.confirmImage
+        self.curExp.confirmImage = lambda : True
+        for hwpAngle in np.arange(start, stop, step):
+            log.debug("At hwp angle {}".format(hwpAngle))
+            self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
+            if not self.detHWPsweep.isChecked(): break
+            self.updateElementSig.emit(lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x), hwpAngle)
+            # self.newportController.detHWPWidget.ui.sbPosition.setValue(hwpAngle)
+            self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
+            time.sleep(0.2)
+            self.newportController.detHWPWidget.thWaitForMotor.wait()
+
+            for ii in range(numImages):
+                if not self.detHWPsweep.isChecked(): break
+                self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+                log.debug("\tCalled Take image, {}".format(ii))
+                self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
+                time.sleep(0.2)
+                log.debug("waiting on thread")
+                self.curExp.thDoExposure.wait()
+                log.debug("done waiting")
+            else:
+                log.debug("emulating process button click")
+                # self.curExp.ui.bProcessImageSequence.clicked.emit(False)
+                self.updateElementSig.emit(self.getCurExp().processImageSequence, None)
+                log.debug("button clicked")
+                time.sleep(2)
+                log.debug("done sleeping")
+
+
+        self.curExp.confirmImage = oldConfirmation
+        self.updateElementSig.emit(self.sweep.setChecked, False)
+        log.debug("Done with scan")
 
     def startSweepLoop(self, val):
         if hasattr(val, '__iter__'):
@@ -1460,7 +1550,10 @@ class CCDWindow(QtGui.QMainWindow):
         # In that case, let them jsut pass a lambda and this will call
         # it from the main thread, avoiding threading issues
         if hasattr(element, "__call__"):
-            element()
+            if val is None:
+                element()
+            else:
+                element(val)
             return
 
         element.setText(str(val))
