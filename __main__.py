@@ -1171,11 +1171,11 @@ class CCDWindow(QtGui.QMainWindow):
             if not ok: return
 
             stop, ok = QtGui.QInputDialog.getDouble(self, "Stopping val", "Stop",
-                                                 360)
+                                                 -360)
             if not ok: return
 
             step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
-                                                 5)
+                                                 -5)
             if not ok: return
 
             numIm, ok = QtGui.QInputDialog.getInt(self, "Number of images", "Number of images",
@@ -1222,7 +1222,7 @@ class CCDWindow(QtGui.QMainWindow):
 
 
         self.curExp.confirmImage = oldConfirmation
-        self.updateElementSig.emit(self.sweep.setChecked, False)
+        self.updateElementSig.emit(self.detHWPsweep.setChecked, False)
         log.debug("Done with scan")
 
     def startSweepLoop(self, val):
