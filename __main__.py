@@ -65,11 +65,18 @@ neLines = [
     747.244, 748.887, 753.577, 754.404
 ]
 
-
-# class MessageDialog(object):
-#     def __init__(self, *args, **kwargs):
-#         pass
-
+bgSeriesTags = ("SPECL",
+                "SPECSTEP",
+                "VBIN",
+                "VST",
+                "VEN",
+                "HBIN",
+                "HST",
+                "HEN",
+                "EXP",
+                "GAIN",
+                "AD"
+                )
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -119,7 +126,7 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 self.loadOldSettings()
             except Exception as e:
-                log.critical("ERRER LOADING OLD SETTINGS", e)
+                log.critical("ERRER LOADING OLD SETTINGS {}".format(e))
                 self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
         else:
             self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
@@ -273,14 +280,14 @@ class CCDWindow(QtGui.QMainWindow):
         s["nir_lambda"] = 0
         s["nir_pol"] = 'H'
         s["series"] = ""
+        s["spec_step"] = ""
+        s["comments"] = ""
         s["sample_name"] = ""
         s["fel_power"] = 0
-        s["exposure"] = 0.5
-        s["gain"] = 1
         s["y_min"] = 0
         s["y_max"] = 400
         s["slits"] = 0
-        s["fel_reprate"] = 0.75
+        s["fel_reprate"] = 1.07
         s["fel_lambda"] = 0
         s["sample_temp"] = 0
         s["fel_pulses"] = 0
@@ -464,6 +471,12 @@ class CCDWindow(QtGui.QMainWindow):
             lambda x: self.getCurExp().removeBackgroundSequence()
         )
 
+        # set up completer for the background lineedit
+
+        words = ["{"+ii+"}" for ii in bgSeriesTags]
+        comp = QtGui.QCompleter(words, self.ui.tBackgroundName)
+        self.ui.tBackgroundName.setMultipleCompleter(comp)
+
         ##
         # todo: I'm not sure setting the current series is neccesary anymore
         # 11/6/15
@@ -484,7 +497,8 @@ class CCDWindow(QtGui.QMainWindow):
 
 
 
-        self.detHWPsweep = self.ui.menuOther_Settings.addAction("Do HWP Sweep")
+        # self.detHWPsweep = self.ui.menuOther_Settings.addAction("Do HWP Sweep")
+        self.detHWPsweep = self.ui.mFileDoHWPSweep
         self.detHWPsweep.setCheckable(True)
         self.detHWPsweep.triggered.connect(self.startHWPSweep)
         self.detHWPsweep.setEnabled(False)
@@ -496,9 +510,10 @@ class CCDWindow(QtGui.QMainWindow):
 
 
 
-        self.consec = self.ui.menuOther_Settings.addAction(
-            "Do Consecutive Exposures"
-        )
+        # self.consec = self.ui.menuOther_Settings.addAction(
+        #     "Do Consecutive Exposures"
+        # )
+        self.consec = self.ui.mFileMultipleExposures
         self.consec.setCheckable(True)
         self.consec.triggered.connect(self.startConsecutiveImages)
         self.consec.setEnabled(False)
@@ -582,11 +597,16 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.ui.tCCDSeries.setText(str(self.settings["series"]))
         self.curExp.ui.tEMCCDExp.setText(str(self.CCD.cameraSettings["exposureTime"]))
         self.curExp.ui.tEMCCDGain.setText(str(self.CCD.cameraSettings["gain"]))
-        self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
         self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
         self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
         self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
-        self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
+
+        self.curExp.ui.tSpectrumStep.setText(str(self.settings["spec_step"]))
+        self.curExp.ui.tCCDComments.setText(str(self.settings["comments"]))
+
+        if self.curExp.hasSample:
+            self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
+            self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
 
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
@@ -1009,6 +1029,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         #create the appropriate folders
         newIm = os.path.join(filen, 'Images')
+        newImBgs = os.path.join(newIm, "Backgrounds")
         newSpec = os.path.join(filen, 'Spectra')
 
         # See if the folders exists and try to make them if they don't
@@ -1017,6 +1038,11 @@ class CCDWindow(QtGui.QMainWindow):
                 os.mkdir(newIm)
             except:
                 log.warning("Failed creating new image directory, {}".format(newIm))
+        if not os.path.exists(newImBgs):
+            try:
+                os.mkdir(newImBgs)
+            except:
+                log.warning("Failed creating new background image directory, {}".format(newImBgs))
 
         if not os.path.exists(newSpec):
             try:
@@ -1416,6 +1442,8 @@ class CCDWindow(QtGui.QMainWindow):
                    "doSpecSweep",
                    "exposing",
                    "settingsUI",
+                   "changedImageFlags",
+                   "changedSettingsFlags",
         )
 
         for key in badKeys:
@@ -1423,6 +1451,17 @@ class CCDWindow(QtGui.QMainWindow):
                 del saveDict[key]
             except KeyError:
                 pass
+        try:
+            # For some reason, the signals/slots from the widgets
+            # weren't consistently updating, so just force it myself.
+            #
+            # In a try/except because I think the loadSettings causes some
+            # signals which re-call saveSettings, while curExp is None,
+            # which was throwing errors.
+            saveDict["igNumber"] = self.getCurExp().ui.tCCDImageNum.value()
+            saveDict["bgNumber"] = self.getCurExp().ui.tCCDBGNum.value()
+        except AttributeError:
+            pass
         saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
@@ -1444,8 +1483,8 @@ class CCDWindow(QtGui.QMainWindow):
         if not os.path.isfile('Settings.txt'):
             # File doesn't exist
             return False
-        if (time.time() - os.path.getmtime('Settings.txt')) > 5 * 60:
-            # It's been longer than 5 minutes and likely isn't worth
+        if (time.time() - os.path.getmtime('Settings.txt')) > 30 * 60:
+            # It's been longer than 30 minutes and likely isn't worth
             # keeping open
             return False
         return True
@@ -1526,6 +1565,45 @@ class CCDWindow(QtGui.QMainWindow):
     def MISC_FUNCS(): pass
     @staticmethod
     def ___________cs(): pass
+
+    def getBackgroundName(self):
+        """
+        bgSeriesTags = ("SPECL",
+                "SPECSTEP",
+                "VBIN",
+                "VST",
+                "VEN",
+                "HBIN",
+                "HST",
+                "HEN",
+                "EXP",
+                "GAIN",
+                "AD"
+                )
+        :return:
+        """
+        tagDict = dict()
+        tagDict["SPECL"] = str(self.Spectrometer.getWavelength())
+        tagDict["SPECSTEP"] = str(self.getCurExp().ui.tSpectrumStep)
+        img = self.CCD.cameraSettings["imageSettings"]
+
+        tagDict["HBIN"] = img[0]
+        tagDict["VBIN"] = img[1]
+        tagDict["HST"] = img[2]
+        tagDict["HEN"] = img[3]
+        tagDict["VST"] = img[4]
+        tagDict["VEN"] = img[5]
+
+        tagDict["EXP"] = self.CCD.cameraSettings["exposureTime"]
+        tagDict["GAIN"] = self.CCD.cameraSettings["gain"]
+        tagDict["AD"] = self.CCD.cameraSettings["curADChannel"]
+
+        st = str(self.ui.tBackgroundName.text())
+        try:
+            return st.format(**tagDict)
+        except Exception as e:
+            log.warning("Error getting background name, {}".format(e))
+            return st
 
     def stopTimer(self, timer):
         """
@@ -1647,9 +1725,9 @@ class CCDWindow(QtGui.QMainWindow):
         #########
         # All clear, start closing things down
         #########
+        self.saveSettings()
         if self.oscWidget is not None:
             self.closeFELEquipment()
-        self.saveSettings()
 
         # Make sure the shutter isn't accidentally left open
         # 0,0 -> Auto

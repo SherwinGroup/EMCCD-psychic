@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>827</width>
-    <height>847</height>
+    <width>857</width>
+    <height>735</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -673,7 +673,7 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QLineEdit" name="tBackgroundName">
+                 <widget class="MCLineEdit" name="tBackgroundName">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                     <horstretch>0</horstretch>
@@ -1136,7 +1136,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>827</width>
+     <width>857</width>
      <height>21</height>
     </rect>
    </property>
@@ -1149,6 +1149,8 @@
     <addaction name="mFileTakeContinuous"/>
     <addaction name="mFileEnableAll"/>
     <addaction name="mFileDoSpecSweep"/>
+    <addaction name="mFileDoHWPSweep"/>
+    <addaction name="mFileMultipleExposures"/>
     <addaction name="mFileScanNeLines"/>
     <addaction name="mFIleAbortAcquisition"/>
     <addaction name="separator"/>
@@ -1418,12 +1420,27 @@
     <string>Load Reference</string>
    </property>
   </action>
+  <action name="mFileMultipleExposures">
+   <property name="text">
+    <string>Multiple Exposures</string>
+   </property>
+  </action>
+  <action name="mFileDoHWPSweep">
+   <property name="text">
+    <string>Do HWP Sweep</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
    <class>QINumberEdit</class>
    <extends>QLineEdit</extends>
    <header>InstsAndQt.customQt</header>
+  </customwidget>
+  <customwidget>
+   <class>MCLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>InstsAndQt.cQt.MCLineEdit</header>
   </customwidget>
  </customwidgets>
  <tabstops>

@@ -85,6 +85,7 @@ class BaseExpWidget(QtGui.QWidget):
     # Need to be set in subclass BEFORE calling def __init__()
     hasNIR = None
     hasFEL = None
+    hasSample = None
 
     # What is the class in which data will be stored?
     DataClass = EMCCD_image
@@ -218,9 +219,14 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.tCCDSeries.editingFinished.connect(
             lambda self=self: self.papa.settings.__setitem__('series',
                                                              str(self.ui.tCCDSeries.text())))
-        self.ui.tCCDSampleTemp.editingFinished.connect(
-            lambda: self.papa.settings.__setitem__('sample_temp',
-                                                   float(self.ui.tCCDSampleTemp.text())))
+
+        self.ui.tSpectrumStep.editingFinished.connect(
+            lambda self=self: self.papa.settings.__setitem__('spec_step',
+                                                             str(self.ui.tSpectrumStep.text())))
+
+        self.ui.tCCDComments.textChanged.connect(
+            lambda self=self: self.papa.settings.__setitem__('comments',
+                                                             str(self.ui.tCCDComments.toPlainText())))
         self.ui.tCCDYMin.editingFinished.connect(
             lambda : self.papa.settings.__setitem__('y_min',
                                                     int(self.ui.tCCDYMin.text())))
@@ -230,10 +236,15 @@ class BaseExpWidget(QtGui.QWidget):
         self.ui.tCCDSlits.editingFinished.connect(
             lambda: self.papa.settings.__setitem__('slits',
                                                    int(self.ui.tCCDSlits.text())))
-        self.ui.tSampleName.editingFinished.connect(
-            lambda: self.papa.settings.__setitem__("sample_name",
-                                                   str(self.ui.tSampleName.text()))
-        )
+
+        if self.hasSample:
+            self.ui.tSampleName.editingFinished.connect(
+                lambda: self.papa.settings.__setitem__("sample_name",
+                                                       str(self.ui.tSampleName.text()))
+            )
+            self.ui.tCCDSampleTemp.editingFinished.connect(
+                lambda: self.papa.settings.__setitem__('sample_temp',
+                                                       float(self.ui.tCCDSampleTemp.text())))
 
         if self.hasNIR:
             self.ui.tCCDNIRwavelength.textAccepted.connect(self.parseNIRL)
@@ -684,7 +695,7 @@ class BaseExpWidget(QtGui.QWidget):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
 
         self.curBackEMCCD = self.DataClass(self.rawData,
-                                           str(self.papa.ui.tBackgroundName.text()),
+                                           str(self.papa.getBackgroundName()),
                                            str(self.ui.tCCDBGNum.value()+1),
                                            str(self.ui.tCCDComments.toPlainText()),
                                            self.genEquipmentDict())
@@ -787,10 +798,12 @@ class BaseExpWidget(QtGui.QWidget):
         s["center_lambda"] = float(self.papa.ui.sbSpecWavelength.value())
         s["slits"] = str(self.ui.tCCDSlits.text())
         s["dark_region"] = None
-        s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
-        s["sample_name"] = str(self.ui.tSampleName.text())
         s["spec_step"] = str(self.ui.tSpectrumStep.text())
         s["ccd_image_settings"] = self.papa.CCD.cameraSettings["imageSettings"]
+
+        if self.hasSample:
+            s["sample_Temp"] = str(self.ui.tCCDSampleTemp.text())
+            s["sample_name"] = str(self.ui.tSampleName.text())
         if self.hasFEL:
             # s["fel_power"] = str(self.ui.tCCDFELP.text())
             # s["fel_reprate"] = str(self.ui.tCCDFELRR.text())
@@ -1160,6 +1173,39 @@ class BaseExpWidget(QtGui.QWidget):
                 e
             ))
 
+
+        # Save again the backgrounds folder
+        try:
+            self.prevBackEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = std,
+                prefix=r"Backgrounds\\",
+                fmt = '%f',
+                postfix="_std"
+            )
+            log.debug("Saved proccesed background std, {}".format(
+                self.prevBackEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed background in compiled folder. {}".format(
+                e
+            ))
+
+        try:
+            self.prevBackEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                prefix=r"Backgrounds\\",
+                data = d,
+                postfix="_seq"
+            )
+            log.debug("Saved proccesed background image, {}".format(
+                self.prevBackEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving image file of processed background in compiled folder. {}".format(
+                e
+            ))
+
         self.curBackEMCCD = self.prevBackEMCCD
         curBGtitle = str(self.ui.groupBox_38.title()).replace('*', '')
         self.ui.groupBox_38.setTitle(
@@ -1418,6 +1464,7 @@ class BaseExpWidget(QtGui.QWidget):
 class BaseHSGWid(BaseExpWidget):
     hasNIR = True
     hasFEL = True
+    hasSample = True
 
     DataClass = HSG_image
     name = 'HSG'
@@ -1664,6 +1711,7 @@ class HSGPCWid(BaseHSGWid):
 class AbsWid(BaseExpWidget):
     hasNIR = False
     hasFEL = False
+    hasSample = True
 
     DataClass = Abs_image
     name = 'Absorbance'
@@ -2089,6 +2137,7 @@ class TwoColorAbsWid(AbsWid):
 class PLWid(BaseExpWidget):
     hasNIR = True
     hasFEL = False
+    hasSample = True
 
     DataClass = PL_image
     name = 'PL'
@@ -2096,33 +2145,69 @@ class PLWid(BaseExpWidget):
         super(PLWid, self).__init__(parent, Ui_PL)
 
 class AlignWid(BaseExpWidget):
-    hasNIR = True
+    hasNIR = False
     hasFEL = False
+    hasSample = False
     DataClass = EMCCD_image
     name = 'Vertical Alignment'
     def __init__(self, parent=None):
         super(AlignWid, self).__init__(parent, Ui_Alignment)
-        self.ilOne = pg.InfiniteLine(pos=100, movable=True, pen='r')
-        self.ilTwo = pg.InfiniteLine(pos=800, movable=True, pen='b')
-        self.ilThree = pg.InfiniteLine(pos=1100, movable=True, pen='g')
-        self.ui.gCCDImage.view.addItem(self.ilOne)
-        self.ui.gCCDImage.view.addItem(self.ilTwo)
-        self.ui.gCCDImage.view.addItem(self.ilThree)
-        """
-        todo: remvoet his
-        self.p1.addItem(self.ilOne)
-        self.p1.addItem(self.ilTwo)
-        self.p1.addItem(self.ilThree)
-        """
-        self.ilOne.sigPositionChanged.connect(self.sumLines)
-        self.ilTwo.sigPositionChanged.connect(self.sumLines)
-        self.ilThree.sigPositionChanged.connect(self.sumLines)
-        self.curveOne = self.ui.gCCDBin.plot(pen=pg.mkPen('r', width=3))
-        self.curveTwo = self.ui.gCCDBin.plot(pen=pg.mkPen('b', width=3))
-        self.curveThree = self.ui.gCCDBin.plot(pen=pg.mkPen('g', width=3))
-        self.ui.tCCDSampleTemp.setText('2')
+        self.ui.bAddVertical.clicked.connect(self.addVertical)
+        self.ui.bAddHoriz.clicked.connect(self.addHoriz)
 
 
+
+        self.horizontalLines = {}
+        self.verticalLines = {}
+
+        # increase font size on histogram values
+        self.ui.gCCDImage.getHistogramWidget().item.axis.tickFont=QtGui.QFont("", 15)
+        # lower stretch factor and increase allowed space for axis so numbers
+        # don't get clipped
+        self.ui.gCCDImage.getHistogramWidget().item.layout.setColumnStretchFactor(0, 15)
+        self.ui.gCCDImage.ui.histogram.axis.setMaximumWidth(100)
+
+
+
+    def addVertical(self):
+        self.addAlignmentLine(self.verticalLines, angle=90)
+
+    def addHoriz(self):
+        self.addAlignmentLine(self.horizontalLines, angle=0)
+
+    def addAlignmentLine(self, lineDict, angle):
+        mod = QtGui.QApplication.keyboardModifiers()
+        if mod==QtCore.Qt.ShiftModifier:
+            # want to remove lines
+            for item, curve in lineDict.items():
+                self.ui.gCCDImage.view.removeItem(item)
+                self.ui.gCCDBin.removeItem(curve)
+                try:
+                    del lineDict[item]
+                    del item
+                except Exception as e:
+                    print "Error removign things", e
+
+        else:
+            line = pg.InfiniteLine(pos=0, movable=True, pen=pg.intColor(
+                            len(lineDict)+1, 10), angle=angle)
+            self.ui.gCCDImage.view.addItem(line)
+            curve = self.ui.gCCDBin.plot(pen=pg.mkPen(line.pen.color(), width=3))
+
+            line.sigPositionChanged.connect(self.updateCurves)
+            lineDict[line] = curve
+            self.updateCurves()
+
+    def updateCurves(self):
+        if self.curDataEMCCD.clean_array is None: return
+        for line, curve in self.verticalLines.items():
+            pos = line.value()
+            data = self.sumData(pos, True)
+            self.sigMakeGui.emit(curve.setData, (data,))
+        for line, curve in self.horizontalLines.items():
+            pos = line.value()
+            data = self.sumData(pos, False)
+            self.sigMakeGui.emit(curve.setData, (data,))
 
     def startContinuous(self, value):
         # If not value, the box was being unchecked,
@@ -2151,13 +2236,12 @@ class AlignWid(BaseExpWidget):
             # Ignore CRR and just set the clean to raw for summing
             image.clean_array = image.raw_array
             self.curDataEMCCD = image
-            self.sumLines()
+            self.updateCurves()
         for i in range(self.papa.ui.tabWidget.count()):
              if i == self.papa.ui.tabWidget.indexOf(self.papa.getCurExp()): continue
-             self.papa.ui.tabWidget.setTabEnabled(i, True)
+             self.sigMakeGui.emit(self.papa.ui.tabWidget.setTabEnabled, (i, True))
         # re-enable UI elements, remove alignment plots
-        self.toggleUIElements(True)
-
+        self.sigMakeGui.emit(self.toggleUIElements, (True,))
 
     def processImage(self):
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Cleaning Data")
@@ -2173,59 +2257,26 @@ class AlignWid(BaseExpWidget):
 
         self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
         # self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
-        self.sumLines()
+        self.updateCurves()
 
-        self.toggleUIElements(True)
+        self.sigMakeGui.emit(self.toggleUIElements, (True,))
 
-
-    def updateSpectrumOne(self, data = None):
-        self.curveOne.setData(data)
-
-    def updateSpectrumTwo(self, data = None):
-        self.curveTwo.setData(data)
-
-    def updateSpectrumThree(self, data = None):
-        self.curveThree.setData(data)
-
-
-    def sumLines(self, line=None):
-        if self.curDataEMCCD is None:
-            return
-        toDo = []
-        if line is None:
-            toDo = [1, 2, 3]
-        elif line is self.ilOne:
-            toDo = [1]
-        elif line is self.ilTwo:
-            toDo = [2]
-        elif line is self.ilThree:
-            toDo = [3]
-
-        if 1 in toDo:
-            pos = self.ilOne.value()
-            data = self.sumData(pos)
-            self.sigUpdateGraphs.emit(self.updateSpectrumOne, data)
-        if 2 in toDo:
-            pos = self.ilTwo.value()
-            data = self.sumData(pos)
-            self.sigUpdateGraphs.emit(self.updateSpectrumTwo, data)
-        if 3 in toDo:
-            pos = self.ilThree.value()
-            data = self.sumData(pos)
-            self.sigUpdateGraphs.emit(self.updateSpectrumThree, data)
-
-    def sumData(self, pos):
-        try:
-            width = int(self.ui.tCCDSampleTemp.text())
-        except ValueError:
-            width = 1
+    def sumData(self, pos, isVertical=True):
+        # try:
+        #     width = int(self.ui.tCCDSampleTemp.text())
+        # except ValueError:
+        #     width = 1
+        width = 2
         st = pos-width/2
         if st<0:
             st = 0
         en = pos + width/2
         if st == en:
             en +=1
-        data = np.sum(self.curDataEMCCD.clean_array[st:en,:], axis=0)
+        if isVertical:
+            data = np.sum(self.curDataEMCCD.clean_array[:,st:en], axis=1)
+        else:
+            data = np.sum(self.curDataEMCCD.clean_array[st:en,:], axis=0)
         data = data.astype(float)
         data-=min(data)
         data/=max(data)

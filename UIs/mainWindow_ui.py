@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow.ui'
+# Form implementation generated from reading ui file 'C:\Users\dvalovcin\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
 #
 # Created by: PyQt4 UI code generator 4.11.4
 #
@@ -25,7 +25,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(827, 847)
+        MainWindow.resize(857, 735)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/test/icon.jpg")), QtGui.QIcon.Selected, QtGui.QIcon.On)
         MainWindow.setWindowIcon(icon)
@@ -260,7 +260,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_8 = QtGui.QHBoxLayout(self.groupBox_8)
         self.horizontalLayout_8.setContentsMargins(0, 10, 0, 0)
         self.horizontalLayout_8.setObjectName(_fromUtf8("horizontalLayout_8"))
-        self.tBackgroundName = QtGui.QLineEdit(self.groupBox_8)
+        self.tBackgroundName = MCLineEdit(self.groupBox_8)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -442,7 +442,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 827, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 857, 21))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         self.menuOther_Settings = QtGui.QMenu(self.menubar)
         self.menuOther_Settings.setObjectName(_fromUtf8("menuOther_Settings"))
@@ -541,11 +541,17 @@ class Ui_MainWindow(object):
         self.mLoadBackgrounds.setObjectName(_fromUtf8("mLoadBackgrounds"))
         self.mLoadReferences = QtGui.QAction(MainWindow)
         self.mLoadReferences.setObjectName(_fromUtf8("mLoadReferences"))
+        self.mFileMultipleExposures = QtGui.QAction(MainWindow)
+        self.mFileMultipleExposures.setObjectName(_fromUtf8("mFileMultipleExposures"))
+        self.mFileDoHWPSweep = QtGui.QAction(MainWindow)
+        self.mFileDoHWPSweep.setObjectName(_fromUtf8("mFileDoHWPSweep"))
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
         self.menuOther_Settings.addAction(self.mFileEnableAll)
         self.menuOther_Settings.addAction(self.mFileDoSpecSweep)
+        self.menuOther_Settings.addAction(self.mFileDoHWPSweep)
+        self.menuOther_Settings.addAction(self.mFileMultipleExposures)
         self.menuOther_Settings.addAction(self.mFileScanNeLines)
         self.menuOther_Settings.addAction(self.mFIleAbortAcquisition)
         self.menuOther_Settings.addSeparator()
@@ -712,6 +718,9 @@ class Ui_MainWindow(object):
         self.mFIleAbortAcquisition.setText(_translate("MainWindow", "Abort Acquisition", None))
         self.mLoadBackgrounds.setText(_translate("MainWindow", "Load Background", None))
         self.mLoadReferences.setText(_translate("MainWindow", "Load Reference", None))
+        self.mFileMultipleExposures.setText(_translate("MainWindow", "Multiple Exposures", None))
+        self.mFileDoHWPSweep.setText(_translate("MainWindow", "Do HWP Sweep", None))
 
+from InstsAndQt.cQt.MCLineEdit import MCLineEdit
 from InstsAndQt.customQt import QINumberEdit
 import resources_rc
