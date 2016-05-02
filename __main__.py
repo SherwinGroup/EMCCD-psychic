@@ -75,7 +75,8 @@ bgSeriesTags = ("SPECL",
                 "HEN",
                 "EXP",
                 "GAIN",
-                "AD"
+                "AD",
+                "CCDTEMP"
                 )
 
 class CCDWindow(QtGui.QMainWindow):
@@ -1030,6 +1031,7 @@ class CCDWindow(QtGui.QMainWindow):
         #create the appropriate folders
         newIm = os.path.join(filen, 'Images')
         newImBgs = os.path.join(newIm, "Backgrounds")
+        newImBgs = os.path.join(newIm, "References")
         newSpec = os.path.join(filen, 'Spectra')
 
         # See if the folders exists and try to make them if they don't
@@ -1578,7 +1580,8 @@ class CCDWindow(QtGui.QMainWindow):
                 "HEN",
                 "EXP",
                 "GAIN",
-                "AD"
+                "AD",
+                "CCDTEMP"
                 )
         :return:
         """
@@ -1597,6 +1600,7 @@ class CCDWindow(QtGui.QMainWindow):
         tagDict["EXP"] = self.CCD.cameraSettings["exposureTime"]
         tagDict["GAIN"] = self.CCD.cameraSettings["gain"]
         tagDict["AD"] = self.CCD.cameraSettings["curADChannel"]
+        tagDict["CCDTEMP"] = self.CCD.getTemperature()
 
         st = str(self.ui.tBackgroundName.text())
         try:

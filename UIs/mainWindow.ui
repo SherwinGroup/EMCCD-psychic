@@ -681,7 +681,7 @@
                    </sizepolicy>
                   </property>
                   <property name="text">
-                   <string>testBG</string>
+                   <string>bg_{SPECL}nm_{VBIN}bin_{VST}st_{VEN}en_{EXP}s_{GAIN}g_4x_</string>
                   </property>
                  </widget>
                 </item>

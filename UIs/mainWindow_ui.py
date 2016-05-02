@@ -659,7 +659,7 @@ class Ui_MainWindow(object):
         self.bSettingsCancel.setText(_translate("MainWindow", "Cancel", None))
         self.groupBox_5.setTitle(_translate("MainWindow", "Save settings", None))
         self.groupBox_8.setTitle(_translate("MainWindow", "Background Name", None))
-        self.tBackgroundName.setText(_translate("MainWindow", "testBG", None))
+        self.tBackgroundName.setText(_translate("MainWindow", "bg_{SPECL}nm_{VBIN}bin_{VST}st_{VEN}en_{EXP}s_{GAIN}g_4x_", None))
         self.groupBox_7.setTitle(_translate("MainWindow", "Image Name", None))
         self.tImageName.setText(_translate("MainWindow", "test", None))
         self.groupBox_9.setTitle(_translate("MainWindow", "Save Directory", None))

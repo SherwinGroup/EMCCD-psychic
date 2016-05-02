@@ -788,7 +788,7 @@ class BaseExpWidget(QtGui.QWidget):
         :return:
         """
         s = dict()
-        s["date"] = time.strftime('%x')
+        s["date"] = time.strftime('%x %X%p')
         s["ccd_temperature"] = str(self.papa.ui.tSettingsCurrTemp.text())
         s["exposure"] = float(self.papa.CCD.cameraSettings["exposureTime"])
         s["gain"] = int(self.papa.CCD.cameraSettings["gain"])
@@ -1183,7 +1183,7 @@ class BaseExpWidget(QtGui.QWidget):
                 fmt = '%f',
                 postfix="_std"
             )
-            log.debug("Saved proccesed background std, {}".format(
+            log.debug("Saved proccesed background std in compiled folder., {}".format(
                 self.prevBackEMCCD.saveFileName
             ))
         except Exception as e:
@@ -1198,7 +1198,7 @@ class BaseExpWidget(QtGui.QWidget):
                 data = d,
                 postfix="_seq"
             )
-            log.debug("Saved proccesed background image, {}".format(
+            log.debug("Saved proccesed background image in compiled folder., {}".format(
                 self.prevBackEMCCD.saveFileName
             ))
         except Exception as e:
@@ -1529,8 +1529,9 @@ class BaseHSGWid(BaseExpWidget):
         super(BaseHSGWid, self).processImageSequence()
         try:
             spec = hsg.HighSidebandCCD(str(self.curDataEMCCD.spectrumFileName))
-            spec.guess_sidebands()
-            spec.fit_sidebands()
+            nir, fel = spec.infer_frequencies("wavenumber", "wavenumber")
+            # spec.guess_sidebands()
+            # spec.fit_sidebands()
         except Exception as e:
             if type(e) is ZeroDivisionError:
                 return
@@ -1538,9 +1539,9 @@ class BaseHSGWid(BaseExpWidget):
             return
         # fit the positions up to the last two (generally noisy points
         # which throw off the fits
-        p = np.polyfit(spec.sb_results[:-2,0], spec.sb_results[:-2,1], deg=1)
-        fel = p[0]*8065.54429 # get fel freq in cm-1
-        nir = p[1] * 8065.54429# get nir freq in cm-1
+        # p = np.polyfit(spec.sb_results[:-2,0], spec.sb_results[:-2,1], deg=1)
+        # fel = p[0]*8065.54429 # get fel freq in cm-1
+        # nir = p[1] * 8065.54429# get nir freq in cm-1
 
         g = '#00FF00'
         r = '#FF0000'
@@ -1837,7 +1838,6 @@ class AbsWid(BaseExpWidget):
             log.warning("Please take a reference with the same settings")
             return
         else:
-            self.curDataEMCCD.equipment_dict["reference_file"] = self.curRefEMCCD.getFileName()
             self.curAbsEMCCD = self.curDataEMCCD/self.curRefEMCCD
             self.curAbsEMCCD.origin_import = \
                 '\nWavelength,Raw Blank,Raw Trans,Abs\nnm,arb.u.,arb.u.,dB\n' \
@@ -1979,6 +1979,41 @@ class AbsWid(BaseExpWidget):
             ))
         except Exception as e:
             log.warn("error saving image file of processed ref sequence. {}".format(
+                e
+            ))
+
+
+
+
+        # Save again the backgrounds folder
+        try:
+            self.prevRefEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                data = std,
+                prefix=r"References\\absRef_",
+                fmt = '%f',
+                postfix="_std"
+            )
+            log.debug("Saved proccesed ref std in compiled dir, {}".format(
+                self.prevRefEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving std file of processed reference in compiled folder. {}".format(
+                e
+            ))
+
+        try:
+            self.prevRefEMCCD.save_images(
+                folder_str=self.papa.settings["saveDir"],
+                prefix=r"References\\absRef_",
+                data = d,
+                postfix="_seq"
+            )
+            log.debug("Saved proccesed ref image in compiled dir, {}".format(
+                self.prevRefEMCCD.saveFileName
+            ))
+        except Exception as e:
+            log.warn("error saving image file of processed reference in compiled folder. {}".format(
                 e
             ))
 
