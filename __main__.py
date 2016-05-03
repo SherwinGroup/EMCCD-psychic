@@ -1031,7 +1031,7 @@ class CCDWindow(QtGui.QMainWindow):
         #create the appropriate folders
         newIm = os.path.join(filen, 'Images')
         newImBgs = os.path.join(newIm, "Backgrounds")
-        newImBgs = os.path.join(newIm, "References")
+        newImRefs = os.path.join(newIm, "References")
         newSpec = os.path.join(filen, 'Spectra')
 
         # See if the folders exists and try to make them if they don't
@@ -1045,6 +1045,11 @@ class CCDWindow(QtGui.QMainWindow):
                 os.mkdir(newImBgs)
             except:
                 log.warning("Failed creating new background image directory, {}".format(newImBgs))
+        if not os.path.exists(newImRefs):
+            try:
+                os.mkdir(newImRefs)
+            except:
+                log.warning("Failed creating new reference image directory, {}".format(newImRefs))
 
         if not os.path.exists(newSpec):
             try:

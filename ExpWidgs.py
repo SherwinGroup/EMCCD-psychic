@@ -1114,7 +1114,7 @@ class BaseExpWidget(QtGui.QWidget):
             oh = self.prevDataEMCCD.origin_import.splitlines()
             oh[1] += ",error"
             oh[2] += ",arb.u."
-            oh.append(",{},".format(self.prevDataEMCCD.equipment_dict["series"]))
+            oh.append("Wavelength,{},error".format(self.prevDataEMCCD.equipment_dict["series"]))
             oh = "\n".join(oh)
 
             self.prevDataEMCCD.save_spectrum(
