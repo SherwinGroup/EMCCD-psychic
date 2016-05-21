@@ -393,7 +393,7 @@ class EMCCD_image(object):
         # spectrum file which is saved
         # (used by the gui to load the file and fit the
         # sb to find frequencies)
-        self.spectrumFileName = ''
+        self.spectrumFileName = 'NotSet'
 
     def __str__(self):
         '''
@@ -571,12 +571,16 @@ class EMCCD_image(object):
             if self.isSequence and "fieldStrength" in self.equipment_dict:
                 keys = ["fieldStrength", "cdRatios",
                         "fieldInt", "fpTime",
-                        "pyroVoltage"]
+                        "pyroVoltage", "pulseDuration"]
+                # keys = [k for k in keys if k in self.equipment_dict]
                 for k in keys:
-                    condensedFEL[k] = {
-                        "mean": np.mean([ii["mean"] for ii in self.equipment_dict[k]]),
-                        "std": np.mean([ii["std"] for ii in self.equipment_dict[k]])
-                    }
+                    try:
+                        condensedFEL[k] = {
+                            "mean": np.mean([ii["mean"] for ii in self.equipment_dict[k]]),
+                            "std": np.mean([ii["std"] for ii in self.equipment_dict[k]])
+                        }
+                    except KeyError:
+                        pass # fpTime/cdRatios breaks for Cavity Dumping differencs
                 condensedFEL["fel_pulses"] = np.sum(self.equipment_dict["fel_pulses"])
         except Exception as e:
             log.warning("Something fucked up trying to condense FEL settings {}".format(e))
@@ -978,95 +982,7 @@ class HSG_FVB_image(HSG_image):
         self.equipment_dict["fel_pulses"] = [self.equipment_dict["fel_pulses"]]
 
 class PL_image(EMCCD_image):
-    '''
-    This class is for handling PL images and turning them into simple spectra.
-    '''
-    
-    # def __init__(self, raw_array, file_name, description, pl_dict, equipment_dict):
-    #     '''
-    #     This initializes a PL image instance.  I expect the header to be slightly
-    #     different from the HSG or absorption headers.
-    #
-    #     image_array = 400x1600 array with data in it
-    #     bg_array = appropriate bg_array
-    #     pl_dict = the important parameters for hsg:
-    #         sample_name
-    #         sample_temperature
-    #         excitation_power
-    #         excitation_lambda
-    #     experiment_dict = the important experimental apparatus conditions:
-    #         CCD_temperature
-    #         exposure
-    #         gain
-    #         y_min
-    #         y_max
-    #         grating
-    #         center_lambda
-    #         slits
-    #         dark_region (maybe not that useful if can look at y_max + n)
-    #     '''
-    #     self.raw_array = np.array(raw_array)
-    #     self.file_name = file_name
-    #     self.description = description
-    #     self.pl_dict = pl_dict
-    #     self.equipment_dict = equipment_dict
-    #     self.clean_array = None
-    #     self.spectrum = None
-    #     self.addenda = [0, file_name] # This is important for keeping track of addition and subtraction
-    #     self.subtrahenda = []
-    
-    # def save_spectrum(self, folder_str='PL files'):
-    #     '''
-    #     Saves the general spectrum.  Unsure if we need it, but, again, seems
-    #     useful for novel, basic stuff.
-    #     '''
-    #     try:
-    #         os.mkdir(folder_str)
-    #     except OSError, e:
-    #         if e.errno == errno.EEXIST:
-    #             pass
-    #         else:
-    #             raise
-    #
-    #     pl_str = json.dumps(self.pl_dict)
-    #     self.equipment_dict['addenda': self.addenda]
-    #     self.equipment_dict['subtrahenda': self.subtrahenda]
-    #     equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-    #
-    #     save_file_name = 'pl_' + self.file_name
-    #     origin_import = '\nWavelength,Signal\nnm,arb. u.'
-    #     my_header = self.description + '\n' + pl_str + '\n' + equipment_str + origin_import
-    #     np.savetxt(os.path.join(folder_str, save_file_name), self.spectrum,
-    #                delimiter=',', header=my_header, comments='#', fmt='%f')
-    #
-    # def save_images(self, folder_str='Raw files'):
-    #     '''
-    #     Saves the raw_array, not the cleaned one.  Cleaning isn't that hard,
-    #     and how we do it could change in the future.
-    #
-    #     This really depends on how the folders are initialized by the UI.  Will
-    #     they already exist by the time we get to saving images, or do they need
-    #     to be created on the fly?
-    #
-    #     Also, I'm pretty sure self.raw_array is still ints?
-    #     '''
-    #     try:
-    #         os.mkdir(folder_str)
-    #     except OSError, e:
-    #         if e.errno == errno.EEXIST:
-    #             pass
-    #         else:
-    #             raise
-    #
-    #     pl_str = json.dumps(self.pl_dict)
-    #     self.equipment_dict['addenda': self.addenda]
-    #     self.equipment_dict['subtrahenda': self.subtrahenda]
-    #     equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-    #
-    #     my_header = self.description + '\n' + pl_str + '\n' + equipment_str
-    #
-    #     np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array,
-    #                delimiter=',', header=my_header, comments='#', fmt='%d')
+    pass
 
 class Abs_image(EMCCD_image):
     origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
@@ -1088,8 +1004,8 @@ class Abs_image(EMCCD_image):
         return True
 
     def __div__(self, other):
-        # self is the reference spectrum
-        # other is the tranmission data
+        # self is the transmission spectrum
+        # other is the other data
 
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))

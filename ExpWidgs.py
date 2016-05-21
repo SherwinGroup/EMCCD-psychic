@@ -1727,6 +1727,7 @@ class AbsWid(BaseExpWidget):
         self.curRefEMCCD = None
         self.prevRefEMCCD = None
         self.curAbsEMCCD = None # holds the actual absorption
+        self.low_pass_cutoff = 1.8
 
     def initUI(self):
         self.ui.bCCDReference.clicked.connect(self.takeReference)
@@ -1735,6 +1736,7 @@ class AbsWid(BaseExpWidget):
 
         # for plotting the raw spectra
         self.pRawvb = pg.ViewBox()
+        self.pFFTFiltered = self.ui.gCCDBin.plot(pen=pg.mkPen('s', width=3))
         self.ui.gCCDBin.plotItem.showAxis("right")
         self.ui.gCCDBin.plotItem.scene().addItem(self.pRawvb)
         self.ui.gCCDBin.plotItem.getAxis("right").linkToView(self.pRawvb )
@@ -1761,16 +1763,25 @@ class AbsWid(BaseExpWidget):
         self.takeImage(isBackground = self.processReference)
 
     def processImage(self):
-        super(AbsWid, self).processImage()
+        self.curDataEMCCD = self.DataClass(self.rawData,
+                                           str(self.papa.ui.tImageName.text()),
+                                           str(self.ui.tCCDImageNum.value()+1),
+                                           str(self.ui.tCCDComments.toPlainText()),
+                                           self.genEquipmentDict())
+
         # update the abs spectra if necessary
         if self.curRefEMCCD is None or not self.curRefEMCCD==self.curDataEMCCD:
-            return
+            pass
         else:
             try:
-                self.curAbsEMCCD = (self.curDataEMCCD-self.curBackEMCCD)/self.curRefEMCCD
+                self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
+                self.curDataEMCCD = self.curDataEMCCD-self.curBackEMCCD
+                self.curDataEMCCD.make_spectrum()
+                self.curAbsEMCCD = self.curDataEMCCD/self.curRefEMCCD
                 self.sigUpdateGraphs.emit(self.updateSpectrum, self.curAbsEMCCD)
             except Exception as e:
                 log.warning("Error updating abs spectrum {}".format(e))
+        super(AbsWid, self).processImage()
 
     def reloadReferenceFiles(self):
         files = QtGui.QFileDialog.getOpenFileNames(
@@ -1810,6 +1821,8 @@ class AbsWid(BaseExpWidget):
         self.curRefEMCCD = ref
         self.prevRefEMCCD = None
         lenref = ref.equipment_dict["noImages"]
+
+        ref.spectrumFileName = os.path.basename(seqFile)
 
         curReftitle = str(self.ui.groupBox.title())
         curReftitle = curReftitle.split('(')[0] + "({})".format(
@@ -2122,6 +2135,17 @@ class AbsWid(BaseExpWidget):
             self.pSpec.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,3])
             self.pRawBlank.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,1])
             self.pRawTrans.setData(self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,2])
+            # fft filter the data
+            try:
+                x, y = hsg.low_pass_filter(
+                        self.curAbsEMCCD.spectrum[:,0], self.curAbsEMCCD.spectrum[:,3],
+                    cutoff = self.low_pass_cutoff,
+                    inspectPlots=True).T
+                self.pFFTFiltered.setData(x, y)
+            except Exception as e:
+                log.warning("Unabled to fft filter abs data: {}".format(e))
+
+
             data = self.curAbsEMCCD.spectrum # for updating pixel axis on top of graph
         elif id(data)==id(self.curRefEMCCD):
             title = "Blank"
