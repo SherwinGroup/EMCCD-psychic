@@ -296,6 +296,8 @@ class CCDWindow(QtGui.QMainWindow):
         s["window_trans"] = 1.0
         s["eff_field"] = 1.0
         s["fel_pol"] = 'H'
+        s["thzSweepPoints"] = []
+
 
         self.settings = s
 
@@ -508,6 +510,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.neCal = self.ui.mFileScanNeLines
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
         self.neCal.setEnabled(False)
+
+        self.thzPowSweep = self.ui.menuOther_Settings.addAction("Sweep THz Power")
+        self.thzPowSweep.triggered.connect(self.startTHzPowSweep)
+        self.thzPowSweep.setCheckable(True)
+
 
 
 
@@ -1169,6 +1176,62 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer.setGrating(desired)
         new = self.Spectrometer.getGrating()
         self.ui.tSpecCurGr.setText(str(new))
+
+
+    def startTHzPowSweep(self, val):
+        if not val: #unchecking
+            return
+        st, ok = QtGui.QInputDialog.getText(self,
+                    "Desired Angles",
+                    "Enter angles in deg separated by commas",
+                    text=",".join(map(str, self.settings["thzSweepPoints"])))
+        if not ok:
+            return
+        self.settings["thzSweepPoints"] = [float(i) for i in st.split(',')]
+
+        self.thDoSpectrometerSweep.args = None
+        self.thDoSpectrometerSweep.target = self.doTHzPowerSweep
+        self.thDoSpectrometerSweep.start()
+
+    def doTHzPowerSweep(self):
+
+        oldConfirmation = self.curExp.confirmImage
+        self.curExp.confirmImage = lambda : True
+        for angle in self.settings["thzSweepPoints"]:
+            if not self.thzPowSweep.isChecked(): break
+            log.debug("Moving polarizer to angle {}".format(angle))
+            self.updateElementSig.emit(
+                self.motorDriverWid.ui.sbAngle.setValue, angle
+            )
+            self.motorDriverWid.ui.bGo.clicked.emit(False)
+            time.sleep(0.1)
+            log.debug("waiting on move")
+            self.motorDriverWid.thMoveMotor.wait()
+
+            for ii in range(4):
+                if not self.thzPowSweep.isChecked(): break
+                self.sigUpdateStatusBar.emit("THz angle: {}, number: {}".format(
+                    angle, ii
+                ))
+                self.curExp.ui.bCCDImage.clicked.emit(False)  # emulate button press for laziness
+                log.debug("\tCalled thzpol Take image, {}".format(ii))
+                self.sigUpdateStatusBar.emit("Take img {}, {}".format(angle, ii))
+                time.sleep(0.2)
+                log.debug("waiting on thread")
+                self.curExp.thDoExposure.wait()
+                log.debug("done waiting")
+            else:
+                log.debug("emulating process button click")
+                # self.curExp.ui.bProcessImageSequence.clicked.emit(False)
+                self.updateElementSig.emit(self.getCurExp().processImageSequence, None)
+                log.debug("button clicked")
+                time.sleep(2)
+                log.debug("done sleeping")
+
+        self.curExp.confirmImage = oldConfirmation
+        self.updateElementSig.emit(
+            self.thzPowSweep.setChecked, False
+        )
 
     def startHWPSweep(self, val):
         if val:
