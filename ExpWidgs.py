@@ -335,6 +335,36 @@ class BaseExpWidget(QtGui.QWidget):
         """
         pass
 
+    def populateAttributes(self, settingDict = {}):
+        """
+        called by the parent window whenever the
+        settings in the widget need to be updated
+        1) after reloading
+        2) when doing a parameter sweep
+        :param settingDict: Dictionary to open from
+        :return:
+        """
+        self.ui.tCCDImageNum.setText(str(settingDict["igNumber"]))
+        self.ui.tCCDBGNum.setText(str(settingDict["bgNumber"]))
+        self.ui.tCCDSeries.setText(str(settingDict["series"]))
+        self.ui.tEMCCDExp.setText(str(settingDict["exposureTime"]))
+        self.ui.tEMCCDGain.setText(str(settingDict["gain"]))
+        self.ui.tCCDYMin.setText(str(settingDict["y_min"]))
+        self.ui.tCCDYMax.setText(str(settingDict["y_max"]))
+        self.ui.tCCDSlits.setText(str(settingDict["slits"]))
+
+        self.ui.tSpectrumStep.setText(str(settingDict["spec_step"]))
+        self.ui.tCCDComments.setText(str(settingDict["comments"]))
+
+        if self.hasSample:
+            self.ui.tSampleName.setText(str(settingDict["sample_name"]))
+            self.ui.tCCDSampleTemp.setText(str(settingDict["sample_temp"]))
+
+        if self.hasNIR:
+            self.ui.tCCDNIRwavelength.setText(str(settingDict["nir_lambda"]))
+            self.ui.tCCDNIRP.setText(str(settingDict["nir_power"]))
+            self.ui.tCCDNIRPol.setText(str(settingDict["nir_pol"]))
+
     @staticmethod
     def __IMAGE_COLLECTION_METHODS(): pass
 

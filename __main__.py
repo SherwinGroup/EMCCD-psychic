@@ -592,27 +592,31 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tabWidget.insertTab(1, self.expUIs[exp], self.expUIs[exp].name)
         self.curExp = self.expUIs[exp]
 
+
+        self.curExp.populateAttributes(
+            {k: v for d in (self.settings, self.CCD.cameraSettings) for k, v in d.items()}
+        )
         # Need to set the texts so that they're constant between them all.
-        self.curExp.ui.tCCDImageNum.setText(str(self.settings["igNumber"]))
-        self.curExp.ui.tCCDBGNum.setText(str(self.settings["bgNumber"]))
-        self.curExp.ui.tCCDSeries.setText(str(self.settings["series"]))
-        self.curExp.ui.tEMCCDExp.setText(str(self.CCD.cameraSettings["exposureTime"]))
-        self.curExp.ui.tEMCCDGain.setText(str(self.CCD.cameraSettings["gain"]))
-        self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
-        self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
-        self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
-
-        self.curExp.ui.tSpectrumStep.setText(str(self.settings["spec_step"]))
-        self.curExp.ui.tCCDComments.setText(str(self.settings["comments"]))
-
-        if self.curExp.hasSample:
-            self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
-            self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
-
-        if self.curExp.hasNIR:
-            self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
-            self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
-            self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
+        # self.curExp.ui.tCCDImageNum.setText(str(self.settings["igNumber"]))
+        # self.curExp.ui.tCCDBGNum.setText(str(self.settings["bgNumber"]))
+        # self.curExp.ui.tCCDSeries.setText(str(self.settings["series"]))
+        # self.curExp.ui.tEMCCDExp.setText(str(self.CCD.cameraSettings["exposureTime"]))
+        # self.curExp.ui.tEMCCDGain.setText(str(self.CCD.cameraSettings["gain"]))
+        # self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
+        # self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
+        # self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
+        #
+        # self.curExp.ui.tSpectrumStep.setText(str(self.settings["spec_step"]))
+        # self.curExp.ui.tCCDComments.setText(str(self.settings["comments"]))
+        #
+        # if self.curExp.hasSample:
+        #     self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
+        #     self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
+        #
+        # if self.curExp.hasNIR:
+        #     self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
+        #     self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
+        #     self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
         if openScope is None:
             openScope = self.expUIs[exp].hasFEL
         if openScope:
@@ -1073,6 +1077,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             import motordriver.__main__ as md
         except ImportError:
+            log.warn("Error importing motor driver. Module not found.")
             MessageDialog(self, "Error importing module for motor driver")
             return
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
@@ -1496,6 +1501,91 @@ class CCDWindow(QtGui.QMainWindow):
             return False
         return True
 
+    def setState(self, newState = {}):
+        self.settings.update({k:v for k,v in newState.items() if k in self.settings})
+
+
+        # for changing the camera settings:
+        # The way I implemented this is to first update the
+        # software settings for all of the parameters.
+        # Calling the resetUIsettings then causes the UI to reflect those
+        # changes. Calling updateSettings (after forcing all
+        # of the change flags to 1) updates the actual camera
+        # settings to reflect what is requested in UI.
+        #
+        # This feels a little circular, and I don't like having
+        # so many independent references to what the settings
+        # are. But I don't really know of a better way to do it...
+        #
+        # I think it'd be better to not have any software-side settings
+        # kept and always query the camera instead of keeping it
+        # in a dict and hoping that I didn't miss an error anywhere.
+        # But that'll take a lot of reworking and debugging to make sure
+        # it all works.
+
+        # Need to pop out exposure and gain because those are handled
+        # separately.
+        expose = newState.pop('exposureTime', None)
+        gain = newState.pop('gain', None)
+        self.CCD.cameraSettings.update(
+            {k:v for k,v in newState.items() if k in self.CCD.cameraSettings})
+
+        # Call to set all of the camera settings to what we've loaded
+        self.resetUICameraSettings()
+
+
+        newFlags = [0] * len(self.settings["changedSettingsFlags"])
+        if "curADChannel" in newState:
+            newFlags[0] = 1
+        if "curVSS" in newState:
+            newFlags[1] = 1
+        if "curReadMode" in newState:
+            newFlags[2] = 1
+        if "curHSS" in newState:
+            newFlags[3] = 1
+        if "curTrig" in newState:
+            newFlags[4] = 1
+        if "curAcqMode" in newState:
+            newFlags[5] = 1
+        if "curShutterInt" in newState:
+            newFlags[6] = 1
+        if "curShutterEx" in newState:
+            newFlags[7] = 1
+
+        self.settings["changedSettingsFlags"] = newFlags
+
+        if 1 in newFlags:
+            log.debug("Requested change to camera settings, {}".format(newFlags))
+
+        if "imageSettings" in newState:
+            log.debug("Applying new image settings")
+            self.settings["changedImageFlags"] = [1] * \
+                                                    len(self.settings["changedImageFlags"])
+        # Force a camera update
+        self.updateSettings()
+
+        if "curExp" in newState:
+            [i.toggled.disconnect() for i in self.expMenuActions]
+            [ii.setChecked(False) for ii in self.expMenuActions]
+            curExpAct = [ ii for ii in self.expMenuActions if str(ii.text()) == newState.get('curExp', self.expMenuActions[0])][0]
+            curExpAct.setChecked(True)
+            [i.toggled[bool].connect(self.updateExperiment) for i in self.expMenuActions]
+
+            self.openExp(curExpAct)
+
+        if expose is not None:
+            self.getCurExp().ui.tEMCCDExp.setText(str(expose))
+        if gain is not None:
+            self.getCurExp().ui.tEMCCDGain.setText(str(gain))
+
+        if "saveDir" in newState:
+            self.ui.tSettingsDirectory.setText(str(newState["saveDir"]))
+        if "saveName" in newState:
+            self.ui.tImageName.setText(str(newState['saveName']))
+        if "saveNameBG" in newState:
+            self.ui.tBackgroundName.setText(str(newState['saveNameBG']))
+        if "crr" in newState:
+            self.ui.mFileDoCRR.setChecked(newState['crr'])
 
     def loadOldSettings(self):
         """
