@@ -8,8 +8,9 @@ Created on Sat Feb 14 19:00:33 2015
 import numpy as np
 import time
 import logging
+import scipy.signal as sps
 log = logging.getLogger("Andor")
-
+# import interactivePG as pg
 
 
 class myCallable(object):
@@ -55,6 +56,7 @@ class myCallable(object):
         return ret
 
 class fAndorEMCCD(object):
+    _image = [1, 1, 1, 400, 1, 1600]
     def __init__(self):
         self.AbortAcquisition = myCallable(self.__voidReturn, 'AbortAcquisition')
         self.CancelWait = myCallable(self.__voidReturn, 'CancelWait')
@@ -80,7 +82,7 @@ class fAndorEMCCD(object):
         self.SetExposureTime = myCallable(self.__setExp, 'SetExposureTime')
         self.SetGain = myCallable(self.__voidReturn, 'SetGain')
         self.SetHSSpeed = myCallable(self.__voidReturn, 'SetHSSpeed')
-        self.SetImage = myCallable(self.__voidReturn, 'SetImage')
+        self.SetImage = myCallable(self.__setImage, 'SetImage')
         self.SetReadMode = myCallable(self.__voidReturn, 'SetReadout')
         self.SetShutter = myCallable(self.__voidReturn, 'SetShutter')
         self.SetShutterEx = myCallable(self.__voidReturn, 'SetShutterEx')
@@ -93,26 +95,51 @@ class fAndorEMCCD(object):
 
         
     def __voidReturn(self, *args):
+        # int hbin: number of pixels to bin horizontally.
+        # int vbin: number of pixels to bin vertically.
+        # int hstart: Start column (inclusive).
+        # int hend: End column (inclusive).
+        # int vstart: Start row (inclusive).
+        # int vend: End row (inclusive).
         pass
-    
+
+    def __setImage(self, *args):
+        self._image = list(args[0])
 
     def __getData(self, *args):
+        hbin, vbin, hstart, hend, vst, ven = tuple(self._image)
+        bg = np.random.normal(297, 6, (400,1600))
+        if not np.random.randint(3):
+            ret = bg
+        else:
+            cosmicMask = np.zeros_like(bg)
+            cosmicLocx = np.random.randint(0,400, size=(5,))
+            cosmicLocy = np.random.randint(0,1600, size=(5,))
+            cosmicMask[cosmicLocx, cosmicLocy] = np.random.randint(20000, 60000, size=(5,))
+
+            a = sps.gaussian(5, 1)[None,:]
+            b = sps.gaussian(25, 5)[:,None]
+            sbKernal = a*b
+            # space 50px apart
+            sbMask = np.zeros_like(bg)
+
+            x = np.exp(1./8*np.arange(32))+1
+            for ii, sbLoc in enumerate(np.arange(41, 1600, 50)):
+                sbMask[220:245, sbLoc-2:sbLoc+3] = sbKernal * 800 * x[ii]
+
+            ret = bg + cosmicMask + sbMask
+            # print ret[vst:ven, :].shape
+            # print (vbin, (ven-vst+1)/vbin, ret.shape[1])
+        ret = ret[vst-1:ven, :].reshape((vbin, (ven-vst+1)/vbin, ret.shape[1])).sum(axis=0)
+        ret = np.fliplr(ret)
+        ret = ret.astype('int')
+        ret = ret.ravel()
         arr = args[0][0]
-        np.random.seed()
-        new = [int(round(i)) for i in 100 * np.random.normal(0, 1, args[0][1])]
-        big = [int(round(i))+5000 for i in 100 * np.random.normal(0, 1, args[0][1])]
-        # make non-sideband 1/5
-        sidebanded = bool(np.random.randint(5))
         for i in range(args[0][1]):
-            if sidebanded and i>1600*150 and i<1600*250:
-                if (i-750)%1600==0 or (i-751)%1600==0:
-                    arr[i] = big[i]/10
-                elif (i-500)%1600==0 or (i-501)%1600==0:
-                    arr[i] = big[i]
-                else:
-                    arr[i] = new[i]
-            else:
-                arr[i] = new[i]
+            arr[i] = ret[i]
+
+
+
             
     def __getDet(self, *args):
         x = args[0][0]

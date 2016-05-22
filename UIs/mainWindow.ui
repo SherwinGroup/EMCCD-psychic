@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>827</width>
+    <width>857</width>
     <height>735</height>
    </rect>
   </property>
@@ -481,7 +481,7 @@
                    <item>
                     <widget class="QINumberEdit" name="tVBin">
                      <property name="enabled">
-                      <bool>false</bool>
+                      <bool>true</bool>
                      </property>
                     </widget>
                    </item>
@@ -673,7 +673,7 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QLineEdit" name="tBackgroundName">
+                 <widget class="MCLineEdit" name="tBackgroundName">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                     <horstretch>0</horstretch>
@@ -681,7 +681,7 @@
                    </sizepolicy>
                   </property>
                   <property name="text">
-                   <string>testBG</string>
+                   <string>bg_{SPECL}nm_{VBIN}bin_{VST}st_{VEN}en_{EXP}s_{GAIN}g_4x_</string>
                   </property>
                  </widget>
                 </item>
@@ -1136,7 +1136,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>827</width>
+     <width>857</width>
      <height>21</height>
     </rect>
    </property>
@@ -1149,19 +1149,23 @@
     <addaction name="mFileTakeContinuous"/>
     <addaction name="mFileEnableAll"/>
     <addaction name="mFileDoSpecSweep"/>
+    <addaction name="mFileDoHWPSweep"/>
+    <addaction name="mFileMultipleExposures"/>
     <addaction name="mFileScanNeLines"/>
+    <addaction name="mFIleAbortAcquisition"/>
     <addaction name="separator"/>
     <addaction name="mFileFastExit"/>
     <addaction name="mFileOpenDebugConsole"/>
    </widget>
    <widget class="QMenu" name="menuLive_Series">
     <property name="title">
-     <string>Live Series</string>
+     <string>Sequence Controls</string>
     </property>
-    <addaction name="mSeriesSum"/>
-    <addaction name="mSeriesUndo"/>
-    <addaction name="mSeriesRemove"/>
-    <addaction name="mSeriesReset"/>
+    <addaction name="mRemoveImageSequence"/>
+    <addaction name="mRemoveBackgroundSequence"/>
+    <addaction name="separator"/>
+    <addaction name="mLoadBackgrounds"/>
+    <addaction name="mLoadReferences"/>
    </widget>
    <widget class="QMenu" name="menuExperiment_Type">
     <property name="title">
@@ -1200,7 +1204,7 @@
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
     <string>Do cosmic ray removal</string>
@@ -1315,12 +1319,12 @@
     <string>Disable Raw Plots</string>
    </property>
   </action>
-  <action name="mSeriesRemove">
+  <action name="mRemoveImageSequence">
    <property name="text">
-    <string>Remove Series</string>
+    <string>Remove Image Sequence</string>
    </property>
   </action>
-  <action name="mSeriesReset">
+  <action name="m">
    <property name="text">
     <string>Set Current as First</string>
    </property>
@@ -1386,12 +1390,57 @@
     <string>Open Debug Console</string>
    </property>
   </action>
+  <action name="mRemoveBackgroundSequence">
+   <property name="text">
+    <string>Remove Background Sequence</string>
+   </property>
+  </action>
+  <action name="mProcessImageSequence">
+   <property name="text">
+    <string>Process Image Sequence</string>
+   </property>
+  </action>
+  <action name="mProcessBackgroundSequence">
+   <property name="text">
+    <string>Process Background Sequence</string>
+   </property>
+  </action>
+  <action name="mFIleAbortAcquisition">
+   <property name="text">
+    <string>Abort Acquisition</string>
+   </property>
+  </action>
+  <action name="mLoadBackgrounds">
+   <property name="text">
+    <string>Load Background</string>
+   </property>
+  </action>
+  <action name="mLoadReferences">
+   <property name="text">
+    <string>Load Reference</string>
+   </property>
+  </action>
+  <action name="mFileMultipleExposures">
+   <property name="text">
+    <string>Multiple Exposures</string>
+   </property>
+  </action>
+  <action name="mFileDoHWPSweep">
+   <property name="text">
+    <string>Do HWP Sweep</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
    <class>QINumberEdit</class>
    <extends>QLineEdit</extends>
    <header>InstsAndQt.customQt</header>
+  </customwidget>
+  <customwidget>
+   <class>MCLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>InstsAndQt.cQt.MCLineEdit</header>
   </customwidget>
  </customwidgets>
  <tabstops>

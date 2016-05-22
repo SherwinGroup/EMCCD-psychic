@@ -7,14 +7,14 @@ Created on Sat Feb 14 15:06:30 2015
 
 from __future__ import absolute_import
 
-import numpy as np
-from PyQt4 import QtCore, QtGui
 from Andor import AndorEMCCD
-import pyqtgraph as pg
+
 import pyqtgraph.console as pgc
 from InstsAndQt.Instruments import *
+from InstsAndQt.PyroOscope.OscWid import OscWid
 from InstsAndQt.customQt import *
-import copy
+
+
 import os
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -33,7 +33,7 @@ log.setLevel(logging.DEBUG)
 handler = logging.FileHandler("TheLog.log")
 handler.setLevel(logging.DEBUG)
 handler1 = logging.StreamHandler()
-handler1.setLevel(logging.DEBUG)
+handler1.setLevel(logging.WARN)
 formatter = logging.Formatter('%(asctime)s - [%(filename)s:%(lineno)s - %(funcName)s()] - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 handler1.setFormatter(formatter)
@@ -46,11 +46,9 @@ if os.name is not "posix":
     myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
-
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
-from OscWid import *
-
+# from OscWid import *
 
 
 try:
@@ -67,11 +65,19 @@ neLines = [
     747.244, 748.887, 753.577, 754.404
 ]
 
-
-# class MessageDialog(object):
-#     def __init__(self, *args, **kwargs):
-#         pass
-
+bgSeriesTags = ("SPECL",
+                "SPECSTEP",
+                "VBIN",
+                "VST",
+                "VEN",
+                "HBIN",
+                "HST",
+                "HEN",
+                "EXP",
+                "GAIN",
+                "AD",
+                "CCDTEMP"
+                )
 
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
@@ -102,7 +108,7 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
-            self.CCD = AndorEMCCD(wantFake = True)
+            self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
@@ -118,7 +124,14 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.initUI()
         if self.checkSaveFile():
-            self.loadOldSettings()
+            try:
+                self.loadOldSettings()
+            except Exception as e:
+                log.critical("ERRER LOADING OLD SETTINGS {}".format(e))
+                self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
+        else:
+            self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
+
 
         # A note on the cooler:
         # This command will make it so the cooling fan
@@ -159,6 +172,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.updateElementSig.connect(self.updateUIElement)
         self.killTimerSig.connect(self.stopTimer)
 
+        self.consecImages = 0
+
 
     def initSettings(self):
         s = dict() # A dictionary to keep track of miscellaneous settings
@@ -167,6 +182,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             rm = visa.ResourceManager()
             ar = [i.encode('ascii') for i in rm.list_resources()]
+            log.debug("Got resources list")
             ar.append('Fake')
             s['GPIBlist'] = ar
         except:
@@ -177,6 +193,10 @@ class CCDWindow(QtGui.QMainWindow):
             # Pretty sure we can safely say it's
             # ASRL1
             idx = s['GPIBlist'].index('ASRL1::INSTR')
+            # my mac claims to have this port,
+            # cheap fix so it won't try to connect it
+            if os.name == "posix":
+                raise ValueError()
             s["specGPIBidx"] = idx
         except ValueError:
             # otherwise, just set it to the fake index
@@ -232,6 +252,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["igNumber"] = 0
         self.curBG = None
         s["bgNumber"] = 0
+        s["rfNumber"] = 0
 
         # These are for the EMCCD classes which will
         # clean/save/process the data
@@ -258,21 +279,23 @@ class CCDWindow(QtGui.QMainWindow):
 
         s["nir_power"] = 0
         s["nir_lambda"] = 0
+        s["nir_pol"] = 'H'
         s["series"] = ""
+        s["spec_step"] = ""
+        s["comments"] = ""
         s["sample_name"] = ""
         s["fel_power"] = 0
-        s["exposure"] = 0.5
-        s["gain"] = 1
         s["y_min"] = 0
         s["y_max"] = 400
         s["slits"] = 0
-        s["fel_reprate"] = 0.75
+        s["fel_reprate"] = 1.07
         s["fel_lambda"] = 0
         s["sample_temp"] = 0
         s["fel_pulses"] = 0
         s["sample_spot_size"] = 0.05
         s["window_trans"] = 1.0
         s["eff_field"] = 1.0
+        s["fel_pol"] = 'H'
 
         self.settings = s
 
@@ -332,7 +355,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.oscWidget = None
         self.curExp = None # Keep a reference if you ever want it
-        self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
+        # self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
 
         # Updating menus in the settings/CCD settings portion
@@ -433,10 +456,35 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
+        self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition())
 
-        self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
-        self.ui.mSeriesRemove.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
-        self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
+        ##
+        # todo: follow through the removal of undo series
+        # 11/6/15 undo series should be removed
+        ##
+        # self.ui.mSeriesUndo.triggered.connect(lambda x: self.getCurExp().undoSeries())
+        # self.ui.mRemoveImageSequence.triggered.connect(lambda x: self.getCurExp().removeCurrentSeries())
+        self.ui.mRemoveImageSequence.triggered.connect(
+            lambda x: self.getCurExp().removeImageSequence()
+        )
+
+        self.ui.mRemoveBackgroundSequence.triggered.connect(
+            lambda x: self.getCurExp().removeBackgroundSequence()
+        )
+
+        # set up completer for the background lineedit
+
+        words = ["{"+ii+"}" for ii in bgSeriesTags]
+        comp = QtGui.QCompleter(words, self.ui.tBackgroundName)
+        self.ui.tBackgroundName.setMultipleCompleter(comp)
+
+        ##
+        # todo: I'm not sure setting the current series is neccesary anymore
+        # 11/6/15
+        ##
+        # self.ui.mSeriesReset.triggered.connect(lambda x: self.getCurExp().setCurrentSeries())
+
+
 
         self.ui.mLivePlotsForceAutoscale.triggered.connect(lambda x: self.getCurExp().autoscaleSignalHistogram())
 
@@ -448,10 +496,34 @@ class CCDWindow(QtGui.QMainWindow):
         self.sweep.triggered.connect(self.startSweepLoop)
         self.sweep.setEnabled(False)
 
+
+
+        # self.detHWPsweep = self.ui.menuOther_Settings.addAction("Do HWP Sweep")
+        self.detHWPsweep = self.ui.mFileDoHWPSweep
+        self.detHWPsweep.setCheckable(True)
+        self.detHWPsweep.triggered.connect(self.startHWPSweep)
+        self.detHWPsweep.setEnabled(False)
+
         # self.neCal = self.ui.menuOther_Settings.addAction("Scan all Ne lines")
         self.neCal = self.ui.mFileScanNeLines
         self.neCal.triggered.connect(lambda : self.startSweepLoop(neLines))
         self.neCal.setEnabled(False)
+
+
+
+        # self.consec = self.ui.menuOther_Settings.addAction(
+        #     "Do Consecutive Exposures"
+        # )
+        self.consec = self.ui.mFileMultipleExposures
+        self.consec.setCheckable(True)
+        self.consec.triggered.connect(self.startConsecutiveImages)
+        self.consec.setEnabled(False)
+
+        self.ui.mLoadBackgrounds.triggered.connect(lambda x:self.getCurExp().reloadBackgroundFiles())
+        self.ui.mLoadReferences.triggered.connect(lambda x:self.getCurExp().reloadReferenceFiles())
+        self.ui.mLoadReferences.setVisible(False)
+
+
 
         self.ui.mFileOpenDebugConsole.triggered.connect(self.openDebugConsole)
 
@@ -464,6 +536,7 @@ class CCDWindow(QtGui.QMainWindow):
         #
         ###########################
         self.addPolarizerMotorDriver()
+        self.addNewportController()
         self.ui.miscToolsLayout.addStretch(10)
 
 
@@ -525,25 +598,22 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.ui.tCCDSeries.setText(str(self.settings["series"]))
         self.curExp.ui.tEMCCDExp.setText(str(self.CCD.cameraSettings["exposureTime"]))
         self.curExp.ui.tEMCCDGain.setText(str(self.CCD.cameraSettings["gain"]))
-        self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
         self.curExp.ui.tCCDYMin.setText(str(self.settings["y_min"]))
         self.curExp.ui.tCCDYMax.setText(str(self.settings["y_max"]))
         self.curExp.ui.tCCDSlits.setText(str(self.settings["slits"]))
-        self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
+
+        self.curExp.ui.tSpectrumStep.setText(str(self.settings["spec_step"]))
+        self.curExp.ui.tCCDComments.setText(str(self.settings["comments"]))
+
+        if self.curExp.hasSample:
+            self.curExp.ui.tSampleName.setText(str(self.settings["sample_name"]))
+            self.curExp.ui.tCCDSampleTemp.setText(str(self.settings["sample_temp"]))
 
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
             self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
-        if self.curExp.hasFEL:
-            self.curExp.ui.tCCDFELP.setText(str(self.settings["fel_power"]))
-            self.curExp.ui.tCCDFELFreq.setText(str(self.settings["fel_lambda"]))
-            self.curExp.ui.tCCDFELRR.setText(str(self.settings["fel_reprate"]))
-            self.curExp.ui.tCCDSpotSize.setText(str(self.settings["sample_spot_size"]))
-            self.curExp.ui.tCCDWindowTransmission.setText(str(self.settings["window_trans"]))
-            self.curExp.ui.tCCDEffectiveField.setText(str(self.settings["eff_field"]))
+            self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
         if openScope is None:
-            print "Not told what to do"
-            print "Open scope?", self.expUIs[exp].hasFEL
             openScope = self.expUIs[exp].hasFEL
         if openScope:
             self.openFELEquipment() # Opens up the oscilloscope
@@ -559,18 +629,35 @@ class CCDWindow(QtGui.QMainWindow):
         )
         self.expUIs[exp].setParent(None)
         if closeScope is None:
-            print "Not told what to do"
-            print "Close scope?", self.expUIs[exp].hasFEL
             closeScope = self.curExp.hasFEL
         if closeScope:
             self.closeFELEquipment()
         self.curExp = None
 
     def openFELEquipment(self):
-        self.oscWidget = OscWid(self)
+
+        self.oscWidget = OscWid(self, **self.settings)
         self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
 
     def closeFELEquipment(self):
+        # hold on to Osc Settings
+        # s = {
+        #     "fel_power": str(self.oscWidget.ui.tFELP.text()),
+        #     "fel_lambda": str(self.oscWidget.ui.tFELFreq.text()),
+        #     "fel_reprate": str(self.oscWidget.ui.tFELRR.text()),
+        #     "sample_spot_size": str(self.oscWidget.ui.tSpotSize.text()),
+        #     "window_trans": str(self.oscWidget.ui.tWindowTransmission.text()),
+        #     "eff_field": str(self.oscWidget.ui.tEffectiveField.text()),
+        #     "fel_pol": str(self.oscWidget.ui.tFELPol.text()),
+        #     "pulseCountRatio": str(self.oscWidget.ui.tOscCDRatio.text()),
+        #     'bcpyBG': self.oscWidget.boxcarRegions[0].getRegion(),
+        #     'bcpyFP': self.oscWidget.boxcarRegions[1].getRegion(),
+        #     'bcpyCD': self.oscWidget.boxcarRegions[2].getRegion()
+        # }
+        self.settings.update(self.oscWidget.getSaveSettings())
+
+
+
         self.ui.tabWidget.removeTab(
             self.ui.tabWidget.indexOf(self.oscWidget)
         )
@@ -578,6 +665,11 @@ class CCDWindow(QtGui.QMainWindow):
         self.oscWidget = None
 
     def getCurExp(self):
+        """
+
+        :return:
+        :rtype: BaseExpWidget
+        """
         # I need this function for an easy fix
         # I want to connect a signal/slot at initialization
         # but that corresponds to the curExp at that time,
@@ -602,6 +694,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tHEnd.setEnabled(val)
         self.sweep.setEnabled(val)
         self.neCal.setEnabled(val)
+        self.detHWPsweep.setEnabled(val)
+
+        self.consec.setEnabled(val)
 
     def openDebugConsole(self):
         self.consoleWindow = pgc.ConsoleWidget(namespace={"self": self, "np": np})
@@ -935,6 +1030,8 @@ class CCDWindow(QtGui.QMainWindow):
 
         #create the appropriate folders
         newIm = os.path.join(filen, 'Images')
+        newImBgs = os.path.join(newIm, "Backgrounds")
+        newImRefs = os.path.join(newIm, "References")
         newSpec = os.path.join(filen, 'Spectra')
 
         # See if the folders exists and try to make them if they don't
@@ -943,6 +1040,16 @@ class CCDWindow(QtGui.QMainWindow):
                 os.mkdir(newIm)
             except:
                 log.warning("Failed creating new image directory, {}".format(newIm))
+        if not os.path.exists(newImBgs):
+            try:
+                os.mkdir(newImBgs)
+            except:
+                log.warning("Failed creating new background image directory, {}".format(newImBgs))
+        if not os.path.exists(newImRefs):
+            try:
+                os.mkdir(newImRefs)
+            except:
+                log.warning("Failed creating new reference image directory, {}".format(newImRefs))
 
         if not os.path.exists(newSpec):
             try:
@@ -963,11 +1070,16 @@ class CCDWindow(QtGui.QMainWindow):
     @staticmethod
     def _____________________ls(): pass
     def addPolarizerMotorDriver(self):
-        import motordriver.__main__ as md
+        try:
+            import motordriver.__main__ as md
+        except ImportError:
+            MessageDialog(self, "Error importing module for motor driver")
+            return
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
         motorDriverGB.setFlat(True)
         layout = QtGui.QVBoxLayout()
-        layout.addWidget(md.MotorWindow())
+        self.motorDriverWid = md.MotorWindow()
+        layout.addWidget(self.motorDriverWid)
         motorDriverGB.setLayout(layout)
         self.ui.miscToolsLayout.addWidget(motorDriverGB)
 
@@ -992,6 +1104,23 @@ class CCDWindow(QtGui.QMainWindow):
         #                              |_______________________motordriver groupbox is the first thing in the layout
 
         self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
+
+
+    def addNewportController(self):
+        try:
+            from InstsAndQt.NewportMotorDriver.espMainPanel import ESPMainPanel
+        except ImportError:
+            MessageDialog(self, "Error importing module for ESP300")
+            return
+        motorDriverGB = QtGui.QGroupBox("Detector HWP", self)
+        motorDriverGB.setFlat(True)
+        layout = QtGui.QVBoxLayout()
+        self.newportController = ESPMainPanel()
+        layout.addWidget(self.newportController)
+        motorDriverGB.setLayout(layout)
+        self.ui.miscToolsLayout.addWidget(motorDriverGB)
+
+
     @staticmethod
     def _______________ER(): pass
     @staticmethod
@@ -1007,6 +1136,7 @@ class CCDWindow(QtGui.QMainWindow):
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
         try:
+            # raise Exception("Cut this shit out, OSX. STOP OPENING IT")
             self.Spectrometer = ActonSP(
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]]
             )
@@ -1015,10 +1145,17 @@ class CCDWindow(QtGui.QMainWindow):
                 self.settings["GPIBlist"][self.settings["specGPIBidx"]], e))
             self.Spectrometer = ActonSP("Fake")
         try:
-            self.ui.tSpecCurWl.setText(str(self.Spectrometer.getWavelength()))
-            self.ui.sbSpecWavelength.setValue(self.Spectrometer.getWavelength())
-            self.ui.tSpecCurGr.setText(str(self.Spectrometer.getGrating()))
-            self.ui.sbSpecGrating.setValue(self.Spectrometer.getWavelength())
+            wl = self.Spectrometer.getWavelength()
+            if wl is None:
+                raise Exception("Could not get Spectrometer wavelength!")
+            self.ui.tSpecCurWl.setText(str(wl))
+            self.ui.sbSpecWavelength.setValue(wl)
+
+            grat = self.Spectrometer.getGrating()
+            if grat is None:
+                raise Exception("Could not get Spectrometer grating!")
+            self.ui.tSpecCurGr.setText(str(grat))
+            self.ui.sbSpecGrating.setValue(grat)
         except Exception as e:
             log.warning("Could not get spectrometer values, {}".format(e))
 
@@ -1032,6 +1169,68 @@ class CCDWindow(QtGui.QMainWindow):
         self.Spectrometer.setGrating(desired)
         new = self.Spectrometer.getGrating()
         self.ui.tSpecCurGr.setText(str(new))
+
+    def startHWPSweep(self, val):
+        if val:
+            log.debug("Starting HWP sweep")
+            start, ok = QtGui.QInputDialog.getDouble(self, "Starting val", "Start",
+                                                 0)
+            if not ok: return
+
+            stop, ok = QtGui.QInputDialog.getDouble(self, "Stopping val", "Stop",
+                                                 -360)
+            if not ok: return
+
+            step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
+                                                 -5)
+            if not ok: return
+
+            numIm, ok = QtGui.QInputDialog.getInt(self, "Number of images", "Number of images",
+                                                 4)
+            if not ok: return
+
+            self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
+            self.thDoSpectrometerSweep.target = self.hwpSweepLoop
+            self.thDoSpectrometerSweep.start()
+        else:
+            pass
+
+    def hwpSweepLoop(self, args=[0, 365, 5, 4]):
+        start, stop, step, numImages = args
+        print "starting hwp sweep loop", start, stop, step, numImages
+        oldConfirmation = self.curExp.confirmImage
+        self.curExp.confirmImage = lambda : True
+        for hwpAngle in np.arange(start, stop, step):
+            log.debug("At hwp angle {}".format(hwpAngle))
+            self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
+            if not self.detHWPsweep.isChecked(): break
+            self.updateElementSig.emit(lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x), hwpAngle)
+            # self.newportController.detHWPWidget.ui.sbPosition.setValue(hwpAngle)
+            self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
+            time.sleep(0.2)
+            self.newportController.detHWPWidget.thWaitForMotor.wait()
+
+            for ii in range(numImages):
+                if not self.detHWPsweep.isChecked(): break
+                self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+                log.debug("\tCalled Take image, {}".format(ii))
+                self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
+                time.sleep(0.2)
+                log.debug("waiting on thread")
+                self.curExp.thDoExposure.wait()
+                log.debug("done waiting")
+            else:
+                log.debug("emulating process button click")
+                # self.curExp.ui.bProcessImageSequence.clicked.emit(False)
+                self.updateElementSig.emit(self.getCurExp().processImageSequence, None)
+                log.debug("button clicked")
+                time.sleep(2)
+                log.debug("done sleeping")
+
+
+        self.curExp.confirmImage = oldConfirmation
+        self.updateElementSig.emit(self.detHWPsweep.setChecked, False)
+        log.debug("Done with scan")
 
     def startSweepLoop(self, val):
         if hasattr(val, '__iter__'):
@@ -1126,6 +1325,34 @@ class CCDWindow(QtGui.QMainWindow):
         self.updateElementSig.emit(lambda : self.sweep.setChecked(False), None)
         log.debug("Done with scan")
 
+
+    def startConsecutiveImages(self, val):
+        if not val:
+            return
+        val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?", 1,
+                                            self.consecImages, 50, 1)
+        if not ok or val == 0:
+            self.consec.setChecked(False)
+            return
+        log.debug("Doing consecutive image sequence")
+        self.consecImages = val
+        self.thDoSpectrometerSweep.target = self.doConsecutiveLoop
+        self.thDoSpectrometerSweep.start()
+
+    def doConsecutiveLoop(self):
+        numImages = 0
+        oldConfirm = self.curExp.confirmImage
+        newConfirm = lambda: True
+        self.curExp.confirmImage = newConfirm
+        while self.consec.isChecked() and numImages < self.consecImages:
+            log.debug("Consecutive image: {}".format(numImages))
+            self.getCurExp().ui.bCCDImage.clicked.emit(True)
+            time.sleep(0.25)
+            self.curExp.thDoExposure.wait()
+            numImages += 1
+        log.debug("Finished doing scan")
+        self.updateElementSig.emit(lambda: self.consec.setChecked(False), None)
+        self.curExp.confirmImage = oldConfirm
 
 
 
@@ -1222,6 +1449,8 @@ class CCDWindow(QtGui.QMainWindow):
                    "doSpecSweep",
                    "exposing",
                    "settingsUI",
+                   "changedImageFlags",
+                   "changedSettingsFlags",
         )
 
         for key in badKeys:
@@ -1229,10 +1458,22 @@ class CCDWindow(QtGui.QMainWindow):
                 del saveDict[key]
             except KeyError:
                 pass
+        try:
+            # For some reason, the signals/slots from the widgets
+            # weren't consistently updating, so just force it myself.
+            #
+            # In a try/except because I think the loadSettings causes some
+            # signals which re-call saveSettings, while curExp is None,
+            # which was throwing errors.
+            saveDict["igNumber"] = self.getCurExp().ui.tCCDImageNum.value()
+            saveDict["bgNumber"] = self.getCurExp().ui.tCCDBGNum.value()
+        except AttributeError:
+            pass
         saveDict['saveNameBG'] = str(self.ui.tBackgroundName.text())
         saveDict['saveName'] = str(self.ui.tImageName.text())
         saveDict['crr'] = bool(self.ui.mFileDoCRR.isChecked())
         saveDict['curExp'] = [str(ii.text()) for ii in self.expMenuActions if ii.isChecked()][0]
+        # saveDict['comments'] = str(self.getCurExp().ui.tCCDComments.toPlainText())
 
         # print "saving curvss", saveDict["curVSS"]
         with open('Settings.txt', 'w') as fh:
@@ -1249,8 +1490,8 @@ class CCDWindow(QtGui.QMainWindow):
         if not os.path.isfile('Settings.txt'):
             # File doesn't exist
             return False
-        if (time.time() - os.path.getmtime('Settings.txt')) > 5 * 60:
-            # It's been longer than 5 minutes and likely isn't worth
+        if (time.time() - os.path.getmtime('Settings.txt')) > 30 * 60:
+            # It's been longer than 30 minutes and likely isn't worth
             # keeping open
             return False
         return True
@@ -1304,9 +1545,9 @@ class CCDWindow(QtGui.QMainWindow):
         # reopen the experiment tab, which should
         # repopulate the experimental parameters.
         # Might be a better way of doing this, but fekkit
-        curExp = self.getCurExp()
-        curExpAct = [k for k,v in self.expUIs.items() if v is curExp][0]
-        self.closeExp(curExpAct)
+        # curExp = self.getCurExp()
+        # curExpAct = [k for k,v in self.expUIs.items() if v is curExp][0]
+        # self.closeExp(curExpAct)
 
         [i.toggled.disconnect() for i in self.expMenuActions]
         [ii.setChecked(False) for ii in self.expMenuActions]
@@ -1332,6 +1573,47 @@ class CCDWindow(QtGui.QMainWindow):
     @staticmethod
     def ___________cs(): pass
 
+    def getBackgroundName(self):
+        """
+        bgSeriesTags = ("SPECL",
+                "SPECSTEP",
+                "VBIN",
+                "VST",
+                "VEN",
+                "HBIN",
+                "HST",
+                "HEN",
+                "EXP",
+                "GAIN",
+                "AD",
+                "CCDTEMP"
+                )
+        :return:
+        """
+        tagDict = dict()
+        tagDict["SPECL"] = str(self.Spectrometer.getWavelength())
+        tagDict["SPECSTEP"] = str(self.getCurExp().ui.tSpectrumStep)
+        img = self.CCD.cameraSettings["imageSettings"]
+
+        tagDict["HBIN"] = img[0]
+        tagDict["VBIN"] = img[1]
+        tagDict["HST"] = img[2]
+        tagDict["HEN"] = img[3]
+        tagDict["VST"] = img[4]
+        tagDict["VEN"] = img[5]
+
+        tagDict["EXP"] = self.CCD.cameraSettings["exposureTime"]
+        tagDict["GAIN"] = self.CCD.cameraSettings["gain"]
+        tagDict["AD"] = self.CCD.cameraSettings["curADChannel"]
+        tagDict["CCDTEMP"] = self.CCD.getTemperature()
+
+        st = str(self.ui.tBackgroundName.text())
+        try:
+            return st.format(**tagDict)
+        except Exception as e:
+            log.warning("Error getting background name, {}".format(e))
+            return st
+
     def stopTimer(self, timer):
         """
         :param timer: timer to stop
@@ -1355,7 +1637,10 @@ class CCDWindow(QtGui.QMainWindow):
         # In that case, let them jsut pass a lambda and this will call
         # it from the main thread, avoiding threading issues
         if hasattr(element, "__call__"):
-            element()
+            if val is None:
+                element()
+            else:
+                element(val)
             return
 
         element.setText(str(val))
@@ -1372,9 +1657,6 @@ class CCDWindow(QtGui.QMainWindow):
             self.sbText.setMessage(obj[0], [1])
         
     def closeEvent(self, event):
-        self.saveSettings()
-        print 'closing,', event.type()
-
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:
             ret = QtGui.QMessageBox.warning(
@@ -1390,12 +1672,14 @@ class CCDWindow(QtGui.QMainWindow):
                 event.ignore()
                 return
             fastExit = True
-        try:
-            log.info("Waiting for temperature set thread")
-            self.setTempThread.wait()
-        except:
-            log.info("No temperature thread to wait for")
-            pass
+        # try:
+        #     log.info("Waiting for temperature set thread")
+        #     self.sigUpdateStatusBar.emit("Please wait for temperature to set")
+        #     return
+        #     # self.setTempThread.wait()
+        # except:
+        #     log.info("No temperature thread to wait for")
+        #     pass
         try:
             log.info("Stopping temp timer")
             self.getTempTimer.stop()
@@ -1411,8 +1695,11 @@ class CCDWindow(QtGui.QMainWindow):
                 log.debug("Error waiting for continuous taking {}".format(e))
 
         try:
-            log.info("Waiting for image collection to finish")
-            self.curExp.thDoExposure.wait()
+            if self.getCurExp().thDoExposure.isRunning():
+                log.info("Waiting for image collection to finish")
+                self.sigUpdateStatusBar.emit("Please wait for exposure to complete")
+                return
+
         except:
             log.info("No image being collected.")
 
@@ -1420,6 +1707,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             if self.setTempThread.isRunning():
                 log.info("Please wait for detector to warm")
+                self.sigUpdateStatusBar.emit("Please wait for exposure to complete")
                 return
         except:
             pass
@@ -1446,6 +1734,9 @@ class CCDWindow(QtGui.QMainWindow):
         #########
         # All clear, start closing things down
         #########
+        self.saveSettings()
+        if self.oscWidget is not None:
+            self.closeFELEquipment()
 
         # Make sure the shutter isn't accidentally left open
         # 0,0 -> Auto

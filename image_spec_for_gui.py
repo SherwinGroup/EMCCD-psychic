@@ -12,13 +12,338 @@ import os, errno
 import copy
 import json
 import numpy as np
-import matplotlib.pyplot as plt
+# what the hell is this?
+# hangs on my mac at this import line
+# no idea what the fuck is going on here.
+# import matplotlib.pylab as plt
 import cosmics_hsg as cosmics
 import scipy.ndimage as ndimage
 import pyqtgraph as pg
+from UIs.ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 
 import logging
 log = logging.getLogger("EMCCD")
+
+
+class ConsecutiveImageAnalyzer(object):
+    def __init__(self):
+        """
+        This class will function to hold and control
+        all things necessary for performing statistical
+        metrics for consecutive, identical situation
+        CCD exposures. Namely, this is the raw
+        camera image, and the normalization factor
+        which may change between images (i.e. FEL pulses)
+        :return:
+        """
+        self._rawImages = []
+        self._cleanImages = None
+        self._normFactors = []
+        # how memory inefficient is it to
+        # keep a cache of it?
+        self._stackedImages = None
+
+        # parameters for the crr algorithm
+        self.crrParams = {
+            "ratio": 1.0,
+            "noisecoeff":5.0
+        }
+
+        # Set to True to to not normalize the
+        # images when doing crr
+        self.ignoreNormFactors = False
+
+    def addImage(self, image, normFactor = None):
+        if isinstance(image, EMCCD_image):
+            if self._rawImages and image.raw_array.shape != self._rawImages[0].shape:
+                raise ValueError("Input dimensions must match!\n\t got: {}, want: {}".format(
+                    image.raw_array.shape, self._rawImages[0].shape
+                ))
+            self._rawImages.append(image.raw_array)
+            if normFactor is None:
+                felp = image.equipment_dict.get("fel_pulses", 0)
+                # print "from eqp dict", felp
+                if felp == 0: felp = 1
+            else:
+                felp = normFactor
+            # print "Added an image, norm factor", felp
+            self._normFactors.append(felp)
+        else:
+            if self._rawImages and image.shape != self._rawImages[0].shape:
+                raise ValueError("Input dimensions must match!\n\t got: {}, want: {}".format(
+                    image.raw_array.shape, self._rawImages[0].shape
+                ))
+            if normFactor is None: normFactor = 1
+            self._rawImages.append(image)
+            self._normFactors.append(normFactor)
+
+        self._stackedImages = None
+
+    def removeImageByIdx(self, index):
+        try:
+            self._rawImages.pop(index)
+            self._normFactors.pop(index)
+            self._stackedImages = None
+        except Exception as e:
+            log.warning("Error trying to pop the images, {}".format(e))
+
+    def removeCosmics(self, ratio = 1.0, noisecoeff = 5.0, debug = False):
+        if self._stackedImages is None:
+            self.getImages()
+        d = np.array(self._stackedImages).astype(float)
+
+        normFactors = np.array(self._normFactors)
+        if not self.ignoreNormFactors:
+            try:
+                d /= normFactors[:,None, None]
+            except:
+                print "error here"
+                print type(d), d
+                print type(normFactors), normFactors
+                raise
+
+
+        med = np.median(d, axis=0)
+        # estimate the noise by taking the std along the first
+        # 100px of each row, for each vertical pixel.
+        # Then just average those, as the noise should be roughly
+        # consant, and that will hopefully smear out the presence of
+        # sidebands or cosmics within the first 100px?
+
+        signoise = np.std(d[:,:,:100], axis=2).mean()
+        cutoff = med * ratio + noisecoeff * signoise
+
+        if debug:
+            try:
+                if d.shape[1]>10:
+                    debug = False
+                    raise RuntimeError("Sorry, can't debug with this large"
+                                       "an image, it causes things to break")
+                print "median shape", med.shape
+                cutoff = med * ratio + noisecoeff * np.std(med[:,:100])
+                print "cutoff shape", cutoff.shape
+
+                winlist = []
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                vw.setImage(d.copy())
+                vw.setWindowTitle("Raw Image")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
+                vw.setImage(med)
+                vw.setWindowTitle("Median Image")
+                vw.roi.setSize((med.shape[1], med.shape[0]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, med.shape[0]):
+                        vw.ui.roiPlot.plot(med[ii], pen=pg.mkPen(style=ii+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
+                vw.setImage(d-med)
+                vw.setWindowTitle("d-m")
+                vw.roi.setSize((med.shape[1], med.shape[0]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk]-med[kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                for ii in range(0, med.shape[0]):
+                        vw.ui.roiPlot.plot(cutoff[ii], pen=pg.mkPen(style=ii+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                # vw.setImage(d.reshape(d.shape[2], d.shape[1], d.shape[0]))
+                vw.setImage((d-med)>cutoff[None,:,:])
+                vw.setWindowTitle("Cosmics?")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(((d-med)>cutoff[None,:,:])[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+
+            except:
+                log.exception("this failed")
+
+
+
+        badPix = np.where((d-med)>cutoff[None,:,:])
+        d[badPix] = np.nan
+        if not self.ignoreNormFactors:
+            d *= normFactors[:,None, None]
+
+        # To be comprable to background
+        std = np.nanstd(d, axis=0)
+
+        # if not self.ignoreNormFactors:
+        #     d /= normFactors[:,None, None]
+
+        # d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
+        # if not self.ignoreNormFactors:
+        #     d *= normFactors[:,None, None]
+
+        # replace the cosmics
+        d[badPix] = np.nanmean(d[:, badPix[1], badPix[2]], axis=0)
+        self._cleanImages = np.array(d)
+
+        if debug:
+
+                vw = ImageViewWithPlotItemContainer(view=pg.PlotItem())
+                vw.view.setAspectLocked(False)
+                vw.setImage(self._cleanImages.copy())
+                vw.setWindowTitle("Clean Image")
+                vw.roi.setSize((d.shape[2], d.shape[1]))
+                vw.roi.translatable = False
+                vw.ui.roiPlot.plotItem.addLegend()
+                for ii in range(0, d.shape[0]):
+                    for kk in range(0, d.shape[1]):
+                        vw.ui.roiPlot.plot(d[ii,kk], pen=pg.mkPen((ii, d.shape[0]), style=kk+1), name=ii)
+                # vw.updateImage()
+
+                vw.show()
+                vw.ui.roiBtn.setChecked(True)
+                vw.ui.roiBtn.clicked.emit(True)
+                winlist.append(vw)
+                self.winList = winlist
+
+
+
+
+        d = np.nanmean(d, axis=0).astype(int)
+
+        return d, std
+
+    def subtractImage(self, other):
+        """
+
+        :param other:
+        :type other: EMCCD_image
+        :return:
+        """
+        if other.std_array is not None:
+            back = other.clean_array
+            sigb = other.std_array
+        else:
+            back = np.mean(other.imageSequence.getImages().astype(float), axis=0)
+            sigb = np.std(other.imageSequence.getImages(), axis=0)
+        normfact = np.array(self._normFactors)
+
+        img = np.array(self.getImages()).astype(float)
+        sigim = np.std(img, axis=0)
+        sigT = np.sqrt(sigb**2 + sigim**2)
+
+        img -= back[None, :, :]
+        if not self.ignoreNormFactors:
+            img /= normfact[:, None, None]
+            sigT /= np.sum(normfact)
+
+        sigpost = np.std(img, axis=0)
+        sigpost /= np.sqrt(img.shape[0])
+        sigT /= np.sqrt(img.shape[0])
+
+        return np.mean(img, axis=0), sigpost, sigT
+
+
+    def clearImages(self):
+        self._rawImages = []
+        self._cleanImages = None
+        self._normFactors = []
+        self._stackedImages = None
+
+    def getImages(self):
+        # prefer returning the clean stuff, I think this is
+        # what you'd always want
+        if self._cleanImages is not None:
+            return self._cleanImages.copy()
+        if self._stackedImages is not None:
+            return self._stackedImages
+        elif not self._rawImages:
+            return np.zeros((10, 10, 10)) - 1
+        self._stackedImages = np.array(self._rawImages[0])[None,:,:]
+
+        if len(self._rawImages)==1:
+            return self._stackedImages
+
+        for newImage in self._rawImages[1:]:
+            self._stackedImages = np.concatenate(
+                (self._stackedImages, newImage[None,:,:]), axis=0
+            )
+        return self._stackedImages
+
+    def numImages(self):
+        return len(self._rawImages)
+
+def loadImageFile(fname, cls = None):
+    """
+    Given the filename of an image file, will open it up,
+    get the equipment dict and data out of it. If cls is
+    not None, will return an instantiated image data class
+    of the data. Otherwise, will return the data/equip dict
+    :param fname: The filename of the file to be loaded
+    :param cls: Class of the object to be returned
+    :return: An instantiated class of the filename
+    :rtype: cls
+    """
+    with open(fname) as fh:
+        param_str = ''
+        line = fh.readline()
+        while line[0] == '#':
+            param_str += line[1:]
+            line = fh.readline()
+            # new = fh.readline()
+            # initial = new[0]
+            # param_str += new[1:]
+        parameters = json.loads(param_str)
+    data = np.genfromtxt(fname, delimiter=',')
+    if cls is None:
+        return data, parameters
+    else:
+        obj = cls(data,
+                  file_name = parameters.get('filename', ''),
+                  file_no = parameters.get('fileno', ''),
+                  description = parameters.get('comments', ''),
+                  equipment_dict = parameters.copy()
+                  )
+        obj.clean_array = obj.raw_array # it's been saved so it's been cleaned
+        obj.equipment_dict["background_file"] = parameters["background_file"]
+
+        return obj
 
 class EMCCD_image(object):
     origin_import = '\nWavelength,Signal\nnm,arb. u.'
@@ -42,13 +367,13 @@ class EMCCD_image(object):
                              grating = spectrometer grating
                              center_lambda = spectrometer wavelength setting
                              slits = width of slits in microns
-                             dark_region (maybe not that useful if can look at y_max + n) 
-                             bg_file_name = name of background file
+                             dark_region (maybe not that useful if can look at y_max + n)
 							 series = name for series
         """
         self.raw_array = np.array(raw_array)
         self.raw_shape = self.raw_array.shape
         self.file_name = file_name
+        self.saveFileName = '' # where were you actually saved?
         self.file_no = file_no
         self.description = description
         self.equipment_dict = equipment_dict
@@ -57,10 +382,18 @@ class EMCCD_image(object):
             self.equipment_dict['y_max'] = int(self.raw_shape[0])
             self.equipment_dict['y_min'] = 0
         self.clean_array = None
+        self.std_array = None # for holding the std of pixels
         self.spectrum = None
-        self.addenda = [0, file_name + str(file_no)] # This is important for keeping track of addition and subtraction
-        self.subtrahenda = []
-        self.equipment_dict["background_darkcount_std"] = -1
+        self.equipment_dict["background_file"] = ''
+
+        self.imageSequence = ConsecutiveImageAnalyzer()
+
+        self.isSequence = False
+        # keep a reference to the full file name of the
+        # spectrum file which is saved
+        # (used by the gui to load the file and fit the
+        # sb to find frequencies)
+        self.spectrumFileName = 'NotSet'
 
     def __str__(self):
         '''
@@ -87,16 +420,12 @@ class EMCCD_image(object):
         # Add a constant offset to the data
         if type(other) in (int, float):
             ret.clean_array = self.clean_array + other
-            ret.addenda[0] = ret.addenda[0] + other
         
         # or add the two clean_arrays together
         else:
             if np.isclose(ret.equipment_dict['center_lambda'], 
                           other.equipment_dict['center_lambda']):
                 ret.clean_array = self.clean_array + other.clean_array
-                ret.addenda[0] = ret.addenda[0] + other.addenda[0]
-                ret.addenda.extend(other.addenda[1:])
-                ret.subtrahenda.extend(other.subtrahenda)
             else:
                 print "self:{}, ret:{}, other:{}".format(
                     self.equipment_dict['center_lambda'],
@@ -122,15 +451,10 @@ class EMCCD_image(object):
         
         if type(other) in (int, float):
             ret.clean_array = self.clean_array - other
-            ret.addenda[0] = ret.addenda[0] - other
         else:
             if np.isclose(ret.equipment_dict['center_lambda'], 
                           other.equipment_dict['center_lambda']):
                 ret.clean_array = self.clean_array - other.clean_array
-                ret.addenda[0] = ret.addenda[0] - other.addenda[0]
-                ret.subtrahenda.extend(other.addenda[1:])
-                ret.addenda.extend(other.subtrahenda)
-
 
             else:
                 raise Exception('Source: EMCCD_image.__sub__\nThese are not from the same grating settings')
@@ -186,18 +510,29 @@ class EMCCD_image(object):
         image_removal.run(maxiter=4)
         self.clean_array = image_removal.cleanarray
     
-    def make_spectrum(self):
+    def make_spectrum(self, std = None):
         '''
         Integrates over vertical axis of the cleaned image
         
         I'm not exactly sure y_min and y_max are counting from the same side as
         in the UI.
         '''
+        if self.std_array is None:
+            try:
+                self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            except:
+                self.spectrum = self.raw_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
+        else:
+            self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                          self.equipment_dict['grating'])
+            self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,1600).T
 
-        self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
-        wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'], 
-                                      self.equipment_dict['grating'])
-        self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,1600).T
+
         
     def inspect_dark_regions(self):
         '''
@@ -215,30 +550,114 @@ class EMCCD_image(object):
             log.warn("Integrating full image, cannot do dark count subtraction!")
             return
         self.spectrum[:,1] = self.spectrum[:, 1] - self.dark_mean*height
-        self.addenda[0] += self.dark_mean*height
         self.clean_array -= self.dark_mean
     
-    def save_spectrum(self, folder_str='Spectrum files', prefix=None):
+    def save_spectrum(self, folder_str='Spectrum files', prefix=None, postfix = '', origin_header = None):
         '''
         Saves the general spectrum.  Unsure if we need it, but, again, seems
         useful for novel, basic stuff.
         '''
 
-        self.equipment_dict['addenda'] = self.addenda
-        self.equipment_dict['subtrahenda'] = self.subtrahenda
-        equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-        origin_import = self.origin_import
+        # take the dark_region to be the std of the bottom row
+        # data shape in np array is not the same as on the pyqtgraph images
+        # The 0th index corresponds to the lowest row as seen in
+        # the live image.
+        self.equipment_dict["dark_region"] = np.std(
+            self.clean_array[0,:]
+        )
+
+        condensedFEL = {}
+        try:
+            if self.isSequence and "fieldStrength" in self.equipment_dict:
+                keys = ["fieldStrength", "cdRatios",
+                        "fieldInt", "fpTime",
+                        "pyroVoltage", "pulseDuration"]
+                # keys = [k for k in keys if k in self.equipment_dict]
+                for k in keys:
+                    try:
+                        condensedFEL[k] = {
+                            "mean": np.mean([ii["mean"] for ii in self.equipment_dict[k]]),
+                            "std": np.mean([ii["std"] for ii in self.equipment_dict[k]])
+                        }
+                    except KeyError:
+                        pass # fpTime/cdRatios breaks for Cavity Dumping differencs
+                condensedFEL["fel_pulses"] = np.sum(self.equipment_dict["fel_pulses"])
+        except Exception as e:
+            log.warning("Something fucked up trying to condense FEL settings {}".format(e))
+
+
+
+        eq_dict = self.equipment_dict.copy()
+        eq_dict.update({"comments":self.description})
+        eq_dict.update(condensedFEL)
+
+
+        equipment_str = json.dumps(eq_dict, separators=(',', ': '),
+                      sort_keys=True, indent=4 )
+        if origin_header is None:
+            origin_import = self.origin_import
+        else:
+            origin_import = origin_header
 
         filename = self.getFileName(prefix)
+        filename += postfix
 
+        num_lines = equipment_str.count('\n')  # Make the number of lines constant so importing is easier
+        for num in range(99 - num_lines): equipment_str += '\n'
 
         filename += "_spectrum.txt"
-        my_header = '#' + equipment_str + '\n' + '#' + self.description.replace('\n','\n#') + origin_import
-        np.savetxt(os.path.join(folder_str, 'Spectra', self.file_name, filename), self.spectrum,
-                   delimiter=',', header=my_header, comments = '', fmt='%f')
+        my_header = '#' + equipment_str.replace('\n', '\n#') + origin_import
+        self.spectrumFileName = os.path.join(folder_str, 'Spectra', self.file_name, filename)
 
-        # print "Save image.\nDirectory: {}".format(
-        #     os.path.join(folder_str, 'Spectra', self.file_name, filename)
+
+        np.savetxt(self.spectrumFileName, self.spectrum,
+                   delimiter=',', header=my_header, comments = '', fmt='%f')
+    
+    def save_images(self, folder_str='Raw files', prefix=None, data = None,
+                    fmt = '%d', postfix = ''):
+        '''
+        Saves the raw_array, not the cleaned one.  Cleaning isn't that hard, 
+        and how we do it could change in the future.
+        
+        This really depends on how the folders are initialized by the UI.  Will
+        they already exist by the time we get to saving images, or do they need
+        to be created on the fly?
+        
+        Also, I'm pretty sure self.raw_array is still ints?
+        '''
+        eq_dict = self.equipment_dict.copy()
+        eq_dict.update({"comments":self.description,
+                        "filename": self.file_name,
+                        "fileno": self.file_no,
+                        "noImages": self.imageSequence.numImages()})
+
+
+        filename = self.getFileName(prefix)
+        filename += postfix + '.txt'
+
+        if data is None:
+            data = self.raw_array
+        eq_dict["dark_region"] = np.std(
+            data[0,:]
+        )
+
+
+        try:
+            equipment_str = json.dumps(eq_dict, separators=(',', ': '),
+                          sort_keys=True, indent=4 )
+        except Exception as e:
+            print "Exception jsoning"
+            print e
+            print eq_dict
+
+
+        my_header = '#' + equipment_str.replace('\n', '\n#')
+
+        self.saveFileName = filename
+        np.savetxt(os.path.join(folder_str, "Images", filename), data,
+               delimiter=',', header=my_header, comments = '', fmt=fmt)
+        # print "Saved image\nDirectory: {}".format(
+        #     os.path.join(folder_str, "Images", filename)
         # )
 
     def getFileName(self, prefix=None):
@@ -265,55 +684,107 @@ class EMCCD_image(object):
 
         filename += self.file_name + self.file_no
         return filename
-    
-    def save_images(self, folder_str='Raw files', prefix=None):
-        '''
-        Saves the raw_array, not the cleaned one.  Cleaning isn't that hard, 
-        and how we do it could change in the future.
-        
-        This really depends on how the folders are initialized by the UI.  Will
-        they already exist by the time we get to saving images, or do they need
-        to be created on the fly?
-        
-        Also, I'm pretty sure self.raw_array is still ints?
-        '''
-        self.equipment_dict['addenda'] = self.addenda
-        self.equipment_dict['subtrahenda'] = self.subtrahenda
-        try:
-            equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-        except:
-            print "Source: EMCCD_image.save_images\nJSON FAILED"
-            print self.equipment_dict
-            return
-        
-        my_header = "#" + equipment_str + '\n#' +  self.description.replace('\n','\n#')
+
+    def setAsSequence(self):
+        """
+        This function is called by the expwidget when this object
+        becomes a sequence image. Sets things up to be ready to take multiple
+        images. Updates things such as FEL pulses/stats in the equipment dict
+        to be lists to append to.
+        :return:
+        """ 
+        self.imageSequence.clearImages()
+        self.imageSequence.addImage(self)
+        self.isSequence = True
+        self.equipment_dict["images_in_sequence"] = [self.saveFileName]
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"] = [
+                self.equipment_dict["fieldStrength"]
+            ]
+
+            self.equipment_dict["fieldInt"] = [
+                self.equipment_dict["fieldInt"]
+            ]
+
+            self.equipment_dict["fel_pulses"] = [
+                self.equipment_dict["fel_pulses"]
+            ]
 
 
 
-        # All the data will end up doig the same thing,
-        # only difference is the preffix to the name (?)
-        # which can also be set specifically with the function call
-        if prefix is None:
-            name = type(self).__name__.lower()
-            if "hsg" in name:
-                filename = "hsg_"
-                if "fvb" in name:
-                    filename += 'fvb_'
-            elif "pl" in name:
-                filename = "pl_"
-            elif "abs" in name:
-                filename = "absRaw_"
+            self.equipment_dict["pyroVoltage"] = [
+                self.equipment_dict["pyroVoltage"]
+            ]
+            if "fpTime" in self.equipment_dict:
+                self.equipment_dict["fpTime"] = [
+                    self.equipment_dict["fpTime"]
+                ]
+                self.equipment_dict["cdRatios"] = [
+                    self.equipment_dict["cdRatios"]
+                ]
             else:
-                filename = ""
-        else:
-            filename = str(prefix)
+                self.equipment_dict["pulseDuration"] = [
+                    self.equipment_dict["pulseDuration"]
+                ]
 
-        filename += self.file_name + self.file_no + '.txt'
-        np.savetxt(os.path.join(folder_str, "Images", filename), self.raw_array,
-               delimiter=',', header=my_header, comments = '#', fmt='%d')
-        print "Saved image\nDirectory: {}".format(
-            os.path.join(folder_str, "Images", filename)
-        )
+
+    def addNewImage(self, newImage):
+        """
+        This function should be called by an object
+        which serves to act as a collection of multiple images.
+
+        This will collect the FEL changes (pulses, strength, etc)
+        :param newImage:
+        :type newImage: EMCCD_image
+        :return:
+        """
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"].append(
+                newImage.equipment_dict["fieldStrength"]
+            )
+
+            self.equipment_dict["fieldInt"].append(
+                newImage.equipment_dict["fieldInt"]
+            )
+
+            self.equipment_dict["fel_pulses"].append(
+                newImage.equipment_dict["fel_pulses"]
+            )
+
+            self.equipment_dict["pyroVoltage"].append(
+                newImage.equipment_dict["pyroVoltage"]
+            )
+            if "fpTime" in self.equipment_dict:
+                self.equipment_dict["fpTime"].append(
+                    newImage.equipment_dict["fpTime"]
+                )
+                self.equipment_dict["cdRatios"].append(
+                    newImage.equipment_dict["cdRatios"]
+                )
+            else:
+                self.equipment_dict["pulseDuration"].append(
+                    newImage.equipment_dict["pulseDuration"]
+                )
+        self.imageSequence.addImage(newImage)
+        self.equipment_dict["images_in_sequence"].append(newImage.saveFileName)
+
+    def removeImageBySequence(self, index):
+        try:
+            if "fieldStrength" in self.equipment_dict:
+                self.equipment_dict["fieldStrength"].pop(index)
+                self.equipment_dict["fieldInt"].pop(index)
+                self.equipment_dict["fel_pulses"].pop(index)
+                self.equipment_dict["pyroVoltage"].pop(index)
+                if "fpTime" in self.equipment_dict:
+                    self.equipment_dict["fpTime"].pop(index)
+                    self.equipment_dict["cdRatios"].pop(index)
+                else:
+                    self.equipment_dict["pulseDuration"].pop(index)
+            self.imageSequence.removeImageByIdx(index)
+        except Exception as e:
+            log.warning("Exception trying to remove an image")
+
+
 
 
 class HSG_image(EMCCD_image):
@@ -321,62 +792,7 @@ class HSG_image(EMCCD_image):
     This subclass will specialize in HSG initializing and saving, which mostly
     has to do with what the header in the file is at this point.  
     '''
-    
-    def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
-        """
-        Currently unchanged from the base class.
-        """
-        super(HSG_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
-
-    def __add__(self, other):
-        """
-        Want to also add field information from the FEL
-        """
-        ret = super(HSG_image, self).__add__(other)
-        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
-
-        return ret
-
-
-    def __sub__(self, other):
-        """
-        Want to also add field information from the FEL
-        """
-        ret = super(HSG_image, self).__sub__(other)
-        # ret.equipment_dict["fieldStrength"].extend(other.equipment_dict["fieldStrength"])
-        # ret.equipment_dict["fieldInt"].extend(other.equipment_dict["fieldInt"])
-        # ret.equipment_dict["fel_pulses"] += other.equipment_dict["fel_pulses"]
-
-        return ret
-
-
-
-    def save_spectrum(self, folder_str='HSG files'):
-        '''
-        Saves the general spectrum.  Unsure if we need it, but, again, seems
-        useful for novel, basic stuff.
-        '''
-        super(HSG_image, self).save_spectrum(folder_str=folder_str)
-
-        return
-
-
-    def save_images(self, folder_str='Raw files'):
-        '''
-        Saves the raw_array, not the cleaned one.  Cleaning isn't that hard, 
-        and how we do it could change in the future.
-        
-        This really depends on how the folders are initialized by the UI.  Will
-        they already exist by the time we get to saving images, or do they need
-        to be created on the fly?
-        
-        Also, I'm pretty sure self.raw_array is still ints?
-        '''
-
-        super(HSG_image, self).save_images(folder_str=folder_str)
-        return
+    pass
 
 class HSG_FVB_image(HSG_image):
     def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
@@ -543,6 +959,7 @@ class HSG_FVB_image(HSG_image):
             self.equipment_dict["fieldStrength"].append(other.equipment_dict["fieldStrength"])
             self.equipment_dict["fieldInt"].append(other.equipment_dict["fieldInt"])
             self.equipment_dict["fel_pulses"].append(other.equipment_dict["fel_pulses"])
+            self.equipment_dict["fel_pulses"].append(other.equipment_dict["fel_pulses"])
             self.raw_array = np.row_stack((self.raw_array, newSpec))
 
         elif isinstance(other, np.ndarray):
@@ -564,108 +981,14 @@ class HSG_FVB_image(HSG_image):
         self.equipment_dict["fieldInt"] = [self.equipment_dict["fieldInt"]]
         self.equipment_dict["fel_pulses"] = [self.equipment_dict["fel_pulses"]]
 
-
-
-
-
 class PL_image(EMCCD_image):
-    '''
-    This class is for handling PL images and turning them into simple spectra.
-    '''
-    
-    # def __init__(self, raw_array, file_name, description, pl_dict, equipment_dict):
-    #     '''
-    #     This initializes a PL image instance.  I expect the header to be slightly
-    #     different from the HSG or absorption headers.
-    #
-    #     image_array = 400x1600 array with data in it
-    #     bg_array = appropriate bg_array
-    #     pl_dict = the important parameters for hsg:
-    #         sample_name
-    #         sample_temperature
-    #         excitation_power
-    #         excitation_lambda
-    #     experiment_dict = the important experimental apparatus conditions:
-    #         CCD_temperature
-    #         exposure
-    #         gain
-    #         y_min
-    #         y_max
-    #         grating
-    #         center_lambda
-    #         slits
-    #         dark_region (maybe not that useful if can look at y_max + n)
-    #     '''
-    #     self.raw_array = np.array(raw_array)
-    #     self.file_name = file_name
-    #     self.description = description
-    #     self.pl_dict = pl_dict
-    #     self.equipment_dict = equipment_dict
-    #     self.clean_array = None
-    #     self.spectrum = None
-    #     self.addenda = [0, file_name] # This is important for keeping track of addition and subtraction
-    #     self.subtrahenda = []
-    
-    # def save_spectrum(self, folder_str='PL files'):
-    #     '''
-    #     Saves the general spectrum.  Unsure if we need it, but, again, seems
-    #     useful for novel, basic stuff.
-    #     '''
-    #     try:
-    #         os.mkdir(folder_str)
-    #     except OSError, e:
-    #         if e.errno == errno.EEXIST:
-    #             pass
-    #         else:
-    #             raise
-    #
-    #     pl_str = json.dumps(self.pl_dict)
-    #     self.equipment_dict['addenda': self.addenda]
-    #     self.equipment_dict['subtrahenda': self.subtrahenda]
-    #     equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-    #
-    #     save_file_name = 'pl_' + self.file_name
-    #     origin_import = '\nWavelength,Signal\nnm,arb. u.'
-    #     my_header = self.description + '\n' + pl_str + '\n' + equipment_str + origin_import
-    #     np.savetxt(os.path.join(folder_str, save_file_name), self.spectrum,
-    #                delimiter=',', header=my_header, comments='#', fmt='%f')
-    #
-    # def save_images(self, folder_str='Raw files'):
-    #     '''
-    #     Saves the raw_array, not the cleaned one.  Cleaning isn't that hard,
-    #     and how we do it could change in the future.
-    #
-    #     This really depends on how the folders are initialized by the UI.  Will
-    #     they already exist by the time we get to saving images, or do they need
-    #     to be created on the fly?
-    #
-    #     Also, I'm pretty sure self.raw_array is still ints?
-    #     '''
-    #     try:
-    #         os.mkdir(folder_str)
-    #     except OSError, e:
-    #         if e.errno == errno.EEXIST:
-    #             pass
-    #         else:
-    #             raise
-    #
-    #     pl_str = json.dumps(self.pl_dict)
-    #     self.equipment_dict['addenda': self.addenda]
-    #     self.equipment_dict['subtrahenda': self.subtrahenda]
-    #     equipment_str = json.dumps(self.equipment_dict, sort_keys=True)
-    #
-    #     my_header = self.description + '\n' + pl_str + '\n' + equipment_str
-    #
-    #     np.savetxt(os.path.join(folder_str, self.file_name), self.raw_array,
-    #                delimiter=',', header=my_header, comments='#', fmt='%d')
+    pass
 
-    
 class Abs_image(EMCCD_image):
     origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
     def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):
         super(Abs_image, self).__init__(raw_array, file_name, file_no, description, equipment_dict)
         self.abs_spec = None
-        self.equipment_dict["reference_file"] = ""
     def __eq__(self, other):
         if type(other) is not type(self):
             print "not same type: {}/{}/{}".format(type(other), type(self), type(Abs_image()))
@@ -681,13 +1004,13 @@ class Abs_image(EMCCD_image):
         return True
 
     def __div__(self, other):
-        # self is the reference spectrum
-        # other is the tranmission data
+        # self is the transmission spectrum
+        # other is the other data
 
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))
-        ret = copy.deepcopy(other)
-        abs_spec = np.log10(self.spectrum[:,1] / other.spectrum[:,1])
+        ret = copy.deepcopy(self)
+        abs_spec = -10*np.log10(self.spectrum[:,1] / other.spectrum[:,1])
         wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
                                       self.equipment_dict['grating'])
 
@@ -696,6 +1019,59 @@ class Abs_image(EMCCD_image):
         ret.spectrum = np.concatenate((wavelengths, self.spectrum[:,1].T,
                                         other.spectrum[:,1].T, abs_spec)).reshape(4,1600).T
         return ret
+
+    def setAsSequence(self):
+        """
+        This function is called by the expwidget when this object
+        becomes a sequence image. Sets things up to be ready to take multiple
+        images. Updates things such as FEL pulses/stats in the equipment dict
+        to be lists to append to.
+
+        Need to subclass here to force no norm factor. This prevents
+        normalization to FEL pulses, which isn't good for abs (especially
+        if reference doesn't have FEL on and is normalized differently)
+        :return:
+        """
+        self.imageSequence.clearImages()
+        self.imageSequence.addImage(self, normFactor=1)
+        self.isSequence = True
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"] = [
+                self.equipment_dict["fieldStrength"]
+            ]
+
+            self.equipment_dict["fieldInt"] = [
+                self.equipment_dict["fieldInt"]
+            ]
+
+            self.equipment_dict["fel_pulses"] = [
+                self.equipment_dict["fel_pulses"]
+            ]
+
+    def addNewImage(self, newImage):
+        """
+        This function should be called by an object
+        which serves to act as a collection of multiple images.
+
+        This will collect the FEL changes (pulses, strength, etc)
+        :param newImage:
+        :type newImage: EMCCD_image
+        :return:
+        """
+        if "fieldStrength" in self.equipment_dict:
+            self.equipment_dict["fieldStrength"].append(
+                newImage.equipment_dict["fieldStrength"]
+            )
+
+            self.equipment_dict["fieldInt"].append(
+                newImage.equipment_dict["fieldInt"]
+            )
+
+            self.equipment_dict["fel_pulses"].append(
+                newImage.equipment_dict["fel_pulses"]
+            )
+        self.imageSequence.addImage(newImage, normFactor=1)
+
 
 
 
