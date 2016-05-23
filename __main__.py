@@ -48,7 +48,7 @@ if os.name is not "posix":
 
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
-# from OscWid import *
+from image_spec_for_gui import gen_wavelengths
 
 
 try:
@@ -430,6 +430,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.bSpecSetWl.clicked.connect(self.updateSpecWavelength)
         self.ui.bSpecSetGr.clicked.connect(self.updateSpecGrating)
 
+        self.ui.sbSpecWavelength.valueChanged.connect(self.calcSpecBounds)
+        self.ui.sbSpecGrating.valueChanged.connect(self.calcSpecBounds)
+
 
 
         ####################
@@ -645,6 +648,8 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.oscWidget = OscWid(self, **self.settings)
         self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
+        self.ui.gbSpecStartSB.setVisible(True)
+        self.ui.gbSpecEndSB.setVisible(True)
 
     def closeFELEquipment(self):
         # hold on to Osc Settings
@@ -662,7 +667,8 @@ class CCDWindow(QtGui.QMainWindow):
         #     'bcpyCD': self.oscWidget.boxcarRegions[2].getRegion()
         # }
         self.settings.update(self.oscWidget.getSaveSettings())
-
+        self.ui.gbSpecStartSB.setVisible(False)
+        self.ui.gbSpecEndSB.setVisible(False)
 
 
         self.ui.tabWidget.removeTab(
@@ -1080,6 +1086,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             import motordriver.__main__ as md
         except ImportError:
+            log.warning("Unabled to import motor driver")
             MessageDialog(self, "Error importing module for motor driver")
             return
         motorDriverGB = QtGui.QGroupBox("Attenuator", self)
@@ -1177,7 +1184,34 @@ class CCDWindow(QtGui.QMainWindow):
         new = self.Spectrometer.getGrating()
         self.ui.tSpecCurGr.setText(str(new))
 
+    def calcSpecBounds(self):
+        wls = gen_wavelengths(self.ui.sbSpecWavelength.value(), self.ui.sbSpecGrating.value())
+        mn = wls.min()
+        mx = wls.max()
+        ex = np.array([mn, mx])
+        self.ui.tSpecStartNM.setText("{:.3f}".format(mn))
+        self.ui.tSpecEndNM.setText("{:.3f}".format(mx))
 
+        try:
+            nir = self.getCurExp().ui.tCCDNIRwavelength.value()
+            thz = self.oscWidget.ui.tFELFreq.value()
+            sb = (1e7/ex - 1e7/nir)/thz
+            self.ui.tSpecStartSB.setText("{:.2f}".format(sb.min()))
+            self.ui.tSpecEndSB.setText("{:.2f}".format(sb.max()))
+        except (ZeroDivisionError, AttributeError):
+            # ZeroDivisionError: no values set yet
+            # AttributeError: There isn't an osc wid (or nir knowledge)
+            pass
+        except Exception as e:
+            log.warning("Uncaught exception calculating spectrometer settings: {}".format(e))
+
+
+    @staticmethod
+    def _____________INGS():pass
+    @staticmethod
+    def VARIOUSLOOPINGS(): pass
+    @staticmethod
+    def _____________ings(): pass
     def startTHzPowSweep(self, val):
         if not val: #unchecking
             return
