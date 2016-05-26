@@ -181,8 +181,8 @@ class AndorEMCCD(object):
         # set to the image acquisition mode
         self.setRead(4)
 
-        # default internal triggering
-        self.setTrigger(0)
+        # default external triggering
+        self.setTrigger(1)
 
         #default gain/exposure
         self.setExposure(0.5)

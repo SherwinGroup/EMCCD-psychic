@@ -376,6 +376,8 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.tVStart.setText(str(self.CCD.cameraSettings['imageSettings'][4]))
         self.ui.tVEnd.setText(str(self.CCD.cameraSettings['imageSettings'][5]))
 
+
+        self.ui.cSettingsTrigger.setCurrentIndex(1)
         ################
         # Connect all of the setting changes for the CCD parameters
         ###############
