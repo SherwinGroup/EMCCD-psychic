@@ -46,7 +46,7 @@ class SetterParam(SetterBase):
     Simple things which are held in the text edits
     """
     def changeAction(self):
-        self.dialog = ParamChooser()
+        self.dialog = ParamChooser(self.listWidget())
 
 class SetterTakeImage(SetterBase):
     """
@@ -70,6 +70,12 @@ class SetterLoadReference(SetterBase):
     """
     pass
 
+class SetterPause(SetterBase):
+    """
+    Prompt for a pause or user action for things
+    which aren't automated
+    """
+    pass
 
 
 
@@ -78,10 +84,45 @@ class ParamChoices(QtGui.QComboBox):
         super(ParamChoices, self).__init__(parent)
         actions = [
             "---CCD---",
-            "AD Channel",
-            "VSS",
-            "HSS",
-            "Trigger"
+            # "AD Channel",
+            # "VSS",
+            # "Read Mode",
+            # "HSS",
+            "Trigger",
+            # "Acquisition Mode",
+            "Shutter",
+            "Vertical Binning",
+            "Vertical Start",
+            "Vertical End"
+            "Temperature",
+            "Exposure",
+            "Gain",
+            "---Exp---",
+            "NIR Wavelength",
+            "NIR Power",
+            "Sample",
+            "Image Number",
+            "Background Number",
+            "Series",
+            "Spec Step",
+            "Comments",
+            "NIR Polarization",
+            "Slits",
+            "Sample Temp",
+            "YMin",
+            "YMax",
+            "---FEL---",
+            "Energy",
+            "Frequency",
+            "Spot Size",
+            "Window Trans",
+            "Effective Field",
+            "---SPEC---",
+            "Wavelength",
+            "Grating",
+            "---ROTS---",
+            "THz Attenuator",
+            "Newport Axis 1"
         ]
 
         self.addItems(actions)
@@ -93,13 +134,13 @@ class ParamChoices(QtGui.QComboBox):
 class ParamChooser(QtGui.QDialog):
     def __init__(self, parent = None, *args, **kwargs):
         super(ParamChooser, self).__init__(parent)
+        self.setModal(True)
 
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
 
         headerView = self.ui.tableWidget.horizontalHeader()
         headerView.setResizeMode(QtGui.QHeaderView.Stretch)
-        # headerView.setResizeMode(1, QtGui.QHeaderView.Interactive)
         headerView.setResizeMode(0, QtGui.QHeaderView.Interactive)
         self.addNewRow()
 
@@ -108,8 +149,28 @@ class ParamChooser(QtGui.QDialog):
 
     def addNewRow(self):
         self.ui.tableWidget.insertRow(self.ui.tableWidget.rowCount())
+        pc = ParamChoices()
+        pc.currentIndexChanged.connect(self.changeEditorDelegate)
         self.ui.tableWidget.setCellWidget(self.ui.tableWidget.rowCount()-1, 0,
-                                          ParamChoices())
+                                          pc)
+    def getWidgetLocation(self, widget):
+        for row in range(self.ui.tableWidget.rowCount()):
+            if widget is self.ui.tableWidget.cellWidget(row, 0):
+                return row
+
+        return -1
+
+    def changeEditorDelegate(self, word):
+        senderRow = self.getWidgetLocation(self.sender())
+        text = self.sender().currentText()
+        if "---" in text:
+            self.ui.tableWidget.removeCellWidget(senderRow, 1)
+            print self.ui.tableWidget.item(senderRow, 1)
+
+        else:
+            self.ui.tableWidget.setEditTriggers(QtGui.QAbstractItemView.AllEditTriggers)
+        if senderRow == self.ui.tableWidget.rowCount()-1:
+            self.addNewRow()
 
 
 
