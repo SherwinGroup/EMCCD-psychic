@@ -95,8 +95,6 @@ class AndorEMCCD(object):
         self.data = None
         self.capabilities = AndorCapabilities(sizeof(c_ulong)*12,0,0,0,0,0,0,0,0,0,0,0)
 
-
-
     def gotoTemperature(self, *args):
         """Sets the specified temperature and goes through a loop to
             wait for it to achieve the desired temperature"""
@@ -305,6 +303,18 @@ class AndorEMCCD(object):
         if ret == 20002:
             self.cameraSettings['exposureTime'] = exp
         return ret
+
+    def getExposure(self):
+        exp, acc, kin = c_float(0), c_float(0), c_float(0)
+        ret = self.dllGetAcquisitionTimings(exp, acc, kin)
+        if ret == 20002:
+            self.cameraSettings["exposureTime"] = exp.value
+            return exp.value
+        else:
+            log.warninng("Could not retrieve camera timings\n\t {}: {}".format(
+                ret, self.parseRetCode(ret)
+            ))
+            return -1
 
     def setGain(self, val):
         ret = self.dllSetEMCCDGain(val)
@@ -525,6 +535,37 @@ class AndorEMCCD(object):
         self.dllGetAcquiredData = dll.GetAcquiredData
         self.dllGetAcquiredData.resType = c_uint
         self.dllGetAcquiredData.argtypes = [POINTER(c_long), c_long]
+
+        """
+        GetAcquisitionTimings: This function will return the current
+        “valid” acquisition timing information. This function should
+        be used after all the acquisitions settings have been set, e.g.
+        SetExposureTime, SetKineticCycleTime and SetReadMode etc. The
+        values returned are the actual times used in subsequent
+        acquisitions. This function is required as it is possible to
+        set the exposure time to 20ms, accumulate cycle time to 30ms
+        and then set the readout mode to full image. As it can take 250ms
+        to read out an image it is not possible to have a cycle time of 30ms.
+
+        Parameters
+        ----------
+        float* exposure: valid exposure time in seconds
+        float* accumulate: valid accumulate cycle time in seconds
+        float* kinetic: valid kinetic cycle time in seconds
+
+        Return
+        ------
+        unsigned int
+
+            DRV_SUCCESS         Temperature controller switched ON.
+            DRV_NOT_INITIALIZED System not initialized.
+            DRV_ACQUIRING       Acquisition in progress.
+            DRV_INVALID_MODE    Acquisition or readout mode is not available.
+        """
+        self.dllGetAcquisitionTimings = dll.GetAcquisitionTimings
+        self.dllGetAcquisitionTimings.resType = c_uint
+        self.dllGetAcquisitionTimings.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_float)]
+
 
         """
         GetCapabilities: This function will fill in an AndorCapabilities

@@ -57,12 +57,14 @@ class myCallable(object):
 
 class fAndorEMCCD(object):
     _image = [1, 1, 1, 400, 1, 1600]
+    exposureTime = 1
     def __init__(self):
         self.AbortAcquisition = myCallable(self.__voidReturn, 'AbortAcquisition')
         self.CancelWait = myCallable(self.__voidReturn, 'CancelWait')
         self.CoolerON = myCallable(self.__voidReturn, 'CoolerON')
         self.CoolerOFF = myCallable(self.__voidReturn, 'CoolerOFF')
         self.GetAcquiredData = myCallable(self.__getData, 'GetAcquiredData')
+        self.GetAcquisitionTimings = myCallable(self.__getTimings, 'GetAcquisitionTimings')
         self.GetCapabilities = myCallable(self.__voidReturn, 'GetCapabilities')
         self.GetDetector = myCallable(self.__getDet, 'GetDetector')
         self.GetHSSpeed = myCallable(self.__getHSS, 'GetHSSpeed')
@@ -137,9 +139,6 @@ class fAndorEMCCD(object):
         arr = args[0][0]
         for i in range(args[0][1]):
             arr[i] = ret[i]
-
-
-
             
     def __getDet(self, *args):
         x = args[0][0]
@@ -156,16 +155,23 @@ class fAndorEMCCD(object):
     def __getNum(self, *args):
         x = args[0][-1]
         x.value = np.random.randint(3, 5)
+
     def __cancelWait(self, *args):
         self.WaitForAcquisition.retWeights = ((1,), (20024,))
+
     def __wait(self, *args):
         # Wait a random amount of time to simulate it
         self.WaitForAcquisition.retWeights = ((1,), (20002,))
         print "Sleeping for: {}".format(self.exposure)
         time.sleep(self.exposure)
 
+    def __getTimings(self, args):
+        print args
+        args[0].value = self.exposureTime
+
+
     def __setExp(self, val):
-        self.exposure = val[0]
+        self.exposureTime = val[0]
     
     
 
