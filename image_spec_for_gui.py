@@ -571,7 +571,8 @@ class EMCCD_image(object):
             if self.isSequence and "fieldStrength" in self.equipment_dict:
                 keys = ["fieldStrength", "cdRatios",
                         "fieldInt", "fpTime",
-                        "pyroVoltage", "pulseDuration"]
+                        "pyroVoltage", "pulseDuration",
+                        "pulseEnergies"]
                 # keys = [k for k in keys if k in self.equipment_dict]
                 for k in keys:
                     try:
@@ -583,7 +584,7 @@ class EMCCD_image(object):
                         pass # fpTime/cdRatios breaks for Cavity Dumping differencs
                 condensedFEL["fel_pulses"] = np.sum(self.equipment_dict["fel_pulses"])
         except Exception as e:
-            log.warning("Something fucked up trying to condense FEL settings {}".format(e))
+            log.exception("Something fucked up trying to condense FEL settings")
 
 
 
@@ -712,6 +713,9 @@ class EMCCD_image(object):
 
 
 
+            self.equipment_dict["pulseEnergies"] = [
+                self.equipment_dict["pulseEnergies"]
+            ]
             self.equipment_dict["pyroVoltage"] = [
                 self.equipment_dict["pyroVoltage"]
             ]
@@ -751,6 +755,9 @@ class EMCCD_image(object):
                 newImage.equipment_dict["fel_pulses"]
             )
 
+            self.equipment_dict["pulseEnergies"].append(
+                newImage.equipment_dict["pulseEnergies"]
+            )
             self.equipment_dict["pyroVoltage"].append(
                 newImage.equipment_dict["pyroVoltage"]
             )

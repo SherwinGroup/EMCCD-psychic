@@ -814,7 +814,7 @@ class BaseExpWidget(QtGui.QWidget):
             try:
                 s["fel_transmission"] = str(self.papa.motorDriverWid.ui.tCosCalc.text())
             except Exception as e:
-                log.warning("Unable to grab wire grid transmission: {}".format(e))
+                log.exception("Unable to grab wire grid transmission")
 
             s.update(self.papa.oscWidget.getExposureResults())
 

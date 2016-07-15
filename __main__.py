@@ -127,7 +127,7 @@ class CCDWindow(QtGui.QMainWindow):
             try:
                 self.loadOldSettings()
             except Exception as e:
-                log.critical("ERRER LOADING OLD SETTINGS {}".format(e))
+                log.exception("ERROR LOADING OLD SETTINGS {}".format(e))
                 self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
         else:
             self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
@@ -291,6 +291,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["fel_reprate"] = 1.07
         s["fel_lambda"] = 0
         s["sample_temp"] = 0
+        s["pyroCalFactor"] = 0
         s["fel_pulses"] = 0
         s["sample_spot_size"] = 0.05
         s["window_trans"] = 1.0
@@ -1535,6 +1536,11 @@ class CCDWindow(QtGui.QMainWindow):
 
         saveDict.update(self.settings)
         saveDict.update(self.CCD.cameraSettings)
+        try:
+            saveDict.update(self.oscWidget.getSaveSettings())
+        except AttributeError:
+            # No scope open to save its settings
+            pass
 
         # These ones aren't needed and may be
         # bad to keep around.
