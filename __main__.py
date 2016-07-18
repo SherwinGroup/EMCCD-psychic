@@ -649,7 +649,8 @@ class CCDWindow(QtGui.QMainWindow):
 
     def openFELEquipment(self):
 
-        self.oscWidget = OscWid(self, **self.settings)
+        self.oscWidget = OscWid(self)
+        self.oscWidget.loadSettings()
         self.ui.tabWidget.insertTab(2, self.oscWidget, "Oscilloscope")
         self.ui.gbSpecStartSB.setVisible(True)
         self.ui.gbSpecEndSB.setVisible(True)
@@ -669,7 +670,7 @@ class CCDWindow(QtGui.QMainWindow):
         #     'bcpyFP': self.oscWidget.boxcarRegions[1].getRegion(),
         #     'bcpyCD': self.oscWidget.boxcarRegions[2].getRegion()
         # }
-        self.settings.update(self.oscWidget.getSaveSettings())
+        # self.settings.update(self.oscWidget.getSaveSettings())
         self.ui.gbSpecStartSB.setVisible(False)
         self.ui.gbSpecEndSB.setVisible(False)
 
