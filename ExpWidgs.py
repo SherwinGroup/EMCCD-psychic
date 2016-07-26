@@ -813,6 +813,15 @@ class BaseExpWidget(QtGui.QWidget):
             #     str(self.ui.tCCDFELPulses.text()).strip() else 0
             try:
                 s["fel_transmission"] = str(self.papa.motorDriverWid.ui.tCosCalc.text())
+                fitA = self.papa.motorDriverWid.ui.tFitA.value()
+                fitMu = self.papa.motorDriverWid.ui.tFitMu.value()
+                fitC = self.papa.motorDriverWid.ui.tFitC.value()
+                s["fel_transmission_fits"] = {
+                    "A": fitA,
+                    "Mu": fitMu,
+                    "C": fitC
+                }
+
             except Exception as e:
                 log.exception("Unable to grab wire grid transmission")
 

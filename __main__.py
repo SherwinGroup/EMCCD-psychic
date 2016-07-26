@@ -1088,7 +1088,7 @@ class CCDWindow(QtGui.QMainWindow):
     def _____________________ls(): pass
     def addPolarizerMotorDriver(self):
         try:
-            import motordriver.__main__ as md
+            import motordriver.motorMain as md
         except ImportError:
             log.warning("Unabled to import motor driver")
             MessageDialog(self, "Error importing module for motor driver")
