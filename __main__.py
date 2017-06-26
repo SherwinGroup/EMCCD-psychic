@@ -100,7 +100,7 @@ class CCDWindow(QtGui.QMainWindow):
 
     thDoSpectrometerSweep = TempThread()
 
-   
+
     def __init__(self):
         super(CCDWindow, self).__init__()
         log.debug("About to initialize settins")
@@ -540,7 +540,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.ui.mFileOpenDebugConsole.triggered.connect(self.openDebugConsole)
 
-        
+
 
         ###############################
         #
@@ -1088,7 +1088,7 @@ class CCDWindow(QtGui.QMainWindow):
     def _____________________ls(): pass
     def addPolarizerMotorDriver(self):
         try:
-            import motordriver.motorMain as md
+            import InstsAndQt.MotorDriver.motorMain as md
         except ImportError:
             log.warning("Unabled to import motor driver")
             MessageDialog(self, "Error importing module for motor driver")
@@ -1761,7 +1761,7 @@ class CCDWindow(QtGui.QMainWindow):
             self.sbText.setMessage(obj)
         elif type(obj) is list:
             self.sbText.setMessage(obj[0], [1])
-        
+
     def closeEvent(self, event):
         fastExit = False
         if self.sender() == self.ui.mFileFastExit:
@@ -1972,62 +1972,3 @@ if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     ex = CCDWindow()
     sys.exit(app.exec_())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
