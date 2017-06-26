@@ -2330,11 +2330,11 @@ class AlignWid(BaseExpWidget):
         self.sigMakeGui.emit(self.toggleUIElements, (True,))
 
     def sumData(self, pos, isVertical=True):
-        # try:
-        #     width = int(self.ui.tCCDSampleTemp.text())
-        # except ValueError:
-        #     width = 1
-        width = 2
+        try:
+            width = int(self.ui.tCCDSlits.text())
+        except ValueError:
+            width = 1
+        # width = 2
         st = pos-width/2
         if st<0:
             st = 0
