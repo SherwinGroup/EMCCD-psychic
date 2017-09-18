@@ -33,12 +33,16 @@ log.setLevel(logging.DEBUG)
 handler = logging.FileHandler("TheLog.log")
 handler.setLevel(logging.DEBUG)
 handler1 = logging.StreamHandler()
-handler1.setLevel(logging.WARN)
-formatter = logging.Formatter('%(asctime)s - [%(filename)s:%(lineno)s - %(funcName)s()] - %(levelname)s - %(message)s')
+handler1.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - [%(filename)s:%(lineno)s - %(funcName)s] - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 handler1.setFormatter(formatter)
 log.addHandler(handler)
 log.addHandler(handler1)
+
+log.debug("-"*15)
+log.debug("Starting New Session")
+log.debug("-"*15)
 
 # http://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
 import ctypes
@@ -108,11 +112,12 @@ class CCDWindow(QtGui.QMainWindow):
         # instantiate the CCD class so that we can get values from it to
         # populate menus in the UI.
         try:
+            log.debug("Instantiating camera class")
             self.CCD = AndorEMCCD(wantFake = False)
         except TypeError as e:
             log.critical("Could not instantiate camera class, {}".format(e))
             self.close()
-
+        log.debug("Initializing camera")
         self.CCD.initialize()
         if self.CCD.dllInitializeRet is not None:
             MessageDialog(self,
@@ -121,16 +126,6 @@ class CCDWindow(QtGui.QMainWindow):
                               self.CCD.parseRetCode(self.CCD.dllInitializeRet)
                           ),
                           0)
-
-        self.initUI()
-        if self.checkSaveFile():
-            try:
-                self.loadOldSettings()
-            except Exception as e:
-                log.exception("ERROR LOADING OLD SETTINGS {}".format(e))
-                self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
-        else:
-            self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
 
         # A note on the cooler:
@@ -151,9 +146,21 @@ class CCDWindow(QtGui.QMainWindow):
         #
         # For reason 1) above, we want to disable the auto-
         # shutoff of the cooler immediately to prevent issues
-        # for software crashes.
-
+        # for software crashes. And by immediately, I mean
+        # before any UI/hardware inits which can break it.
+        log.debug("Turning on camera cooler persistance")
         self.CCD.dllSetCoolerMode(1)
+
+
+        self.initUI()
+        if self.checkSaveFile():
+            try:
+                self.loadOldSettings()
+            except Exception as e:
+                log.exception("ERROR LOADING OLD SETTINGS {}".format(e))
+                self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
+        else:
+            self.openExp([i for i in self.expMenuActions if i.isChecked()][0])
 
         # Check to make sure the software didn't crash and the temperature is currently cold
         temp = self.CCD.getTemperature()
@@ -180,7 +187,9 @@ class CCDWindow(QtGui.QMainWindow):
 
         # Get the GPIB instrument list
         try:
+            log.debug("Trying to get resourcemanager")
             rm = visa.ResourceManager()
+            log.debug("RM gotten")
             ar = [i.encode('ascii') for i in rm.list_resources()]
             log.debug("Got resources list")
             ar.append('Fake')
@@ -304,6 +313,7 @@ class CCDWindow(QtGui.QMainWindow):
 
 
     def initUI(self):
+        log.debug("Initializing UI")
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
@@ -461,7 +471,9 @@ class CCDWindow(QtGui.QMainWindow):
         # I think I learned to just check the state of the UI element instead
         # of this dict value, but I'm not 100% sure
         self.ui.mFileDoCRR.triggered[bool].connect(lambda v: self.settings.__setitem__('doCRR', v))
-        self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
+        ## 9/1/17 should be done in setting up temp loop
+        ## since objects are reinstantiated there
+        # self.ui.mFileBreakTemp.triggered.connect(lambda: self.setTempThread.terminate())
         self.ui.mFileTakeContinuous.triggered[bool].connect(lambda v: self.getCurExp().startContinuous(v))
         self.ui.mFileEnableAll.triggered[bool].connect(self.toggleExtraSettings)
         self.ui.mFIleAbortAcquisition.triggered.connect(lambda v: self.getCurExp().abortAcquisition())
@@ -1298,22 +1310,36 @@ class CCDWindow(QtGui.QMainWindow):
 
     def hwpSweepLoop(self, args=[0, 365, 5, 4]):
         start, stop, step, numImages = args
-        print "starting hwp sweep loop", start, stop, step, numImages
+        log.debug("starting hwp sweep loop {}:{}:{}x{}".format(start, stop, step, numImages))
+        # keep reference to old fucntion for confirming images, because this one
+        # will automatically accept them.
         oldConfirmation = self.curExp.confirmImage
         self.curExp.confirmImage = lambda : True
-        for hwpAngle in np.arange(start, stop, step):
+
+        # force to append the final point.
+        points = np.arange(start, stop, step)
+        points = np.append(points, stop)
+        for hwpAngle in points:
             log.debug("At hwp angle {}".format(hwpAngle))
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
             if not self.detHWPsweep.isChecked(): break
+
+            # use signals to change the value in the spin box (need to avoid non-main thread GUI changes
             self.updateElementSig.emit(lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x), hwpAngle)
-            # self.newportController.detHWPWidget.ui.sbPosition.setValue(hwpAngle)
-            self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
-            time.sleep(0.2)
-            self.newportController.detHWPWidget.thWaitForMotor.wait()
+            # call the function to move the motor.
+            self.newportController.detHWPWidget.moveMotor()
+            log.debug("Done waiting on motor move")
+
+            # self.newportController.detHWPWidget.startChangePosition()
+
+            # self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
+            # time.sleep(0.2)
+            # self.newportController.detHWPWidget.thWaitForMotor.wait()
 
             for ii in range(numImages):
                 if not self.detHWPsweep.isChecked(): break
-                self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+                # self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+                self.getCurExp().takeImage(isBackground=False)
                 log.debug("\tCalled Take image, {}".format(ii))
                 self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
                 time.sleep(0.2)
@@ -1331,7 +1357,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.curExp.confirmImage = oldConfirmation
         self.updateElementSig.emit(self.detHWPsweep.setChecked, False)
-        log.debug("Done with scan")
+        log.debug("Done with HWP scan")
 
     def startSweepLoop(self, val):
         if hasattr(val, '__iter__'):
@@ -1428,15 +1454,18 @@ class CCDWindow(QtGui.QMainWindow):
 
 
     def startConsecutiveImages(self, val):
+        print "modifiers",QtGui.QApplication.keyboardModifiers()
+        print QtGui.QApplication.keyboardModifiers()|QtCore.Qt.ShiftModifier
         if not val:
             return
-        val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?", 1,
-                                            self.consecImages, 50, 1)
+        val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?",
+                                            self.consecImages, 1, 50, 1)
         if not ok or val == 0:
             self.consec.setChecked(False)
             return
         log.debug("Doing consecutive image sequence")
         self.consecImages = val
+        self.thDoSpectrometerSweep.args = None
         self.thDoSpectrometerSweep.target = self.doConsecutiveLoop
         self.thDoSpectrometerSweep.start()
 
@@ -1447,9 +1476,10 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.confirmImage = newConfirm
         while self.consec.isChecked() and numImages < self.consecImages:
             log.debug("Consecutive image: {}".format(numImages))
-            self.getCurExp().ui.bCCDImage.clicked.emit(True)
+            # self.getCurExp().ui.bCCDImage.clicked.emit(True)
+            self.getCurExp().takeImage(isBackground=False)
             time.sleep(0.25)
-            self.curExp.thDoExposure.wait()
+            self.getCurExp().thDoExposure.wait()
             numImages += 1
         log.debug("Finished doing scan")
         self.updateElementSig.emit(lambda: self.consec.setChecked(False), None)
@@ -1498,7 +1528,17 @@ class CCDWindow(QtGui.QMainWindow):
         self.getTempTimer.timeout.connect(self.updateTemp)
         self.getTempTimer.start(1000)
         self.setTempThread.start()
+
+        self.ui.mFileBreakTemp.triggered.connect(self.getTempTimer.stop)
+        self.ui.mFileBreakTemp.triggered.connect(self.setTempThread.terminate)
+
+
         self.ui.mFileBreakTemp.setEnabled(True)
+
+        ## TODO: 8/31/17 do I need to mess with breaking temp loops? Should
+        ## probably connect the button click down here, concnerned about
+        ## re-creating the TempThread and Timer here, but not changing the
+        ## connection.
 
     def cleanupSetTemp(self):
         self.ui.mFileBreakTemp.setEnabled(False)
@@ -1813,7 +1853,8 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             if self.setTempThread.isRunning():
                 log.info("Please wait for detector to warm")
-                self.sigUpdateStatusBar.emit("Please wait for exposure to complete")
+                self.sigUpdateStatusBar.emit("Please wait for camera temp to set")
+                event.ignore()
                 return
         except:
             pass
@@ -1824,10 +1865,17 @@ class CCDWindow(QtGui.QMainWindow):
             log.info('Need to warm up the detector')
 
             self.dump = ChillerBox(self, "Please wait for detector to warm up")
+            log.debug("Madea  box")
             self.dump.show()
+            log.debug("showed the box")
 
             self.ui.tSettingsGotoTemp.setText('20')
             self.killFast = True
+            ## TODO: 8/31/17 this needs to be set back to false
+            ## if you trigger a break temp loop
+            log.debug("making the connection")
+            self.ui.mFileBreakTemp.triggered.connect(lambda: setattr(self, "killFast", False))
+            log.debug("Starting temp set to 0")
             self.doTempSet(0)
             try:
                 self.setTempThread.finished.connect(self.dump.close)
