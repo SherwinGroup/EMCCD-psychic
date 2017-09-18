@@ -659,7 +659,7 @@ class BaseExpWidget(QtGui.QWidget):
             return
 
         try:
-            log.debug("Saving CCD Image")
+            log.debug("Saving CCD Image {}".format(self.ui.tCCDImageNum.value()+1))
             self.curDataEMCCD.save_images(self.papa.settings["saveDir"])
             log.debug("saved CCD Image")
             self.papa.sigUpdateStatusBar.emit("Saved Image: {}".format(self.ui.tCCDImageNum.value()+1))
@@ -813,8 +813,17 @@ class BaseExpWidget(QtGui.QWidget):
             #     str(self.ui.tCCDFELPulses.text()).strip() else 0
             try:
                 s["fel_transmission"] = str(self.papa.motorDriverWid.ui.tCosCalc.text())
+                fitA = self.papa.motorDriverWid.ui.tFitA.value()
+                fitMu = self.papa.motorDriverWid.ui.tFitMu.value()
+                fitC = self.papa.motorDriverWid.ui.tFitC.value()
+                s["fel_transmission_fits"] = {
+                    "A": fitA,
+                    "Mu": fitMu,
+                    "C": fitC
+                }
+
             except Exception as e:
-                log.warning("Unable to grab wire grid transmission: {}".format(e))
+                log.exception("Unable to grab wire grid transmission")
 
             s.update(self.papa.oscWidget.getExposureResults())
 
@@ -970,24 +979,29 @@ class BaseExpWidget(QtGui.QWidget):
 
     def addImageSequence(self):
         curBGtitle = str(self.ui.groupBox_37.title())
-        # "It's easier to ask for forgiveness than
-        #  for permission"
+        log.debug("Got image title {}".format(curBGtitle))
+        
         try:
+            log.debug("Adding new image to previous data")          
             self.prevDataEMCCD.addNewImage(
                 self.curDataEMCCD
             )
+            log.debug("Updating title one group")            
             self.ui.groupBox_37.setTitle(
                 curBGtitle.split('(')[0] + "({}*)".format(
                     self.prevDataEMCCD.imageSequence.numImages()
                 )
             )
-        except (AttributeError, ValueError):
+        except (AttributeError, ValueError) as e:
+            log.debug("Failed to update: {}".format(e))
             self.prevDataEMCCD = None
         if self.prevDataEMCCD is None:
+            log.debug("No previous data to append to, make copy")
             self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
             self.ui.groupBox_37.setTitle(
                 curBGtitle.split('(')[0] + '(1*)'
             )
+            log.debug("setting as sequence")
             self.prevDataEMCCD.setAsSequence()
 
     def addBackgroundSequence(self):
@@ -1351,11 +1365,13 @@ class BaseExpWidget(QtGui.QWidget):
         :param enabled: To enable or disable elements
         :return:
         """
+        log.debug("Enabling ui elements: {}".format(enabled))
         self.ui.bCCDBack.setEnabled(enabled)
         self.ui.bCCDImage.setEnabled(enabled)
         self.papa.ui.gbSettings.setEnabled(enabled)
         self.ui.tEMCCDExp.setEnabled(enabled)
         self.ui.tEMCCDGain.setEnabled(enabled)
+        log.debug("Toggling completed")
 
     def updateSignalImage(self, data = None):
         if data.ndim == 3:
@@ -2321,11 +2337,11 @@ class AlignWid(BaseExpWidget):
         self.sigMakeGui.emit(self.toggleUIElements, (True,))
 
     def sumData(self, pos, isVertical=True):
-        # try:
-        #     width = int(self.ui.tCCDSampleTemp.text())
-        # except ValueError:
-        #     width = 1
-        width = 2
+        try:
+            width = int(self.ui.tCCDSlits.text())
+        except ValueError:
+            width = 1
+        # width = 2
         st = pos-width/2
         if st<0:
             st = 0
