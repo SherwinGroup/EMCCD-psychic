@@ -386,5 +386,5 @@ class Ui_HSG(object):
         self.groupBox_54.setTitle(_translate("HSG", "FEL Pulses", None))
 
 from pyqtgraph import PlotWidget
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from .ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

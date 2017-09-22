@@ -161,7 +161,7 @@ class fAndorEMCCD(object):
     def __wait(self, *args):
         # Wait a random amount of time to simulate it
         self.WaitForAcquisition.retWeights = ((1,), (20002,))
-        print "Sleeping for: {}".format(self.exposure)
+        print("Sleeping for: {}".format(self.exposure))
         time.sleep(self.exposure)
 
     def __setExp(self, val):

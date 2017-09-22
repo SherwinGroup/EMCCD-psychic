@@ -289,6 +289,6 @@ class Ui_Alignment(object):
         self.tabWidget_3.setTabText(self.tabWidget_3.indexOf(self.tab_4), _translate("Alignment", "Other Settings", None))
         self.lCCDProg.setText(_translate("Alignment", "Done.", None))
 
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from .ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from InstsAndQt.customQt import QFNumberEdit, QINumberEdit
 from pyqtgraph import PlotWidget

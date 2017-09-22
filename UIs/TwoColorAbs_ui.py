@@ -376,5 +376,5 @@ class Ui_TwoColorAbs(object):
         self.groupBox_13.setTitle(_translate("TwoColorAbs", "FEL Pulses", None))
 
 from pyqtgraph import PlotWidget
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from .ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

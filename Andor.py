@@ -106,13 +106,13 @@ class AndorEMCCD(object):
             retFlag = self.parseRetCode(self.dllCoolerON())
 
             if retFlag == 'DRV_NOT_INITIALIZED':
-                print 'CoolerON: Instrument not initialized'
+                print('CoolerON: Instrument not initialized')
                 return
             elif retFlag == 'DRV_ACQUIRING':
-                print 'Acquisition running. Cannot turn on cooler'
+                print('Acquisition running. Cannot turn on cooler')
                 return
             elif retFlag == 'DRV_ERROR_ACK':
-                print 'Cooler card read error'
+                print('Cooler card read error')
                 return
 
             self.isCooled = True
@@ -384,7 +384,7 @@ class AndorEMCCD(object):
 
     def getCapabilities(self):
         ret = self.dllGetCapabilities(self.capabilities)
-        print "GetCapabilities: {}".format(self.parseRetCode(ret))
+        print("GetCapabilities: {}".format(self.parseRetCode(ret)))
 
     def registerFunctions(self, wantFake = False):
         """ This function serves to import all of the functions
@@ -395,7 +395,7 @@ class AndorEMCCD(object):
         is easier to see which are coming directly from the dll."""
         name = "atmcd64d"
         if wantFake:
-            from fakeAndor import fAndorEMCCD
+            from .fakeAndor import fAndorEMCCD
             dll = fAndorEMCCD()
             self.amFake = True
         else:
@@ -412,7 +412,7 @@ class AndorEMCCD(object):
                     os.chdir(curdir)
                     log.error('Error loading the DLL. Using fake')
                     # from fakeAndor import fAndorEMCCD
-                    import fakeAndor as FA
+                    from . import fakeAndor as FA
                     dll = FA.fAndorEMCCD()
                     self.amFake = True
                     dll.Initialize.retWeights = ((1,), -2)

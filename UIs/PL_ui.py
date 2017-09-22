@@ -333,5 +333,5 @@ class Ui_PL(object):
         self.lCCDProg.setText(_translate("PL", "Done.", None))
 
 from pyqtgraph import PlotWidget
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from .ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

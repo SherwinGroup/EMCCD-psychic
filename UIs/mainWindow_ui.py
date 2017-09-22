@@ -771,4 +771,4 @@ class Ui_MainWindow(object):
 
 from InstsAndQt.cQt.MCLineEdit import MCLineEdit
 from InstsAndQt.customQt import QINumberEdit
-import resources_rc
+from . import resources_rc

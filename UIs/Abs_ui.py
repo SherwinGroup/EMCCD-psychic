@@ -349,5 +349,5 @@ class Ui_Abs(object):
         self.lCCDProg.setText(_translate("Abs", "Done.", None))
 
 from pyqtgraph import PlotWidget
-from ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
+from .ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 from InstsAndQt.customQt import QINumberEdit, QFNumberEdit

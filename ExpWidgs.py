@@ -3,15 +3,15 @@ import pyqtgraph as pg
 from scipy.interpolate import interp1d
 import time
 import hsganalysis as hsg
-from UIs.Abs_ui import Ui_Abs
-from UIs.HSG_ui import Ui_HSG
-from UIs.PL_ui import Ui_PL
-from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
-from UIs.Alignment_ui import Ui_Alignment
+from .UIs.Abs_ui import Ui_Abs
+from .UIs.HSG_ui import Ui_HSG
+from .UIs.PL_ui import Ui_PL
+from .UIs.TwoColorAbs_ui import Ui_TwoColorAbs
+from .UIs.Alignment_ui import Ui_Alignment
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 import hsganalysis as hsg
-from image_spec_for_gui import *
+from .image_spec_for_gui import *
 from InstsAndQt.customQt import *
 
 import logging
@@ -864,7 +864,7 @@ class BaseExpWidget(QtGui.QWidget):
         # fill the role, use dict.get() so that a key error isn't thrown
         # when trying to access FEL/NIR only keys
         st = str(self.ui.tCCDSeries.text())
-        st = st.format(**{k: equipmentDict.get(v, -1.1) for k, v in seriesTags.items()})
+        st = st.format(**{k: equipmentDict.get(v, -1.1) for k, v in list(seriesTags.items())})
         return st
 
     def analyzeSeries(self):
@@ -1315,7 +1315,7 @@ class BaseExpWidget(QtGui.QWidget):
         if not files:
             return
 
-        print [i for i in files]
+        print([i for i in files])
         if len(files) == 2 and any(['seq' in os.path.basename(ii) for ii in files]):
             self.reloadFullSequenceBackground(files)
         else:
@@ -1809,7 +1809,7 @@ class AbsWid(BaseExpWidget):
         if not files:
             return
 
-        print [i for i in files]
+        print([i for i in files])
         if len(files) == 2 and any(['seq' in os.path.basename(ii) for ii in files]):
             self.reloadFullSequenceReference(files)
         else:
@@ -2254,14 +2254,14 @@ class AlignWid(BaseExpWidget):
         mod = QtGui.QApplication.keyboardModifiers()
         if mod==QtCore.Qt.ShiftModifier:
             # want to remove lines
-            for item, curve in lineDict.items():
+            for item, curve in list(lineDict.items()):
                 self.ui.gCCDImage.view.removeItem(item)
                 self.ui.gCCDBin.removeItem(curve)
                 try:
                     del lineDict[item]
                     del item
                 except Exception as e:
-                    print "Error removign things", e
+                    print("Error removign things", e)
 
         else:
             line = pg.InfiniteLine(pos=0, movable=True, pen=pg.intColor(
@@ -2275,11 +2275,11 @@ class AlignWid(BaseExpWidget):
 
     def updateCurves(self):
         if self.curDataEMCCD.clean_array is None: return
-        for line, curve in self.verticalLines.items():
+        for line, curve in list(self.verticalLines.items()):
             pos = line.value()
             data = self.sumData(pos, True)
             self.sigMakeGui.emit(curve.setData, (data,))
-        for line, curve in self.horizontalLines.items():
+        for line, curve in list(self.horizontalLines.items()):
             pos = line.value()
             data = self.sumData(pos, False)
             self.sigMakeGui.emit(curve.setData, (data,))

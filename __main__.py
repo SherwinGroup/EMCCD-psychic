@@ -5,7 +5,7 @@ Created on Sat Feb 14 15:06:30 2015
 @author: Home
 """
 
-from __future__ import absolute_import
+
 
 from Andor import AndorEMCCD
 
@@ -765,7 +765,7 @@ class CCDWindow(QtGui.QMainWindow):
            self.settings['changedSettingsFlag']
         :return:
         """
-        cBoxes = zip([self.ui.cSettingsADChannel,
+        cBoxes = list(zip([self.ui.cSettingsADChannel,
                       self.ui.cSettingsVSS,
                       self.ui.cSettingsReadMode,
                       self.ui.cSettingsHSS,
@@ -781,7 +781,7 @@ class CCDWindow(QtGui.QMainWindow):
                       'curAcqMode',
                       'curShutterInt',
                       'curShutterEx',
-                      ])
+                      ]))
         for uiElem, key in cBoxes:
             uiElem.setCurrentIndex(
                 uiElem.findText(
@@ -789,13 +789,13 @@ class CCDWindow(QtGui.QMainWindow):
                 )
             )
 
-        tBoxes = zip([self.ui.tHBin,
+        tBoxes = list(zip([self.ui.tHBin,
                       self.ui.tVBin,
                       self.ui.tHStart,
                       self.ui.tHEnd,
                       self.ui.tVStart,
                       self.ui.tVEnd],
-                     self.CCD.cameraSettings['imageSettings'])
+                     self.CCD.cameraSettings['imageSettings']))
 
         for uiElem, key in tBoxes:
             uiElem.setText(str(key))
@@ -856,7 +856,7 @@ class CCDWindow(QtGui.QMainWindow):
         # there are CCD.cameraSettings which have the key 'cur'
         if st in [str(i) for i in
                   [self.CCD.cameraSettings[k] for k in
-                   self.CCD.cameraSettings.keys() if 'cur' in k]]:
+                   list(self.CCD.cameraSettings.keys()) if 'cur' in k]]:
             self.settings["changedSettingsFlags"][idx] = 0
         else:
             self.settings["changedSettingsFlags"][idx] = 1
@@ -1454,8 +1454,8 @@ class CCDWindow(QtGui.QMainWindow):
 
 
     def startConsecutiveImages(self, val):
-        print "modifiers",QtGui.QApplication.keyboardModifiers()
-        print QtGui.QApplication.keyboardModifiers()|QtCore.Qt.ShiftModifier
+        print("modifiers",QtGui.QApplication.keyboardModifiers())
+        print(QtGui.QApplication.keyboardModifiers()|QtCore.Qt.ShiftModifier)
         if not val:
             return
         val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?",
@@ -1518,7 +1518,7 @@ class CCDWindow(QtGui.QMainWindow):
         # self.ui.bCCDBack.setEnabled(False)
         # self.ui.bCCDImage.setEnabled(False)
         # self.ui.bSetTemp.setEnabled(False)
-        [i.toggleUIElements(False) for i in self.expUIs.values()]
+        [i.toggleUIElements(False) for i in list(self.expUIs.values())]
 
         # Set up a thread which will handle the monitoring of the temperature
         self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = (temp, self.killFast))
@@ -1545,7 +1545,7 @@ class CCDWindow(QtGui.QMainWindow):
         # self.ui.bCCDImage.setEnabled(True)
         # self.ui.bCCDBack.setEnabled(True)
         # self.ui.bSetTemp.setEnabled(True)
-        [i.toggleUIElements(True) for i in self.expUIs.values()]
+        [i.toggleUIElements(True) for i in list(self.expUIs.values())]
         self.getTempTimer.stop()
 
         self.updateTemp()
@@ -1668,14 +1668,14 @@ class CCDWindow(QtGui.QMainWindow):
 
         with open('Settings.txt') as fh:
             savedDict = json.load(fh)
-        self.settings.update({k:v for k,v in savedDict.items() if k in self.settings})
+        self.settings.update({k:v for k,v in list(savedDict.items()) if k in self.settings})
 
         expose = savedDict.pop('exposureTime')
         gain = savedDict.pop('gain')
 
 
         self.CCD.cameraSettings.update(
-            {k:v for k,v in savedDict.items() if k in self.CCD.cameraSettings})
+            {k:v for k,v in list(savedDict.items()) if k in self.CCD.cameraSettings})
 
         # Call to set all of the camera settings to what we've loaded
         self.resetUICameraSettings()
