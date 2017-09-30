@@ -78,7 +78,7 @@ class AndorEMCCD(object):
         self.registerFunctions(wantFake = wantFake)
         log.debug("About to initialize EMCCD")
         self.dllInitializeRet = None
-        ret = self.dllInitialize('')
+        ret = self.dllInitialize(b'')
         if ret != 20002:
 
             log.error("Error initializing camera\n\tCode :{}".format(
@@ -329,9 +329,12 @@ class AndorEMCCD(object):
             (image[3]-image[2])/image[0]
         )) + 1
 
+
+        # I don't fully understand why the "int(image[1]==1)" is here.
+        # It came about from testing, and it needed it. I don't know
         y = int(round(
             (image[5]-image[4])/image[1]
-        )) + 1
+        )) + int(image[1]==1)
         if 'Binning' in self.cameraSettings['curReadMode']:
             y = 1
         # if image[0] != 1 or image[1] != 1:
@@ -405,14 +408,14 @@ class AndorEMCCD(object):
                 try:
                     import os
                     curdir = os.getcwd()
-                    os.chdir('C:\\Program Files\\Andor SOLIS\\Drivers')
+                    os.chdir(r'C:\Program Files\Andor SDK')
                     dll = CDLL(name)
                     os.chdir(curdir)
                 except:
                     os.chdir(curdir)
                     log.error('Error loading the DLL. Using fake')
                     # from fakeAndor import fAndorEMCCD
-                    from . import fakeAndor as FA
+                    import fakeAndor as FA
                     dll = FA.fAndorEMCCD()
                     self.amFake = True
                     dll.Initialize.retWeights = ((1,), -2)

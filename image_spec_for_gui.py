@@ -7,7 +7,6 @@ Created on Mon Jan 19 14:01:23 2015
 "Brevity required, prurience preferred"
 """
 
-
 import os, errno
 import copy
 import json
@@ -16,12 +15,14 @@ import numpy as np
 # hangs on my mac at this import line
 # no idea what the fuck is going on here.
 # import matplotlib.pylab as plt
-from . import cosmics_hsg as cosmics
+# from . import cosmics_hsg as cosmics
+import cosmics_hsg as cosmics
 import scipy.ndimage as ndimage
 import pyqtgraph as pg
-from .UIs.ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
-
+from UIs.ImageViewWithPlotItemContainer import ImageViewWithPlotItemContainer
 import logging
+
+
 log = logging.getLogger("EMCCD")
 
 
@@ -582,7 +583,7 @@ class EMCCD_image(object):
                         }
                     except KeyError:
                         pass # fpTime/cdRatios breaks for Cavity Dumping differencs
-                condensedFEL["fel_pulses"] = np.sum(self.equipment_dict["fel_pulses"])
+                condensedFEL["fel_pulses"] = int(np.sum(self.equipment_dict["fel_pulses"]))
         except Exception as e:
             log.exception("Something fucked up trying to condense FEL settings")
 
@@ -594,7 +595,7 @@ class EMCCD_image(object):
 
 
         equipment_str = json.dumps(eq_dict, separators=(',', ': '),
-                      sort_keys=True, indent=4 )
+                      sort_keys=True, indent=4, default=lambda x:"Thisonefuckedup {}".format(type(x)) )
         if origin_header is None:
             origin_import = self.origin_import
         else:

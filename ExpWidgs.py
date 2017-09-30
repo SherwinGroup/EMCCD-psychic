@@ -1,20 +1,26 @@
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from scipy.interpolate import interp1d
 import time
 import hsganalysis as hsg
-from .UIs.Abs_ui import Ui_Abs
-from .UIs.HSG_ui import Ui_HSG
-from .UIs.PL_ui import Ui_PL
-from .UIs.TwoColorAbs_ui import Ui_TwoColorAbs
-from .UIs.Alignment_ui import Ui_Alignment
+from UIs.Abs_ui import Ui_Abs
+from UIs.HSG_ui import Ui_HSG
+from UIs.PL_ui import Ui_PL
+from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
+from UIs.Alignment_ui import Ui_Alignment
+
+# from bottleneck import nanmin, nanmax
+
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
-import hsganalysis as hsg
-from .image_spec_for_gui import *
+from image_spec_for_gui import *
 from InstsAndQt.customQt import *
 
+
+
 import logging
+
+
 log = logging.getLogger("EMCCD")
 
 
@@ -80,7 +86,7 @@ class CustomAxis(pg.AxisItem):
                                           bounds_error=False,
                                           fill_value = -1)
 
-class BaseExpWidget(QtGui.QWidget):
+class BaseExpWidget(QtWidgets.QWidget):
     # Flags which help to initialize UI settings
     # Need to be set in subclass BEFORE calling def __init__()
     hasNIR = None
@@ -140,6 +146,7 @@ class BaseExpWidget(QtGui.QWidget):
             "ratio":0.07,
             "noisecoeff":3.0
         }
+
 
         self.exposureElapsedTimer = QtCore.QElapsedTimer() # For keeping the progress bar correct
 
@@ -260,7 +267,7 @@ class BaseExpWidget(QtGui.QWidget):
         # add autocompleter functionality so you
         # know what series tags can automatically be used
         words = ["{"+ii+"}" for ii in seriesTags]
-        comp = QtGui.QCompleter(words, self)
+        comp = QtWidgets.QCompleter(words, self)
         self.ui.tCCDSeries.setCompleter(comp)
 
 
@@ -473,8 +480,8 @@ class BaseExpWidget(QtGui.QWidget):
             if ret == 20024:
                 log.debug("No new data for image acquisition (Acquisition aborted?)")
             else:
-                self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {}".format(ret)))
-                log.warning("Invalid getImage return {}".format(ret))
+                self.sigMakeGui.emit(MessageDialog, (self, "Invalid Image return! {} [{}]".format(self.papa.CCD.parseRetCode(ret), ret)))
+                log.warning("Invalid getImage return {} [{}]".format(self.papa.CCD.parseRetCode(ret), ret))
             return
         self.rawData = ret
         postProcessing()
@@ -742,11 +749,11 @@ class BaseExpWidget(QtGui.QWidget):
         # the necessary ui element, and emit it as a signal
         # to be made elsewhere
         def makr():
-            prompt = QtGui.QMessageBox(self)
+            prompt = QtWidgets.QMessageBox(self)
             prompt.setText("Save most recent scan?")
-            prompt.setStandardButtons(QtGui.QMessageBox.Save | QtGui.QMessageBox.Discard)
-            prompt.setEscapeButton(QtGui.QMessageBox.Discard)
-            prompt.setDefaultButton(QtGui.QMessageBox.Save)
+            prompt.setStandardButtons(QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard)
+            prompt.setEscapeButton(QtWidgets.QMessageBox.Discard)
+            prompt.setDefaultButton(QtWidgets.QMessageBox.Save)
             prompt.setModal(False)
             prompt.setWindowModality(QtCore.Qt.NonModal)
             prompt.buttonClicked.connect(self.eloopConfirmImage.quit)
@@ -779,7 +786,7 @@ class BaseExpWidget(QtGui.QWidget):
                          "dialog box")
             return True
 
-        return p.buttonRole(p.clickedButton())==QtGui.QMessageBox.AcceptRole
+        return p.buttonRole(p.clickedButton())==QtWidgets.QMessageBox.AcceptRole
         # return True
 
     def genEquipmentDict(self):
@@ -1137,7 +1144,7 @@ class BaseExpWidget(QtGui.QWidget):
                 origin_header=oh
             )
         except Exception as e:
-            log.warning("Exception trying to make/save the sequenced spectrum file\n\t\t"
+            log.exception("Exception trying to make/save the sequenced spectrum file\n\t\t"
                         "{}".format(e))
 
         self.curDataEMCCD = self.prevDataEMCCD
@@ -1235,7 +1242,7 @@ class BaseExpWidget(QtGui.QWidget):
         :type dataObject: EMCCD_image
         :return:
         """
-        mod = QtGui.QApplication.keyboardModifiers()
+        mod = QtWidgets.QApplication.keyboardModifiers()
         debug = mod==QtCore.Qt.ShiftModifier
         ok = False
         while not ok:
@@ -1243,29 +1250,29 @@ class BaseExpWidget(QtGui.QWidget):
                 debug=debug, **self.crrSettings
             )
             if not debug: break
-            prompt = QtGui.QMessageBox(self)
+            prompt = QtWidgets.QMessageBox(self)
             prompt.setText("Acceptable Cosmic Removal?")
             prompt.setStandardButtons(
-                QtGui.QMessageBox.Yes |QtGui.QMessageBox.No
+                QtWidgets.QMessageBox.Yes |QtWidgets.QMessageBox.No
             )
-            prompt.setDefaultButton(QtGui.QMessageBox.Yes)
+            prompt.setDefaultButton(QtWidgets.QMessageBox.Yes)
             prompt.setWindowModality(QtCore.Qt.WindowModal)
             response = prompt.exec_()
 
             # Have the garbage collector clear the windows
             imSeq.winList = []
-            if response == QtGui.QMessageBox.Yes:
+            if response == QtWidgets.QMessageBox.Yes:
                 ok = True
                 break
 
-            newRat1, dialogOk1 = QtGui.QInputDialog.getDouble(
+            newRat1, dialogOk1 = QtWidgets.QInputDialog.getDouble(
                 self, "New CRR Settings", "Ratio",
                 self.crrSettings["ratio"], decimals=2
             )
             if not dialogOk1:
                 imSeq._cleanImages = None
                 return None, None
-            newRat2, dialogOk2 = QtGui.QInputDialog.getDouble(
+            newRat2, dialogOk2 = QtWidgets.QInputDialog.getDouble(
                 self, "New CRR Settings", "Noise Ratio",
                 self.crrSettings["noisecoeff"], decimals=2
             )
@@ -1306,10 +1313,10 @@ class BaseExpWidget(QtGui.QWidget):
     @staticmethod
     def __RELOADING_FILES(): pass
     def reloadBackgroundFiles(self):
-        files = QtGui.QFileDialog.getOpenFileNames(
+        files = QtWidgets.QFileDialog.getOpenFileNames(
             self, "Choose background files",
             os.path.join(self.papa.settings["saveDir"], "Images")
-        )
+        )[0]
         files = [str(i) for i in files]
         files = [i for i in files if '.txt' in i]
         if not files:
@@ -1400,8 +1407,10 @@ class BaseExpWidget(QtGui.QWidget):
         )
 
     def autoscaleSignalHistogram(self):
-        data = self.pSigImage.image
-        self.pSigHist.setLevels(data.min(), data.max())
+        # data = self.pSigImage.image
+        data = self.ui.gCCDImage.imageItem.image
+        self.ui.gCCDImage.setLevels(data.min(), data.max())
+        # self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
         if data.ndim == 3:
@@ -1503,7 +1512,7 @@ class BaseHSGWid(BaseExpWidget):
         self.freqInfoText = pg.TextItem('', color=(0,0,0))
         self.freqInfoText.setPos(0,0)
         self.freqInfoText.setFont(QtGui.QFont("", 15))
-        self.ui.gCCDBin.addItem(self.freqInfoText)
+        self.ui.gCCDBin.addItem(self.freqInfoText, ignoreBounds=True)
         self.ui.gCCDBin.sigRangeChanged.connect(self.updateFreqText)
 
     def updateSBfromLine(self):
@@ -1800,10 +1809,10 @@ class AbsWid(BaseExpWidget):
         super(AbsWid, self).processImage()
 
     def reloadReferenceFiles(self):
-        files = QtGui.QFileDialog.getOpenFileNames(
+        files = QtWidgets.QFileDialog.getOpenFileNames(
             self, "Choose reference files",
             os.path.join(self.papa.settings["saveDir"], "Images")
-        )
+        )[0]
         files = [str(i) for i in files]
         files = [i for i in files if '.txt' in i]
         if not files:
@@ -2251,7 +2260,7 @@ class AlignWid(BaseExpWidget):
         self.addAlignmentLine(self.horizontalLines, angle=0)
 
     def addAlignmentLine(self, lineDict, angle):
-        mod = QtGui.QApplication.keyboardModifiers()
+        mod = QtWidgets.QApplication.keyboardModifiers()
         if mod==QtCore.Qt.ShiftModifier:
             # want to remove lines
             for item, curve in list(lineDict.items()):
@@ -2330,7 +2339,7 @@ class AlignWid(BaseExpWidget):
         self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
 
 
-        self.sigUpdateGraphs.emit(self.updateSignalImage, self.curDataEMCCD.clean_array)
+        self.sigUpdateGraphs.emit(self.updateSignalImage, np.array(self.rawData))
         # self.sigUpdateGraphs.emit(self.updateSpectrum, self.curDataEMCCD.spectrum)
         self.updateCurves()
 
@@ -2342,12 +2351,14 @@ class AlignWid(BaseExpWidget):
         except ValueError:
             width = 1
         # width = 2
-        st = pos-width/2
+        st = pos-width//2
         if st<0:
             st = 0
-        en = pos + width/2
+        en = pos + width//2
         if st == en:
             en +=1
+        st = int(st)
+        en = int(en)
         if isVertical:
             data = np.sum(self.curDataEMCCD.clean_array[:,st:en], axis=1)
         else:
@@ -2361,7 +2372,9 @@ class AlignWid(BaseExpWidget):
 
 if __name__ == '__main__':
     import sys
-    app = QtGui.QApplication(sys.argv)
+
+
+    app = QtWidgets.QApplication(sys.argv)
     ex = AbsWid()
     ex.show()
     sys.exit(app.exec_())

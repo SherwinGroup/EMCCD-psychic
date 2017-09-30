@@ -35,7 +35,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <property name="elideMode">
        <enum>Qt::ElideRight</enum>
@@ -1051,7 +1051,7 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QComboBox" name="cSpecGPIB">
+              <widget class="InstrumentGPIB" name="cSpecGPIB">
                <property name="toolTip">
                 <string>ASRL1</string>
                </property>
@@ -1556,6 +1556,11 @@
   </action>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>InstrumentGPIB</class>
+   <extends>QComboBox</extends>
+   <header>InstsAndQt.instrumentgpib</header>
+  </customwidget>
   <customwidget>
    <class>QINumberEdit</class>
    <extends>QLineEdit</extends>

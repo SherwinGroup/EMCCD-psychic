@@ -4,18 +4,19 @@ Created on Sat Feb 14 15:06:30 2015
 
 @author: Home
 """
-
-
-
 from Andor import AndorEMCCD
-
+from PyQt5.QtWidgets import *
 import pyqtgraph.console as pgc
 from InstsAndQt.Instruments import *
 from InstsAndQt.PyroOscope.OscWid import OscWid
 from InstsAndQt.customQt import *
-
-
 import os
+try:
+    QString = unicode
+except NameError:
+    # Python 3
+    QString = str
+
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 try:
@@ -23,8 +24,9 @@ try:
 except:
     log.critical('GPIB VISA library not installed')
     raise
-
 import logging
+
+
 
 
 
@@ -46,6 +48,8 @@ log.debug("-"*15)
 
 # http://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
 import ctypes
+
+
 if os.name is not "posix":
     myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
@@ -56,9 +60,9 @@ from image_spec_for_gui import gen_wavelengths
 
 
 try:
-    a = QtCore.QString()
+    a = QString()
 except AttributeError:
-    QtCore.QString = str
+    QString = str
 
 neLines = [
     607.433, 609.616, 612.884, 614.306,
@@ -172,7 +176,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         self.Spectrometer = None
         self.Agilent = None
-        self.openSpectrometer()
+        # self.openSpectrometer()
         # self.openAgilent()
         self.poppedPlotWindow = None
 
@@ -201,7 +205,7 @@ class CCDWindow(QtGui.QMainWindow):
         try:
             # Pretty sure we can safely say it's
             # ASRL1
-            idx = s['GPIBlist'].index('ASRL1::INSTR')
+            idx = s['GPIBlist'].index('ASRL6::INSTR')
             # my mac claims to have this port,
             # cheap fix so it won't try to connect it
             if os.name == "posix":
@@ -250,7 +254,7 @@ class CCDWindow(QtGui.QMainWindow):
         s["isImage"] = True # Is it an image read mode?
         s["seriesNo"] = 0 # How many series have been summed together?
 
-        s["saveDir"] = '' # Directory for saving
+        s["saveDir"] = r'Z:\~HSG\Data\2017' # Directory for saving
 
         # For Hunter. First time you set a temp, it will
         # pop up and make sure you turned on the chiller
@@ -392,14 +396,14 @@ class CCDWindow(QtGui.QMainWindow):
         ################
         # Connect all of the setting changes for the CCD parameters
         ###############
-        self.ui.cSettingsReadMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsADChannel.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsVSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsHSS.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsTrigger.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsAcquisitionMode.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsShutter.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
-        self.ui.cSettingsShutterEx.currentIndexChanged[QtCore.QString].connect(self.parseSettingsChange)
+        self.ui.cSettingsReadMode.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsADChannel.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsVSS.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsHSS.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsTrigger.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsAcquisitionMode.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsShutter.currentIndexChanged['QString'].connect(self.parseSettingsChange)
+        self.ui.cSettingsShutterEx.currentIndexChanged['QString'].connect(self.parseSettingsChange)
         self.ui.tImageName.editingFinished.connect(self.makeSpectraFolder)
 
         ####################
@@ -437,9 +441,12 @@ class CCDWindow(QtGui.QMainWindow):
         ######################
         # Setting up spectrometer UI elements
         ######################
-        self.ui.cSpecGPIB.addItems(self.settings['GPIBlist'])
-        self.ui.cSpecGPIB.setCurrentIndex(self.settings["specGPIBidx"])
-        self.ui.cSpecGPIB.currentIndexChanged.connect(self.SpecGPIBChanged)
+        # self.ui.cSpecGPIB.addItems(self.settings['GPIBlist'])
+        # self.ui.cSpecGPIB.setCurrentIndex(self.settings["specGPIBidx"])
+        # self.ui.cSpecGPIB.currentIndexChanged.connect(self.SpecGPIBChanged)
+        self.ui.cSpecGPIB.sigInstrumentOpened.connect(self.openSpectrometer)
+        self.ui.cSpecGPIB.setInstrumentClass(ActonSP)
+        self.ui.cSpecGPIB.setAddress('ASRL6::INSTR')
         self.ui.bSpecSetWl.clicked.connect(self.updateSpecWavelength)
         self.ui.bSpecSetGr.clicked.connect(self.updateSpecGrating)
 
@@ -1101,6 +1108,8 @@ class CCDWindow(QtGui.QMainWindow):
     def addPolarizerMotorDriver(self):
         try:
             import InstsAndQt.MotorDriver.motorMain as md
+
+
         except ImportError:
             log.warning("Unabled to import motor driver")
             MessageDialog(self, "Error importing module for motor driver")
@@ -1139,6 +1148,8 @@ class CCDWindow(QtGui.QMainWindow):
     def addNewportController(self):
         try:
             from InstsAndQt.NewportMotorDriver.espMainPanel import ESPMainPanel
+
+
         except ImportError:
             MessageDialog(self, "Error importing module for ESP300")
             return
@@ -1162,7 +1173,30 @@ class CCDWindow(QtGui.QMainWindow):
         self.settings["specGPIBidx"] = int(self.ui.cSpecGPIB.currentIndex())
         self.openSpectrometer()
 
-    def openSpectrometer(self):
+    def openSpectrometer(self, spectrometer=None):
+        if spectrometer is None:
+            log.warning("Open spectromter called with no instrument, shounld't be here")
+            return
+        self.Spectrometer = spectrometer
+        try:
+            wl = self.Spectrometer.getWavelength()
+            if wl is None:
+                raise Exception("Could not get Spectrometer wavelength!")
+            self.ui.tSpecCurWl.setText(str(wl))
+            self.ui.sbSpecWavelength.setValue(wl)
+
+            grat = self.Spectrometer.getGrating()
+            if grat is None:
+                raise Exception("Could not get Spectrometer grating!")
+            self.ui.tSpecCurGr.setText(str(grat))
+            self.ui.sbSpecGrating.setValue(grat)
+        except Exception as e:
+            log.warning("Could not get spectrometer values, {}".format(e))
+
+    def openSpectrometerOld(self):
+        # I've udpated it to a instrument GPIB, this functino shouldn;t
+        # be called anymore
+        raise RuntimeError("This shouldn't be called")
         # THIS should really be in a try:except: loop for if
         # the spec timeouts or cant be connected to
         try:
@@ -1294,21 +1328,24 @@ class CCDWindow(QtGui.QMainWindow):
                                                  -360)
             if not ok: return
 
-            step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
-                                                 -5)
+            # step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
+            #                                      -5)
+            npoints, ok = QtGui.QInputDialog.getInt(self, "Number of points", "n",
+                                                    16)
             if not ok: return
 
             numIm, ok = QtGui.QInputDialog.getInt(self, "Number of images", "Number of images",
                                                  4)
             if not ok: return
 
-            self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
+            # self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
+            self.thDoSpectrometerSweep.args = (start, stop, npoints, numIm)
             self.thDoSpectrometerSweep.target = self.hwpSweepLoop
             self.thDoSpectrometerSweep.start()
         else:
             pass
 
-    def hwpSweepLoop(self, args=[0, 365, 5, 4]):
+    def hwpSweepLoop(self, args=[0, 365, 20, 4]):
         start, stop, step, numImages = args
         log.debug("starting hwp sweep loop {}:{}:{}x{}".format(start, stop, step, numImages))
         # keep reference to old fucntion for confirming images, because this one
@@ -1317,8 +1354,9 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.confirmImage = lambda : True
 
         # force to append the final point.
-        points = np.arange(start, stop, step)
-        points = np.append(points, stop)
+        # points = np.arange(start, stop, step)
+        # points = np.append(points, stop)
+        points = np.linspace(start, stop, step)
         for hwpAngle in points:
             log.debug("At hwp angle {}".format(hwpAngle))
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
@@ -1908,7 +1946,7 @@ class CCDWindow(QtGui.QMainWindow):
             log.warning("Didn't turn off the cooler!")
         ret = self.CCD.dllShutDown()
         log.debug("shutdown ret: {}".format(self.CCD.parseRetCode(ret)))
-        self.Spectrometer.close()
+        # self.Spectrometer.close()
 
         self.CCD.cameraSettings = dict()  # Something is throwing an error when this isn't here
                                         # I think a memory leak somewhere?
@@ -2011,12 +2049,14 @@ class ChillerBox(QtGui.QDialog):
         self.label.setText(_translate("Dialog", self.message, None))
 
 # Stuff for the dialog
-_encoding = QtGui.QApplication.UnicodeUTF8
+# _encoding = QtWidgets.QApplication.UnicodeUTF8
 def _translate(context, text, disambig):
-    return QtGui.QApplication.translate(context, text, disambig, _encoding)
+    return QtCore.QCoreApplication.translate(context, text, disambig)
 
 if __name__ == '__main__':
     import sys
-    app = QtGui.QApplication(sys.argv)
+
+
+    app = QtWidgets.QApplication(sys.argv)
     ex = CCDWindow()
     sys.exit(app.exec_())
