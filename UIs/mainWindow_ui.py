@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(819, 775)
+        MainWindow.resize(791, 770)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/test/icon.jpg"), QtGui.QIcon.Selected, QtGui.QIcon.On)
         MainWindow.setWindowIcon(icon)
@@ -475,7 +475,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 819, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 791, 21))
         self.menubar.setObjectName("menubar")
         self.menuOther_Settings = QtWidgets.QMenu(self.menubar)
         self.menuOther_Settings.setObjectName("menuOther_Settings")
@@ -612,7 +612,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuLive_Plots.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         self.cSettingsReadMode.setCurrentIndex(4)
         self.cSettingsAcquisitionMode.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -762,4 +762,4 @@ class Ui_MainWindow(object):
 from InstsAndQt.cQt.MCLineEdit import MCLineEdit
 from InstsAndQt.customQt import QINumberEdit
 from InstsAndQt.instrumentgpib import InstrumentGPIB
-from . import resources_rc
+from .resources_rc import *

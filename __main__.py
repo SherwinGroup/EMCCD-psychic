@@ -26,7 +26,9 @@ except:
     raise
 import logging
 
-
+# Disable errors on warnings (done in hsganalysis for tracking down issues)
+import warnings
+warnings.filterwarnings("default")
 
 
 
@@ -155,6 +157,9 @@ class CCDWindow(QtGui.QMainWindow):
         log.debug("Turning on camera cooler persistance")
         self.CCD.dllSetCoolerMode(1)
 
+        self.Spectrometer = None
+        self.Agilent = None
+
 
         self.initUI()
         if self.checkSaveFile():
@@ -174,8 +179,6 @@ class CCDWindow(QtGui.QMainWindow):
 
 
 
-        self.Spectrometer = None
-        self.Agilent = None
         # self.openSpectrometer()
         # self.openAgilent()
         self.poppedPlotWindow = None
@@ -1177,6 +1180,7 @@ class CCDWindow(QtGui.QMainWindow):
         if spectrometer is None:
             log.warning("Open spectromter called with no instrument, shounld't be here")
             return
+
         self.Spectrometer = spectrometer
         try:
             wl = self.Spectrometer.getWavelength()
@@ -1328,18 +1332,18 @@ class CCDWindow(QtGui.QMainWindow):
                                                  -360)
             if not ok: return
 
-            # step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
-            #                                      -5)
-            npoints, ok = QtGui.QInputDialog.getInt(self, "Number of points", "n",
-                                                    16)
+            step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
+                                                 -360/16)
+            # npoints, ok = QtGui.QInputDialog.getInt(self, "Number of points", "n",
+            #                                         16)
             if not ok: return
 
             numIm, ok = QtGui.QInputDialog.getInt(self, "Number of images", "Number of images",
                                                  4)
             if not ok: return
 
-            # self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
-            self.thDoSpectrometerSweep.args = (start, stop, npoints, numIm)
+            self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
+            # self.thDoSpectrometerSweep.args = (start, stop, npoints, numIm)
             self.thDoSpectrometerSweep.target = self.hwpSweepLoop
             self.thDoSpectrometerSweep.start()
         else:
@@ -1354,19 +1358,61 @@ class CCDWindow(QtGui.QMainWindow):
         self.curExp.confirmImage = lambda : True
 
         # force to append the final point.
-        # points = np.arange(start, stop, step)
+        points = np.arange(start, stop, step)
         # points = np.append(points, stop)
-        points = np.linspace(start, stop, step)
+        # points = np.linspace(start, stop, step)
         for hwpAngle in points:
             log.debug("At hwp angle {}".format(hwpAngle))
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
             if not self.detHWPsweep.isChecked(): break
 
+            """
+            This one would require you to (1) set the angle (delaying signals), (2) call the startMove, 
+            (3) wait on th
+            
             # use signals to change the value in the spin box (need to avoid non-main thread GUI changes
-            self.updateElementSig.emit(lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x), hwpAngle)
+            # also need the delayChange to prevent it from emitting the sigChanged
+            # which causes the esp widget from starting its own move
+            self.updateElementSig.emit(
+                lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
+                hwpAngle)
             # call the function to move the motor.
             self.newportController.detHWPWidget.moveMotor()
             log.debug("Done waiting on motor move")
+
+            self.updateElementSig.emit(
+                lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
+                hwpAngle)
+            """
+
+            # use signals to change the value in the spin box (need to avoid non-main thread GUI changes
+            # also need the delayChange to prevent it from emitting the sigChanged
+            # which causes the esp widget from starting its own move, because I want to start the thread here,
+            # instead of worrying about race conditions of when signals will get processed
+
+
+            # self.updateElementSig.emit(
+            #     lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
+            #     hwpAngle)
+            # delaySignal doesn't stop the signal, it just waits for 300ms and then emits it. I want to get rid of this.
+            # self.updateElementSig.emit(
+            #     lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
+            #     hwpAngle)
+
+            self.newportController.detHWPWidget.startChangePosition(target = False)
+            log.debug("Moving to set angle to {}".format(hwpAngle))
+            self.newportController.detHWPWidget.moveMotor(value=hwpAngle)
+            self.newportController.detHWPWidget.cleanupMotorMove()
+
+            # call the function to move the motor.
+            # self.newportController.detHWPWidget.startChangePosition()
+            log.debug("started motor thread wait")
+            # self.newportController.detHWPWidget.thWaitForMotor.wait()
+            log.debug("Done waiting on motor move")
+
+            # self.updateElementSig.emit(
+            #     lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
+            #     hwpAngle)
 
             # self.newportController.detHWPWidget.startChangePosition()
 
@@ -1381,7 +1427,7 @@ class CCDWindow(QtGui.QMainWindow):
                 log.debug("\tCalled Take image, {}".format(ii))
                 self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
                 time.sleep(0.2)
-                log.debug("waiting on thread")
+                log.debug("waiting on exposure thread")
                 self.curExp.thDoExposure.wait()
                 log.debug("done waiting")
             else:
@@ -1539,13 +1585,17 @@ class CCDWindow(QtGui.QMainWindow):
 
     def doTempSet(self, temp = None):
         # temp is so that it can be called during cleanup.
+        log.debug("Set Temp called")
         if not self.settings['askedChiller']:
             self.settings['askedChiller'] = True
+            log.debug("About to make box")
             self.dump = ChillerBox(self, "Did you turn on the chiller?")
             self.dump.show()
+            log.debug("Made box")
 
             # Set up a timer to destroy the window after some time.
             # Really, letting python garbage collecting take care of it
+            log.debug("Setting QTimers")
             QtCore.QTimer.singleShot(3000, lambda: setattr(self, "dump", None))
             QtCore.QTimer.singleShot(3000, lambda: self.dump.close())
         if temp is None or type(temp) is bool: # bool test is because buttons send a value if clicked, want to ignore
@@ -1553,9 +1603,6 @@ class CCDWindow(QtGui.QMainWindow):
         log.debug("Going to temperature: {}".format(temp))
 
         # Disable the buttons we don't want messed with
-        # self.ui.bCCDBack.setEnabled(False)
-        # self.ui.bCCDImage.setEnabled(False)
-        # self.ui.bSetTemp.setEnabled(False)
         [i.toggleUIElements(False) for i in list(self.expUIs.values())]
 
         # Set up a thread which will handle the monitoring of the temperature

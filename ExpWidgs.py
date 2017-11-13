@@ -128,6 +128,11 @@ class BaseExpWidget(QtWidgets.QWidget):
     # (pretty sure it needs to be instantiated in
     # the thread it'll be used in, not here)
     eloopConfirmImage = None
+
+    # enabling debugging of the comics
+    # (set this flag in console and hold shfit
+    # when you process to see intermediate images)
+    enableCosmicRemovalDebug = False
     def __init__(self, parent = None, UI=None):
         super(BaseExpWidget, self).__init__(parent)
         self.baseInitUI(UI)
@@ -871,7 +876,12 @@ class BaseExpWidget(QtWidgets.QWidget):
         # fill the role, use dict.get() so that a key error isn't thrown
         # when trying to access FEL/NIR only keys
         st = str(self.ui.tCCDSeries.text())
-        st = st.format(**{k: equipmentDict.get(v, -1.1) for k, v in list(seriesTags.items())})
+        try:
+            st = st.format(**{k: equipmentDict.get(v, -1.1) for k, v in list(seriesTags.items())})
+        except ValueError:
+            log.exception("Couldn't format string! Did you forget to close your tags?")
+        except:
+            log.exception("Error formatting string!")
         return st
 
     def analyzeSeries(self):
@@ -1244,6 +1254,9 @@ class BaseExpWidget(QtWidgets.QWidget):
         """
         mod = QtWidgets.QApplication.keyboardModifiers()
         debug = mod==QtCore.Qt.ShiftModifier
+        # was having issues where it would prompt when I hold shift in
+        # the background
+        debug = debug and self.enableCosmicRemovalDebug
         ok = False
         while not ok:
             d, std = imSeq.removeCosmics(
@@ -1493,6 +1506,8 @@ class BaseHSGWid(BaseExpWidget):
 
     DataClass = HSG_image
     name = 'HSG'
+
+
     def __init__(self, parent = None, UI = None):
         if UI is None:
             UI = Ui_HSG

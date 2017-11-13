@@ -398,7 +398,7 @@ class AndorEMCCD(object):
         is easier to see which are coming directly from the dll."""
         name = "atmcd64d"
         if wantFake:
-            from .fakeAndor import fAndorEMCCD
+            from fakeAndor import fAndorEMCCD
             dll = fAndorEMCCD()
             self.amFake = True
         else:

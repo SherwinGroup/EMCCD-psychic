@@ -98,10 +98,11 @@ class ConsecutiveImageAnalyzer(object):
             try:
                 d /= normFactors[:,None, None]
             except:
-                print("error here")
-                print(type(d), d)
-                print(type(normFactors), normFactors)
-                raise
+                log.exception("Error normalizing")
+                # print("error here")
+                # print(type(d), d)
+                # print(type(normFactors), normFactors)
+                # raise
 
 
         med = np.median(d, axis=0)

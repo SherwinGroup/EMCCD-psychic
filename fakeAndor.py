@@ -38,7 +38,7 @@ class myCallable(object):
             return self.retWeights[1][
                 # Grab the first one where
                 # it crosses over
-                np.argwhere(rando<ranges)[0]
+                np.argwhere(rando<ranges)[0][0]
             ]
         """
         if self.st == "GetTemperature":
@@ -130,7 +130,7 @@ class fAndorEMCCD(object):
             ret = bg + cosmicMask + sbMask
             # print ret[vst:ven, :].shape
             # print (vbin, (ven-vst+1)/vbin, ret.shape[1])
-        ret = ret[vst-1:ven, :].reshape((vbin, (ven-vst+1)/vbin, ret.shape[1])).sum(axis=0)
+        ret = ret[vst-1:ven, :].reshape((vbin, (ven-vst+1)//vbin, ret.shape[1])).sum(axis=0)
         ret = np.fliplr(ret)
         ret = ret.astype('int')
         ret = ret.ravel()
