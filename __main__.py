@@ -295,7 +295,8 @@ class CCDWindow(QtGui.QMainWindow):
 
         s["nir_power"] = 0
         s["nir_lambda"] = 0
-        s["nir_pol"] = 'H'
+        s["nir_pola"] = 0
+        s["nir_polg"] = 0
         s["series"] = ""
         s["spec_step"] = ""
         s["comments"] = ""
@@ -647,7 +648,8 @@ class CCDWindow(QtGui.QMainWindow):
         if self.curExp.hasNIR:
             self.curExp.ui.tCCDNIRwavelength.setText(str(self.settings["nir_lambda"]))
             self.curExp.ui.tCCDNIRP.setText(str(self.settings["nir_power"]))
-            self.curExp.ui.tCCDNIRPol.setText(str(self.settings["nir_pol"]))
+            self.curExp.ui.tCCDNIRAlpha.setText(str(self.settings["nir_pola"]))
+            self.curExp.ui.tCCDNIRGamma.setText(str(self.settings["nir_polg"]))
         if openScope is None:
             openScope = self.expUIs[exp].hasFEL
         if openScope:

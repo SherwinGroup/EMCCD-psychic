@@ -39,7 +39,7 @@
         </attribute>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
-          <layout class="QGridLayout" name="gridLayout" columnstretch="1,0,0">
+          <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,0" columnstretch="1,0,0" rowminimumheight="0,0,0,0,0">
            <item row="0" column="2">
             <widget class="QGroupBox" name="groupBox_42">
              <property name="title">
@@ -418,6 +418,33 @@
         <layout class="QHBoxLayout" name="horizontalLayout_52">
          <item>
           <layout class="QGridLayout" name="gridLayout_17">
+           <item row="0" column="0">
+            <widget class="QGroupBox" name="groupBox">
+             <property name="title">
+              <string>NIR α</string>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>10</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLineEdit" name="tCCDNIRAlpha"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
            <item row="1" column="0">
             <widget class="QGroupBox" name="groupBox_2">
              <property name="title">
@@ -445,7 +472,7 @@
              </layout>
             </widget>
            </item>
-           <item row="1" column="3">
+           <item row="1" column="2">
             <widget class="QGroupBox" name="groupBox_44">
              <property name="title">
               <string>Ymax</string>
@@ -495,7 +522,7 @@
              </property>
             </spacer>
            </item>
-           <item row="0" column="3">
+           <item row="0" column="2">
             <widget class="QGroupBox" name="groupBox_45">
              <property name="title">
               <string>Slits</string>
@@ -532,7 +559,7 @@
              </layout>
             </widget>
            </item>
-           <item row="1" column="2">
+           <item row="1" column="1">
             <widget class="QGroupBox" name="groupBox_43">
              <property name="title">
               <string>Ymin</string>
@@ -569,15 +596,15 @@
              </layout>
             </widget>
            </item>
-           <item row="2" column="0">
-            <widget class="QGroupBox" name="groupBox">
+           <item row="0" column="1">
+            <widget class="QGroupBox" name="groupBox_5">
              <property name="title">
-              <string>NIR Pol</string>
+              <string>NIR γ</string>
              </property>
              <property name="flat">
               <bool>true</bool>
              </property>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <layout class="QHBoxLayout" name="horizontalLayout_3">
               <property name="leftMargin">
                <number>0</number>
               </property>
@@ -591,7 +618,7 @@
                <number>0</number>
               </property>
               <item>
-               <widget class="QLineEdit" name="tCCDNIRPol"/>
+               <widget class="QLineEdit" name="tCCDNIRGamma"/>
               </item>
              </layout>
             </widget>
@@ -690,6 +717,32 @@
    <header>ImageViewWithPlotItemContainer</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>tCCDNIRP</tabstop>
+  <tabstop>tCCDNIRwavelength</tabstop>
+  <tabstop>tSampleName</tabstop>
+  <tabstop>bCCDImage</tabstop>
+  <tabstop>tEMCCDExp</tabstop>
+  <tabstop>tCCDImageNum</tabstop>
+  <tabstop>bCCDBack</tabstop>
+  <tabstop>tEMCCDGain</tabstop>
+  <tabstop>tCCDBGNum</tabstop>
+  <tabstop>tCCDSeries</tabstop>
+  <tabstop>tSpectrumStep</tabstop>
+  <tabstop>tCCDComments</tabstop>
+  <tabstop>tCCDNIRAlpha</tabstop>
+  <tabstop>tCCDNIRGamma</tabstop>
+  <tabstop>tCCDSlits</tabstop>
+  <tabstop>tCCDSampleTemp</tabstop>
+  <tabstop>tCCDYMin</tabstop>
+  <tabstop>tCCDYMax</tabstop>
+  <tabstop>bProcessBackgroundSequence</tabstop>
+  <tabstop>gCCDBack</tabstop>
+  <tabstop>gCCDBin</tabstop>
+  <tabstop>tabWidget_3</tabstop>
+  <tabstop>gCCDImage</tabstop>
+  <tabstop>bProcessImageSequence</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

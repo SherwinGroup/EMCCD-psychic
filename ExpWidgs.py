@@ -264,9 +264,13 @@ class BaseExpWidget(QtWidgets.QWidget):
                 lambda v: self.papa.settings.__setitem__('nir_lambda', v))
             self.ui.tCCDNIRP.textAccepted.connect(
                 lambda v: self.papa.settings.__setitem__('nir_power', v))
-            self.ui.tCCDNIRPol.editingFinished.connect(
-                lambda: self.papa.settings.__setitem__("nir_pol",
-                                                       str(self.ui.tCCDNIRPol.text()))
+            self.ui.tCCDNIRAlpha.editingFinished.connect(
+                lambda: self.papa.settings.__setitem__("nir_pola",
+                                                       str(self.ui.tCCDNIRAlpha.text()))
+            )
+            self.ui.tCCDNIRGamma.editingFinished.connect(
+                lambda: self.papa.settings.__setitem__("nir_polg",
+                                                       str(self.ui.tCCDNIRGamma.text()))
             )
 
         # add autocompleter functionality so you
@@ -842,7 +846,8 @@ class BaseExpWidget(QtWidgets.QWidget):
         if self.hasNIR:
             s["nir_power"] = str(self.ui.tCCDNIRP.text())
             s["nir_lambda"] = str(self.ui.tCCDNIRwavelength.text())
-            s["nir_pol"] = str(self.ui.tCCDNIRPol.text())
+            s["nir_pola"] = str(self.ui.tCCDNIRAlpha.text())
+            s["nir_polg"] = str(self.ui.tCCDNIRGamma.text())
 
         try:
             detHWP = self.papa.newportController.detHWPWidget.ui.sbPosition.value()
@@ -2265,6 +2270,9 @@ class AlignWid(BaseExpWidget):
         # don't get clipped
         self.ui.gCCDImage.getHistogramWidget().item.layout.setColumnStretchFactor(0, 15)
         self.ui.gCCDImage.ui.histogram.axis.setMaximumWidth(100)
+        self.ui.gCCDBin.plotItem.axes["left"]["item"].tickFont=QtGui.QFont("", 15)
+        self.ui.gCCDBin.plotItem.axes["left"]["item"].setWidth(80)
+        self.ui.gCCDBin.plotItem.axes["bottom"]["item"].tickFont=QtGui.QFont("", 15)
 
 
 
@@ -2295,17 +2303,21 @@ class AlignWid(BaseExpWidget):
 
             line.sigPositionChanged.connect(self.updateCurves)
             lineDict[line] = curve
+            line.shouldNorm = True
+            if mod == QtCore.Qt.ControlModifier:
+                line.shouldNorm = False
+
             self.updateCurves()
 
     def updateCurves(self):
         if self.curDataEMCCD.clean_array is None: return
         for line, curve in list(self.verticalLines.items()):
             pos = line.value()
-            data = self.sumData(pos, True)
+            data = self.sumData(pos, True, line.shouldNorm)
             self.sigMakeGui.emit(curve.setData, (data,))
         for line, curve in list(self.horizontalLines.items()):
             pos = line.value()
-            data = self.sumData(pos, False)
+            data = self.sumData(pos, False, line.shouldNorm)
             self.sigMakeGui.emit(curve.setData, (data,))
 
     def startContinuous(self, value):
@@ -2360,7 +2372,7 @@ class AlignWid(BaseExpWidget):
 
         self.sigMakeGui.emit(self.toggleUIElements, (True,))
 
-    def sumData(self, pos, isVertical=True):
+    def sumData(self, pos, isVertical=True, norm = True):
         try:
             width = int(self.ui.tCCDSlits.text())
         except ValueError:
@@ -2379,8 +2391,9 @@ class AlignWid(BaseExpWidget):
         else:
             data = np.sum(self.curDataEMCCD.clean_array[st:en,:], axis=0)
         data = data.astype(float)
-        data-=min(data)
-        data/=max(data)
+        if norm:
+            data-=min(data)
+            data/=max(data)
         return data
 
 

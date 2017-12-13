@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>838</width>
-    <height>690</height>
+    <width>656</width>
+    <height>636</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -437,47 +437,10 @@
         <layout class="QHBoxLayout" name="horizontalLayout_52">
          <item>
           <layout class="QGridLayout" name="gridLayout_17">
-           <item row="0" column="2">
-            <widget class="QGroupBox" name="groupBox_45">
-             <property name="title">
-              <string>Slits</string>
-             </property>
-             <property name="flat">
-              <bool>true</bool>
-             </property>
-             <property name="checkable">
-              <bool>false</bool>
-             </property>
-             <layout class="QGridLayout" name="gridLayout_15">
-              <property name="leftMargin">
-               <number>0</number>
-              </property>
-              <property name="topMargin">
-               <number>10</number>
-              </property>
-              <property name="rightMargin">
-               <number>0</number>
-              </property>
-              <property name="bottomMargin">
-               <number>0</number>
-              </property>
-              <property name="spacing">
-               <number>0</number>
-              </property>
-              <item row="0" column="0">
-               <widget class="QLineEdit" name="tCCDSlits">
-                <property name="text">
-                 <string>0</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </widget>
-           </item>
            <item row="0" column="0">
             <widget class="QGroupBox" name="groupBox_5">
              <property name="title">
-              <string>NIR Pol</string>
+              <string>NIR α</string>
              </property>
              <property name="flat">
               <bool>true</bool>
@@ -496,7 +459,7 @@
                <number>0</number>
               </property>
               <item>
-               <widget class="QLineEdit" name="tCCDNIRPol"/>
+               <widget class="QLineEdit" name="tCCDNIRAlpha"/>
               </item>
              </layout>
             </widget>
@@ -614,6 +577,70 @@
               </size>
              </property>
             </spacer>
+           </item>
+           <item row="0" column="3">
+            <widget class="QGroupBox" name="groupBox_45">
+             <property name="title">
+              <string>Slits</string>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_15">
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>10</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QLineEdit" name="tCCDSlits">
+                <property name="text">
+                 <string>0</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QGroupBox" name="groupBox_3">
+             <property name="title">
+              <string>NIR γ</string>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>10</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLineEdit" name="tCCDNIRGamma"/>
+              </item>
+             </layout>
+            </widget>
            </item>
           </layout>
          </item>
@@ -781,17 +808,23 @@
   <tabstop>bCCDBack</tabstop>
   <tabstop>tEMCCDGain</tabstop>
   <tabstop>tCCDBGNum</tabstop>
+  <tabstop>tCCDSeries</tabstop>
+  <tabstop>tSpectrumStep</tabstop>
   <tabstop>tCCDComments</tabstop>
+  <tabstop>tCCDNIRAlpha</tabstop>
+  <tabstop>tCCDNIRGamma</tabstop>
   <tabstop>tCCDSlits</tabstop>
   <tabstop>tCCDSampleTemp</tabstop>
   <tabstop>tCCDYMin</tabstop>
   <tabstop>tCCDYMax</tabstop>
-  <tabstop>tabWidget_3</tabstop>
-  <tabstop>gCCDBack</tabstop>
-  <tabstop>tCCDSidebandNumber</tabstop>
   <tabstop>gCCDImage</tabstop>
   <tabstop>tCCDFELPulses</tabstop>
   <tabstop>gCCDBin</tabstop>
+  <tabstop>bProcessBackgroundSequence</tabstop>
+  <tabstop>bProcessImageSequence</tabstop>
+  <tabstop>tCCDSidebandNumber</tabstop>
+  <tabstop>gCCDBack</tabstop>
+  <tabstop>tabWidget_3</tabstop>
  </tabstops>
  <resources/>
  <connections/>
