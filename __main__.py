@@ -571,7 +571,7 @@ class CCDWindow(QtGui.QMainWindow):
         #
         ###########################
         self.addPolarizerMotorDriver()
-        self.addNewportController()
+        self.addRotationStage()
         self.ui.miscToolsLayout.addStretch(10)
 
 
@@ -1148,19 +1148,18 @@ class CCDWindow(QtGui.QMainWindow):
         self.ui.miscToolsLayout.itemAt(0).widget().children()[1].ui.bQuit.setEnabled(False)
 
 
-    def addNewportController(self):
+    def addRotationStage(self):
         try:
-            from InstsAndQt.NewportMotorDriver.espMainPanel import ESPMainPanel
-
-
+            from InstsAndQt.ThorlabsCageRotator.K10CR1Panel import K10CR1Panel
         except ImportError:
-            MessageDialog(self, "Error importing module for ESP300")
+            MessageDialog(self, "Error importing module for K10CR1")
             return
-        motorDriverGB = QtGui.QGroupBox("Detector HWP", self)
+
+        motorDriverGB = QtGui.QGroupBox("Optics Rotator", self)
         motorDriverGB.setFlat(True)
         layout = QtGui.QVBoxLayout()
-        self.newportController = ESPMainPanel()
-        layout.addWidget(self.newportController)
+        self.rotationStage = K10CR1Panel()
+        layout.addWidget(self.rotationStage)
         motorDriverGB.setLayout(layout)
         self.ui.miscToolsLayout.addWidget(motorDriverGB)
 
@@ -1366,59 +1365,11 @@ class CCDWindow(QtGui.QMainWindow):
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
             if not self.detHWPsweep.isChecked(): break
 
-            """
-            This one would require you to (1) set the angle (delaying signals), (2) call the startMove, 
-            (3) wait on th
-            
-            # use signals to change the value in the spin box (need to avoid non-main thread GUI changes
-            # also need the delayChange to prevent it from emitting the sigChanged
-            # which causes the esp widget from starting its own move
-            self.updateElementSig.emit(
-                lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
-                hwpAngle)
-            # call the function to move the motor.
-            self.newportController.detHWPWidget.moveMotor()
-            log.debug("Done waiting on motor move")
-
-            self.updateElementSig.emit(
-                lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
-                hwpAngle)
-            """
-
-            # use signals to change the value in the spin box (need to avoid non-main thread GUI changes
-            # also need the delayChange to prevent it from emitting the sigChanged
-            # which causes the esp widget from starting its own move, because I want to start the thread here,
-            # instead of worrying about race conditions of when signals will get processed
-
-
-            # self.updateElementSig.emit(
-            #     lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
-            #     hwpAngle)
-            # delaySignal doesn't stop the signal, it just waits for 300ms and then emits it. I want to get rid of this.
-            # self.updateElementSig.emit(
-            #     lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
-            #     hwpAngle)
-
-            self.newportController.detHWPWidget.startChangePosition(target = False)
+            self.rotationStage.startChangePosition(target = False)
             log.debug("Moving to set angle to {}".format(hwpAngle))
-            self.newportController.detHWPWidget.moveMotor(value=hwpAngle)
-            self.newportController.detHWPWidget.cleanupMotorMove()
-
-            # call the function to move the motor.
-            # self.newportController.detHWPWidget.startChangePosition()
-            log.debug("started motor thread wait")
-            # self.newportController.detHWPWidget.thWaitForMotor.wait()
+            self.rotationStage.moveMotor(value=hwpAngle)
+            self.rotationStage.cleanupMotorMove()
             log.debug("Done waiting on motor move")
-
-            # self.updateElementSig.emit(
-            #     lambda x: self.newportController.detHWPWidget.ui.sbPosition.setValue(x, delaySignal=True),
-            #     hwpAngle)
-
-            # self.newportController.detHWPWidget.startChangePosition()
-
-            # self.newportController.detHWPWidget.ui.sbPosition.sigValueChanged.emit(hwpAngle)
-            # time.sleep(0.2)
-            # self.newportController.detHWPWidget.thWaitForMotor.wait()
 
             for ii in range(numImages):
                 if not self.detHWPsweep.isChecked(): break

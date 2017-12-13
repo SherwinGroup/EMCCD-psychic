@@ -33,7 +33,7 @@ seriesTags = {"SLITS": "slits",
               "NIRP": "nir_power",
               "NIRW": "nir_lambda",
               "FELTRANS": "fel_transmission",
-              "DETHWP": "detectorHWP"}
+              "ROTANG": "rotatorAngle"}
 
 
 class CustomAxis(pg.AxisItem):
@@ -845,11 +845,11 @@ class BaseExpWidget(QtWidgets.QWidget):
             s["nir_pol"] = str(self.ui.tCCDNIRPol.text())
 
         try:
-            detHWP = self.papa.newportController.detHWPWidget.ui.sbPosition.value()
-            s["detectorHWP"] = detHWP
+            rotAng = self.papa.rotationStage.ui.sbPosition.value()
+            s["rotatorAngle"] = rotAng
         except Exception as e:
-            log.warning("Error getting detector HWP setting, {}".format(e))
-            s["detectorHWP"] = "NotConnected"
+            log.exception("Error getting rotator angle setting")
+            s["rotatorAngle"] = "NotConnected"
         st = self.getSeriesName(s)
         s["series"] = st
         return s
