@@ -130,6 +130,7 @@ class AndorEMCCD(object):
                 time.sleep(1)
                 self.tempRetCode = self.parseRetCode(self.dllGetTemperature(tempTemp))
                 self.temperature = tempTemp.value
+                log.debug("At new temperature, {}, {}".format(self.temperature, self.tempRetCode))
                 # print 'Current temp: {}'.format(self.temperature)
         else:
             while self.tempRetCode != "DRV_TEMPERATURE_STABILIZED" and self.temperature<0:
@@ -225,7 +226,7 @@ class AndorEMCCD(object):
     def setAcqMode(self, idx):
         if idx in (0, 6, 7, 8):
             # invalid by the CCD designation
-            raise ValueError("Invalid acquisition mode. You shouldn't be here...")
+            raise ValueError("Invalid acquisition mode. You shouldn't be here... ({})".format(idx))
         log.debug('Setting acquisition {}'.format(idx))
         # dictionary to retrieve the mode title
         d = {1:'Single Scan', 2:'Accumulate', 3:'Kinetics',

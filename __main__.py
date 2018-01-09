@@ -89,6 +89,47 @@ bgSeriesTags = ("SPECL",
                 "CCDTEMP"
                 )
 
+
+class StatusBarProgressHelper(QtWidgets.QWidget):
+    """
+    Combined widget to throw into a status bar which will show a xx/max and corresponding
+    progress bar. Only intention for it now is to be tossed up when I do a QWP sweep because I
+    want to be able to see the status at all times. Add default signals so I can do this
+    in threads
+    """
+    sigAddOne = QtCore.pyqtSignal() # call this to add one to the counter
+    sigReset = QtCore.pyqtSignal()  # call this to reset it.
+    sigFinished = QtCore.pyqtSignal()
+    def __init__(self):
+        super(StatusBarProgressHelper, self).__init__()
+        self.statusText = QtWidgets.QLabel()
+        self.progressBar = QtWidgets.QProgressBar()
+
+        self.maxValue = 100
+        self._curVal = 0
+
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.addWidget(self.statusText)
+        layout.addWidget(self.progressBar)
+        self.setLayout(layout)
+
+        self.sigAddOne.connect(lambda: self.setValue(self._curVal + 1))
+        self.sigReset.connect(self.reset)
+        self.setMaximumHeight(30) # make it a bit smaller
+
+    def reset(self):
+        self.setValue(0)
+
+    def setValue(self, value = 0):
+        relVal = value/self.maxValue * 100
+        self.progressBar.setValue(relVal)
+
+        self.statusText.setText("{}/{}".format(value, self.maxValue))
+        self._curVal = value
+        if value == self.maxValue:
+            self.sigFinished.emit()
+
+
 class CCDWindow(QtGui.QMainWindow):
     # signal definitions
     updateElementSig = QtCore.pyqtSignal(object, object) # This can be used for updating any element
@@ -339,10 +380,18 @@ class CCDWindow(QtGui.QMainWindow):
                 self.ui.cSettingsAcquisitionMode.model().setData(j, 0, QtCore.Qt.UserRole-1)
 
 
-
+        # Generic status messages to be placed here
         self.sbText = QTimedText()
         self.statusBar().addPermanentWidget(self.sbText, 1)
         self.sigUpdateStatusBar.connect(self.updateStatusBar)
+
+        # add a little progress bar to the status bar which lets me see it always
+        # see how hwp sweeps are going
+        self.hwpSweepProgress = StatusBarProgressHelper()
+        self.statusBar().addPermanentWidget(self.hwpSweepProgress)
+        # automatically hide it when it's done.
+        self.hwpSweepProgress.sigFinished.connect(self.hwpSweepProgress.hide)
+        self.hwpSweepProgress.hide()
 
         #####################
         # Creating all of the widgets used for different experiment types
@@ -1330,11 +1379,11 @@ class CCDWindow(QtGui.QMainWindow):
             if not ok: return
 
             stop, ok = QtGui.QInputDialog.getDouble(self, "Stopping val", "Stop",
-                                                 -360)
+                                                 360)
             if not ok: return
 
             step, ok = QtGui.QInputDialog.getDouble(self, "Stepping val", "Step",
-                                                 -360/16)
+                                                 360/16)
             # npoints, ok = QtGui.QInputDialog.getInt(self, "Number of points", "n",
             #                                         16)
             if not ok: return
@@ -1344,6 +1393,8 @@ class CCDWindow(QtGui.QMainWindow):
             if not ok: return
 
             self.thDoSpectrometerSweep.args = (start, stop, step, numIm)
+            self.hwpSweepProgress.show()
+            self.hwpSweepProgress.reset()
             # self.thDoSpectrometerSweep.args = (start, stop, npoints, numIm)
             self.thDoSpectrometerSweep.target = self.hwpSweepLoop
             self.thDoSpectrometerSweep.start()
@@ -1360,6 +1411,7 @@ class CCDWindow(QtGui.QMainWindow):
 
         # force to append the final point.
         points = np.arange(start, stop, step)
+        self.hwpSweepProgress.maxValue = len(points) * numImages
         # points = np.append(points, stop)
         # points = np.linspace(start, stop, step)
         for hwpAngle in points:
@@ -1375,6 +1427,7 @@ class CCDWindow(QtGui.QMainWindow):
 
             for ii in range(numImages):
                 if not self.detHWPsweep.isChecked(): break
+                self.hwpSweepProgress.sigAddOne.emit()
                 # self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
                 self.getCurExp().takeImage(isBackground=False)
                 log.debug("\tCalled Take image, {}".format(ii))
@@ -1391,7 +1444,12 @@ class CCDWindow(QtGui.QMainWindow):
                 time.sleep(2)
                 log.debug("done sleeping")
 
+        # ensure it hides itself when it's finished
+        self.hwpSweepProgress.sigFinished.emit()
 
+        ## Set it to move past the home switch so I don't have to wait as long
+        ## This should be removed if their software gets fixed and I can home in either direction
+        self.rotationStage.moveMotor(value=370)
         self.curExp.confirmImage = oldConfirmation
         self.updateElementSig.emit(self.detHWPsweep.setChecked, False)
         log.debug("Done with HWP scan")
@@ -1558,6 +1616,18 @@ class CCDWindow(QtGui.QMainWindow):
         # Disable the buttons we don't want messed with
         [i.toggleUIElements(False) for i in list(self.expUIs.values())]
 
+        # test to see if we're already setting a temp
+        alreadyRunning = False
+        try:
+            alreadyRunning = self.setTempThread.isRunning()
+        except:
+            pass
+        if alreadyRunning:
+            # I want to abort it, so there aren't a bunch of threads running around, possibly causing memory
+            # leaks or other issues
+            self.setTempThread.finished.disconnect(self.cleanupSetTemp)
+            self.setTempThread.terminate()
+
         # Set up a thread which will handle the monitoring of the temperature
         self.setTempThread = TempThread(target = self.CCD.gotoTemperature, args = (temp, self.killFast))
         self.setTempThread.finished.connect(self.cleanupSetTemp)
@@ -1612,7 +1682,7 @@ class CCDWindow(QtGui.QMainWindow):
         :return:
         """
         saveDict = dict()
-
+        log.debug("Saving settings")
         saveDict.update(self.settings)
         saveDict.update(self.CCD.cameraSettings)
         try:

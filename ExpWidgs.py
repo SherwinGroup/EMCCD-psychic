@@ -1580,6 +1580,10 @@ class BaseHSGWid(BaseExpWidget):
         except Exception as e:
             if type(e) is ZeroDivisionError:
                 return
+            if type(e) is IndexError:
+                # If only one sideband found. generall happens when
+                # I'm looking at the laser line.
+                return
             log.exception("Bad fitting {}".format(e))
             return
         # fit the positions up to the last two (generally noisy points
