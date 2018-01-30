@@ -1427,7 +1427,6 @@ class CCDWindow(QtGui.QMainWindow):
 
             for ii in range(numImages):
                 if not self.detHWPsweep.isChecked(): break
-                self.hwpSweepProgress.sigAddOne.emit()
                 # self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
                 self.getCurExp().takeImage(isBackground=False)
                 log.debug("\tCalled Take image, {}".format(ii))
@@ -1435,6 +1434,7 @@ class CCDWindow(QtGui.QMainWindow):
                 time.sleep(0.2)
                 log.debug("waiting on exposure thread")
                 self.curExp.thDoExposure.wait()
+                self.hwpSweepProgress.sigAddOne.emit()
                 log.debug("done waiting")
             else:
                 log.debug("emulating process button click")
@@ -1550,21 +1550,22 @@ class CCDWindow(QtGui.QMainWindow):
 
     def startConsecutiveImages(self, val):
         print("modifiers",QtGui.QApplication.keyboardModifiers())
-        print(QtGui.QApplication.keyboardModifiers()|QtCore.Qt.ShiftModifier)
+        print(QtGui.QApplication.keyboardModifiers()&QtCore.Qt.ShiftModifier)
+        doBG = QtGui.QApplication.keyboardModifiers()&QtCore.Qt.ShiftModifier
         if not val:
             return
         val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?",
-                                            self.consecImages, 1, 50, 1)
+                                            self.consecImages, 1, 100, 1)
         if not ok or val == 0:
             self.consec.setChecked(False)
             return
         log.debug("Doing consecutive image sequence")
         self.consecImages = val
-        self.thDoSpectrometerSweep.args = None
+        self.thDoSpectrometerSweep.args = doBG
         self.thDoSpectrometerSweep.target = self.doConsecutiveLoop
         self.thDoSpectrometerSweep.start()
 
-    def doConsecutiveLoop(self):
+    def doConsecutiveLoop(self, doBG = False):
         numImages = 0
         oldConfirm = self.curExp.confirmImage
         newConfirm = lambda: True
@@ -1572,7 +1573,7 @@ class CCDWindow(QtGui.QMainWindow):
         while self.consec.isChecked() and numImages < self.consecImages:
             log.debug("Consecutive image: {}".format(numImages))
             # self.getCurExp().ui.bCCDImage.clicked.emit(True)
-            self.getCurExp().takeImage(isBackground=False)
+            self.getCurExp().takeImage(isBackground=doBG)
             time.sleep(0.25)
             self.getCurExp().thDoExposure.wait()
             numImages += 1
