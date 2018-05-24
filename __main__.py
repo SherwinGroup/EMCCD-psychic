@@ -117,6 +117,10 @@ class StatusBarProgressHelper(QtWidgets.QWidget):
         self._curVal = 0
 
         layout = QtWidgets.QHBoxLayout(self)
+        self.pauseButton = QtWidgets.QPushButton(
+            self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause), "", self)
+        self.pauseButton.setCheckable(True)
+        layout.addWidget(self.pauseButton)
         layout.addWidget(self.statusText)
         layout.addWidget(self.progressBar)
         self.setLayout(layout)
@@ -127,6 +131,9 @@ class StatusBarProgressHelper(QtWidgets.QWidget):
 
     def reset(self):
         self.setValue(0)
+
+    def isPaused(self):
+        return self.pauseButton.isChecked()
 
     def setValue(self, value = 0):
         relVal = value/self.maxValue * 100
@@ -1458,38 +1465,66 @@ class CCDWindow(QtGui.QMainWindow):
     def hwpSweepLoop(self, args=[0, 365, 20, 4]):
         start, stop, step, numImages = args
         log.debug("starting hwp sweep loop {}:{}:{}x{}".format(start, stop, step, numImages))
+
+
         # keep reference to old fucntion for confirming images, because this one
         # will automatically accept them.
         oldConfirmation = self.curExp.confirmImage
         self.curExp.confirmImage = lambda : True
 
+        def checkPause():
+            """ Check to see if the pause button has been pressed
+            Returns True if a wait occured, False if one did not"""
+            if not self.hwpSweepProgress.isPaused(): return False
+            log.debug("Pausing QWP sweep")
+            waitLoop = QtCore.QEventLoop()
+            self.hwpSweepProgress.pauseButton.clicked.connect(waitLoop.exit)
+            waitLoop.exec_()
+            # Disconnect it when done to prevent memory leaks
+            self.hwpSweepProgress.pauseButton.clicked.disconnect(waitLoop.exit)
+            return True
+
+
         # force to append the final point.
         points = np.arange(start, stop, step)
         self.hwpSweepProgress.maxValue = len(points) * numImages
+
         # points = np.append(points, stop)
         # points = np.linspace(start, stop, step)
         for hwpAngle in points:
             log.debug("At hwp angle {}".format(hwpAngle))
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
             if not self.detHWPsweep.isChecked(): break
+            # Check after starting a new point
+            checkPause()
 
             self.rotationStage.startChangePosition(target = False)
             log.debug("Moving to set angle to {}".format(hwpAngle))
             self.rotationStage.moveMotor(value=hwpAngle)
             self.rotationStage.cleanupMotorMove()
             log.debug("Done waiting on motor move")
-
-            for ii in range(numImages):
+            # check in case it was pressed while doing a motor move
+            checkPause()
+            imageNo = 0
+            # for ii in range(numImages):
+            while imageNo < numImages:
                 if not self.detHWPsweep.isChecked(): break
-                # self.curExp.ui.bCCDImage.clicked.emit(False) # emulate button press for laziness
+
                 self.getCurExp().takeImage(isBackground=False)
-                log.debug("\tCalled Take image, {}".format(ii))
-                self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, ii))
+                log.debug("\tCalled Take image, {}".format(imageNo))
+                self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, imageNo))
                 time.sleep(0.2)
                 log.debug("waiting on exposure thread")
                 self.curExp.thDoExposure.wait()
                 self.hwpSweepProgress.sigAddOne.emit()
                 log.debug("done waiting")
+                # Check to see if we're paused. If we are, you should probably
+                # ignore the last image/assume we didn't take it, and prevent
+                # it from counting. Maybe we should be checking this loop against
+                # self.getCurExp().imageSequence length, since that tracks
+                # how many images there are?
+                if not checkPause():
+                    imageNo += 1
             else:
                 log.debug("emulating process button click")
                 # self.curExp.ui.bProcessImageSequence.clicked.emit(False)
@@ -1608,12 +1643,12 @@ class CCDWindow(QtGui.QMainWindow):
 
 
     def startConsecutiveImages(self, val):
-        print("modifiers",QtGui.QApplication.keyboardModifiers())
-        print(QtGui.QApplication.keyboardModifiers()&QtCore.Qt.ShiftModifier)
         doBG = QtGui.QApplication.keyboardModifiers()&QtCore.Qt.ShiftModifier
+
         if not val:
             return
-        val, ok = QtGui.QInputDialog.getInt(self, "Number of images", "How many images?",
+        toTake = "backgrounds" if doBG else "images"
+        val, ok = QtGui.QInputDialog.getInt(self, "Number of {}".format(toTake), "How many {}?".format(toTake),
                                             self.consecImages, 1, 100, 1)
         if not ok or val == 0:
             self.consec.setChecked(False)

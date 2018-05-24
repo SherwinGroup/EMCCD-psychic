@@ -685,7 +685,12 @@ class BaseExpWidget(QtWidgets.QWidget):
             log.critical("folder str: {}, filename: {}".format(
                 self.papa.settings["saveDir"], self.curDataEMCCD.file_name
             ))
-            log.warning("Error saving Data image, {}".format(e))
+            log.exception("Error saving Data image, {}".format(e))
+            self.papa.updateElementSig.emit(
+                lambda: MessageDialog(self,
+                          "Image failed to save!"),
+                None # Neccesarry second argument of signal
+            )
 
         if self.papa.ui.mFileDoCRR.isChecked():
             log.debug("Doing CRR")
@@ -727,6 +732,11 @@ class BaseExpWidget(QtWidgets.QWidget):
             log.critical("folder str: {}, filename: {}".format(
                 self.papa.settings["saveDir"], self.curBackEMCCD.file_name
             ))
+            self.papa.updateElementSig.emit(
+                lambda: MessageDialog(self,
+                                      "Background Image failed to save!"),
+                None  # Neccesarry second argument of signal
+            )
             log.exception("Error saving background image, {}".format(e))
 
         if self.papa.ui.mFileDoCRR.isChecked():
@@ -1109,7 +1119,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevDataEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed data image stdpost. {}".format(
+            log.warning("error saving std file of processed data image stdpost. {}".format(
                 e
             ))
 
@@ -1124,7 +1134,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevDataEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed data image stdT. {}".format(
+            log.warning("error saving std file of processed data image stdT. {}".format(
                 e
             ))
 
@@ -1139,7 +1149,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevDataEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving image file of processed sequence. {}".format(
+            log.warning("error saving image file of processed sequence. {}".format(
                 e
             ))
 
@@ -1161,6 +1171,11 @@ class BaseExpWidget(QtWidgets.QWidget):
         except Exception as e:
             log.exception("Exception trying to make/save the sequenced spectrum file\n\t\t"
                         "{}".format(e))
+            self.papa.updateElementSig.emit(
+                lambda: MessageDialog(self,
+                                      "Processed Image failed to save!"),
+                None  # Neccesarry second argument of signal
+            )
 
         self.curDataEMCCD = self.prevDataEMCCD
         curBGtitle = str(self.ui.groupBox_37.title()).replace('*', '')
@@ -1191,7 +1206,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevBackEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed background. {}".format(
+            log.warning("error saving std file of processed background. {}".format(
                 e
             ))
 
@@ -1205,9 +1220,14 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevBackEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving image file of processed background. {}".format(
+            log.warning("error saving image file of processed background. {}".format(
                 e
             ))
+        self.papa.updateElementSig.emit(
+            lambda: MessageDialog(self,
+                                  "Processed Background Image failed to save!"),
+            None  # Neccesarry second argument of signal
+        )
 
 
         # Save again the backgrounds folder
@@ -1223,7 +1243,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevBackEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed background in compiled folder. {}".format(
+            log.warning("error saving std file of processed background in compiled folder. {}".format(
                 e
             ))
 
@@ -1238,7 +1258,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 self.prevBackEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving image file of processed background in compiled folder. {}".format(
+            log.warning("error saving image file of processed background in compiled folder. {}".format(
                 e
             ))
 
@@ -1714,7 +1734,7 @@ class HSGFVBWid(BaseHSGWid):
             log.error("Unable to remove cosmics with only one exposure")
             return
         if self.prevDataEMCCD.raw_array.shape[0] <= 3:
-            log.warn("CRR is not tested with less than 4 exposures")
+            log.warning("CRR is not tested with less than 4 exposures")
 
         offset = 0
         medianRatio = 1.
@@ -2009,7 +2029,7 @@ class AbsWid(BaseExpWidget):
                 self.prevRefEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed ref data image stdpost. {}".format(
+            log.warning("error saving std file of processed ref data image stdpost. {}".format(
                 e
             ))
 
@@ -2025,7 +2045,7 @@ class AbsWid(BaseExpWidget):
                 self.prevRefEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed ref data image stdT. {}".format(
+            log.warning("error saving std file of processed ref data image stdT. {}".format(
                 e
             ))
 
@@ -2040,7 +2060,7 @@ class AbsWid(BaseExpWidget):
                 self.prevRefEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving image file of processed ref sequence. {}".format(
+            log.warning("error saving image file of processed ref sequence. {}".format(
                 e
             ))
 
@@ -2060,7 +2080,7 @@ class AbsWid(BaseExpWidget):
                 self.prevRefEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving std file of processed reference in compiled folder. {}".format(
+            log.warning("error saving std file of processed reference in compiled folder. {}".format(
                 e
             ))
 
@@ -2075,7 +2095,7 @@ class AbsWid(BaseExpWidget):
                 self.prevRefEMCCD.saveFileName
             ))
         except Exception as e:
-            log.warn("error saving image file of processed reference in compiled folder. {}".format(
+            log.warning("error saving image file of processed reference in compiled folder. {}".format(
                 e
             ))
 
