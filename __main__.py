@@ -50,11 +50,11 @@ log.debug("-"*15)
 
 # http://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
 import ctypes
-
-
 if os.name is not "posix":
     myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+
 
 from UIs.mainWindow_ui import Ui_MainWindow
 from ExpWidgs import *
@@ -66,6 +66,9 @@ try:
 except AttributeError:
     QString = str
 
+# List of location of neon lines. It was used in calibration long
+# ago to have the spectrometer center on each wavelength to test
+# its accuracy.
 neLines = [
     607.433, 609.616, 612.884, 614.306,
     616.359, 621.728, 626.649, 633.442,
@@ -75,6 +78,10 @@ neLines = [
     747.244, 748.887, 753.577, 754.404
 ]
 
+# Tuple of possible tags which can be used in the
+# background file name to have them inserted.
+# User can input {tag} in the background name
+# to have it put in
 bgSeriesTags = ("SPECL",
                 "SPECSTEP",
                 "VBIN",
@@ -99,9 +106,10 @@ class StatusBarProgressHelper(QtWidgets.QWidget):
     """
     sigAddOne = QtCore.pyqtSignal() # call this to add one to the counter
     sigReset = QtCore.pyqtSignal()  # call this to reset it.
-    sigFinished = QtCore.pyqtSignal()
+    sigFinished = QtCore.pyqtSignal() # Emitted when the max value has been reached
     def __init__(self):
         super(StatusBarProgressHelper, self).__init__()
+        # Set up the label and
         self.statusText = QtWidgets.QLabel()
         self.progressBar = QtWidgets.QProgressBar()
 
@@ -131,24 +139,57 @@ class StatusBarProgressHelper(QtWidgets.QWidget):
 
 
 class CCDWindow(QtGui.QMainWindow):
-    # signal definitions
-    updateElementSig = QtCore.pyqtSignal(object, object) # This can be used for updating any element
-    killTimerSig = QtCore.pyqtSignal(object) # To kill a timer started in the main thread from a sub-thread
-     # to update either image, whether it is clean or not
-    updateDataSig = QtCore.pyqtSignal(object, object, object)
+    ### signal definitions
 
-    # Thread definitions
-    setTempThread = None
-    getTempTimer = None # Timer for updating the current temperature while the detector is warming/cooling
+    # This can be used for updating any element
+    # see CCDWindow.updateUIElement for exact usage, but mostly,
+    # send in any function as a first argument, and args as a second,
+    # and it wil run them in the main thread. Useful/necessary for wanting
+    # to cause updates to the UI from a worker thread (such as updating progress
+    # during loops)
+    updateElementSig = QtCore.pyqtSignal(object, object)
 
+    # emit a string, and the status bar will be updated to that text
+    # (specific case to update from threads, could be handled
+    # with updateElementSig alone, but this gets called a lot)
+    # If you pass a list of [`str`, `int`], it will display
+    # the string for `int` ms.
     sigUpdateStatusBar = QtCore.pyqtSignal(object)
 
+    # To kill a timer started in the main thread from a sub-thread
+    # Note: 04/11/18 I think it may be deprecated
+    ## TODO:REMOVE
+    killTimerSig = QtCore.pyqtSignal(object)
+
+
+    # to update either image, whether it is clean or not
+    # 04/11/18 deprecated:
+    ## TODO:REMOVE
+    ##updateDataSig = QtCore.pyqtSignal(object, object, object)
+
+    ### Thread definitions
+
+    # Thread which monitors the temperature set loop
+    # for the camera
+    setTempThread = None
+    # Timer for updating the current temperature while
+    # the detector is warming/cooling
+    getTempTimer = None
+
+    """ Removed 04/11/18
+    ## TODO:REMOVE
     # Should be moved to ExpWid's
     getImageThread = None
     updateProgTimer = None # timer for updating the progress bar
     getContinuousThread = None # Thread for acquiring continuously
     updateOscDataSig = QtCore.pyqtSignal()
+    """
 
+    # worker thread to handle doing various sweeps/repitions.
+    # It gets sent for multiple exposurs, stitching
+    # spectrometer steps, scanning neon lines, doing
+    # QWP sweeps. Name is legacy from when it was
+    # first added to just do spectrometer sweeps
     thDoSpectrometerSweep = TempThread()
 
 
@@ -231,9 +272,22 @@ class CCDWindow(QtGui.QMainWindow):
 
 
     def initSettings(self):
+        """
+        Set up and keep track of all the default settings for
+        the software in a dictionary
+        :return:
+        """
         s = dict() # A dictionary to keep track of miscellaneous settings
 
         # Get the GPIB instrument list
+        # There's a new custom widget designed for doing this which
+        # has been making its way into various other widgets.
+        # I think the spectrometer and oscilloscope, which
+        # are the only things that should care about this,
+        # have been migrated to that. I think this chunk
+        # can be removed, but it needs to be double
+        # checked the spectrometer GPIB stuff is
+        # fully self contained.
         try:
             log.debug("Trying to get resourcemanager")
             rm = visa.ResourceManager()
@@ -267,14 +321,22 @@ class CCDWindow(QtGui.QMainWindow):
             # otherwise, just set it to the fake index
             s["agilGPIBidx"] = s['GPIBlist'].index('Fake')
 
+
+
+        # 04/11/2018 =================
+        ## TODO:REMOVE
+        # I think these following keys are all related
+        # to the o-scope, which were pushed to its own widget.
         # This will be used to toggle pausing on the scope
+        #
+        # Before really deleting them, should check they aren't
+        # called in a child widget (expwid, oscwid)
         s["isScopePaused"] = True
         # This flag will be used for safely terminating the
         # oscilloscope thread
         s["shouldScopeLoop"] = True
         s["doPhotonCounting"] = True
         s["exposing"] = False # For whether or not an exposure is happening
-
 
         # list of the field intensities for each pulse in a scan
         s["fieldStrength"] = []
@@ -284,21 +346,43 @@ class CCDWindow(QtGui.QMainWindow):
         s['bcpyBG'] = [0, 0]
         s['bcpyFP'] = [0, 0]
         s['bcpyCD'] = [0, 0]
+        # ================
 
-        # Which settings combo boxes have been changed?
+
+
+        # Keep track of which of the combo boxes on the Camera Settings
+        # tab have been updated. Let's me do the silly feature where if you've
+        # reset everything to what it was, it re-disables the "apply" button.
+        # It also keeps track of which need to be updated when
+        # Apply is pressed.
+        # Not sure why I didn't use binary flags. Probably clearer this way?
+        # And python doesn't seem as big on that.
+
         # AD, VSS, Read, HSS, Trigg, Acq, intShutter, exShutter
         s["changedSettingsFlags"] = [0, 0, 0, 0, 0, 0, 0, 0]
 
-        # Which image boxes have been changed?
+        # Same thing, but for the image bin settings change
         # HBin, VBin, HSt, HEn, VSt, VEn
         s["changedImageFlags"] = [0, 0, 0, 0, 0, 0] # Flags for when we change the
                                                                 # image settings.
+
+        # These two are placeholders (so I could always look in this function
+        # to see key names) which will hold references to the UI widgets for
+        # changing the camera settings ("settingsUI"), or the  image collection
+        # parameters ("imageUI"). They're useful for looping through later. They
+        # get filled in in CCDWindow.initUI() when they get instantiated.
         s["settingsUI"] = None # Keep track of the settings comboboxes for iteration
         s["imageUI"] = None # keep ttrack of the settings param textedits for iteration
+
+        # 04/11/18 Not sure this parameter is meaningful anymore
+        ## TODO:REMOVE
         s["isImage"] = True # Is it an image read mode?
+
+        # 04/11/18
+        ## TODO:REMOVE
         s["seriesNo"] = 0 # How many series have been summed together?
 
-        s["saveDir"] = r'Z:\~HSG\Data\2017' # Directory for saving
+        s["saveDir"] = r'Z:\~HSG\Data\2018' # Directory for saving
 
         # For Hunter. First time you set a temp, it will
         # pop up and make sure you turned on the chiller
@@ -553,7 +637,6 @@ class CCDWindow(QtGui.QMainWindow):
         )
 
         # set up completer for the background lineedit
-
         words = ["{"+ii+"}" for ii in bgSeriesTags]
         comp = QtGui.QCompleter(words, self.ui.tBackgroundName)
         self.ui.tBackgroundName.setMultipleCompleter(comp)
@@ -1247,35 +1330,6 @@ class CCDWindow(QtGui.QMainWindow):
         except Exception as e:
             log.warning("Could not get spectrometer values, {}".format(e))
 
-    def openSpectrometerOld(self):
-        # I've udpated it to a instrument GPIB, this functino shouldn;t
-        # be called anymore
-        raise RuntimeError("This shouldn't be called")
-        # THIS should really be in a try:except: loop for if
-        # the spec timeouts or cant be connected to
-        try:
-            # raise Exception("Cut this shit out, OSX. STOP OPENING IT")
-            self.Spectrometer = ActonSP(
-                self.settings["GPIBlist"][self.settings["specGPIBidx"]]
-            )
-        except Exception as e:
-            log.warning("Could not initialize Spectrometer. GPIB: {}. Error{}".format(
-                self.settings["GPIBlist"][self.settings["specGPIBidx"]], e))
-            self.Spectrometer = ActonSP("Fake")
-        try:
-            wl = self.Spectrometer.getWavelength()
-            if wl is None:
-                raise Exception("Could not get Spectrometer wavelength!")
-            self.ui.tSpecCurWl.setText(str(wl))
-            self.ui.sbSpecWavelength.setValue(wl)
-
-            grat = self.Spectrometer.getGrating()
-            if grat is None:
-                raise Exception("Could not get Spectrometer grating!")
-            self.ui.tSpecCurGr.setText(str(grat))
-            self.ui.sbSpecGrating.setValue(grat)
-        except Exception as e:
-            log.warning("Could not get spectrometer values, {}".format(e))
 
     def updateSpecWavelength(self):
         desired = float(self.ui.sbSpecWavelength.value())
@@ -1449,7 +1503,12 @@ class CCDWindow(QtGui.QMainWindow):
 
         ## Set it to move past the home switch so I don't have to wait as long
         ## This should be removed if their software gets fixed and I can home in either direction
-        self.rotationStage.moveMotor(value=370)
+        ## also, if the item isn't checked, it's because the user has de-selected it
+        ## because the scan is aborted. Therefore, don't go to 370, because they might want
+        ## to restart at the angle they're at, or they're closer to the homeswitch than 370, so
+        ## moving there would be worse.
+        if self.detHWPsweep.isChecked():
+            self.rotationStage.moveMotor(value=370)
         self.curExp.confirmImage = oldConfirmation
         self.updateElementSig.emit(self.detHWPsweep.setChecked, False)
         log.debug("Done with HWP scan")
@@ -1559,7 +1618,12 @@ class CCDWindow(QtGui.QMainWindow):
         if not ok or val == 0:
             self.consec.setChecked(False)
             return
-        log.debug("Doing consecutive image sequence")
+        log.debug("Doing consecutive image sequence bg={}, num={}".format(doBG, val))
+        # Make it clear in the UI that I'm doing x many and background or not.
+        if doBG:
+            self.sigUpdateStatusBar.emit("Doing {} conecutive background images".format(val))
+        else:
+            self.sigUpdateStatusBar.emit("Doing {} conecutive images".format(val))
         self.consecImages = val
         self.thDoSpectrometerSweep.args = doBG
         self.thDoSpectrometerSweep.target = self.doConsecutiveLoop

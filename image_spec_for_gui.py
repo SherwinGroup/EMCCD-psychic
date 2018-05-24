@@ -1012,10 +1012,28 @@ class Abs_image(EMCCD_image):
             return False
         return True
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         # self is the transmission spectrum
         # other is the other data
 
+        if type(other) is not type(self):
+            raise TypeError("Cannot divide {}".format(type(other)))
+        ret = copy.deepcopy(self)
+        abs_spec = -10 * np.log10(self.spectrum[:, 1] / other.spectrum[:, 1])
+        wavelengths = gen_wavelengths(self.equipment_dict['center_lambda'],
+                                      self.equipment_dict['grating'])
+
+        # First is blank
+        # other is transmission
+        ret.spectrum = np.concatenate((wavelengths, self.spectrum[:, 1].T,
+                                       other.spectrum[:, 1].T, abs_spec)).reshape(4, 1600).T
+        return ret
+
+
+
+    def __div__(self, other):
+        # self is the transmission spectrum
+        # other is the other data
         if type(other) is not type(self):
             raise TypeError("Cannot divide {}".format(type(other)))
         ret = copy.deepcopy(self)
