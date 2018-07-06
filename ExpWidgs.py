@@ -1223,11 +1223,11 @@ class BaseExpWidget(QtWidgets.QWidget):
             log.warning("error saving image file of processed background. {}".format(
                 e
             ))
-        self.papa.updateElementSig.emit(
-            lambda: MessageDialog(self,
-                                  "Processed Background Image failed to save!"),
-            None  # Neccesarry second argument of signal
-        )
+            self.papa.updateElementSig.emit(
+                lambda: MessageDialog(self,
+                        "Processed Background Image failed to save!"),
+                 None  # Neccesarry second argument of signal
+            )
 
 
         # Save again the backgrounds folder
