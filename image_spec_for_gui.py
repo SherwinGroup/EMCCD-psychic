@@ -88,7 +88,7 @@ class ConsecutiveImageAnalyzer(object):
         except Exception as e:
             log.warning("Error trying to pop the images, {}".format(e))
 
-    def removeCosmics(self, ratio = 1.0, noisecoeff = 5.0, debug = False):
+    def removeCosmics(self, ratio = 0.07, noisecoeff = 3.0, debug = False):
         if self._stackedImages is None:
             self.getImages()
         d = np.array(self._stackedImages).astype(float)
@@ -280,7 +280,6 @@ class ConsecutiveImageAnalyzer(object):
         sigT /= np.sqrt(img.shape[0])
 
         return np.mean(img, axis=0), sigpost, sigT
-
 
     def clearImages(self):
         self._rawImages = []
@@ -610,7 +609,10 @@ class EMCCD_image(object):
 
         filename += "_spectrum.txt"
         my_header = '#' + equipment_str.replace('\n', '\n#') + origin_import
-        self.spectrumFileName = os.path.join(folder_str, 'Spectra', self.file_name, filename)
+        if folder_str==".":
+            self.spectrumFileName=filename
+        else:
+            self.spectrumFileName = os.path.join(folder_str, 'Spectra', self.file_name, filename)
 
 
         np.savetxt(self.spectrumFileName, self.spectrum,
@@ -1100,9 +1102,159 @@ class Abs_image(EMCCD_image):
         self.imageSequence.addImage(newImage, normFactor=1)
 
 
+class Image_Reprocesser(object):
+    """
+    Sometimes, things fuck up and you need to reprocess data from the raw images. This
+    class helps you do that. Currently assumes you want to do this for an HSG image.
+    Mimic's the logic behind processImage from the ExpWidgs classes
+
+    Typical usage would be to pass a list of image filenames and background file names
+    in the init
 
 
+    I think the biggest thing that'll need to be done is changing normalization factors
+    Pretty sure that'll be done by changing
+        self.prevDataEMCCD.imageSequence._normFactors
+    Which is a list of normalization factors, general FEL pulses in each image.
 
+    Example usage:
+
+    from image_spec_for_gui import Image_Reprocesser as IR
+    images = hsg.natural_glob("Images", "*")
+    backs = hsg.natural_glob("Backgrounds", "*")
+    repr = IR(images = images, backgrounds=backs)
+    repr.prevDataEMCCD.imageSequence._normFactors = [32, 32, 32, 32]
+    repr.processBackgroundSequence()
+    repr.processImageSequence(saveSpectrum=".")
+    """
+    DataClass = HSG_image
+    def __init__(self, images=None, backgrounds=None):
+        self.curDataEMCCD = None
+        self.prevDataEMCCD = None
+        self.curBackEMCCD = None
+        self.prevBackEMCCD = None
+
+        if images is not None:
+            self.addImages(list(images))
+        if backgrounds is not None:
+            self.addBackgrounds(list(backgrounds))
+
+    def addBackground(self, fname):
+
+        import hsganalysis as hsg
+        d, h = hsg.get_data_and_header(fname)
+        self.curBackEMCCD = self.DataClass(d,
+               file_name=h["filename"],
+               file_no=h["fileno"],
+               equipment_dict=h)
+        self.curBackEMCCD.make_spectrum()
+        self.curBackEMCCD.clean_array = self.curBackEMCCD.raw_array
+        self.addBackgroundSequence()
+
+    def addBackgrounds(self, fnames):
+        for fname in fnames: self.addBackground(fname)
+
+    def addImage(self, fname):
+        import hsganalysis as hsg
+        d, h = hsg.get_data_and_header(fname)
+        self.curDataEMCCD = self.DataClass(d,
+               file_name=h["filename"],
+               file_no=h["fileno"],
+               equipment_dict=h)
+        self.curDataEMCCD.make_spectrum()
+        self.curDataEMCCD.clean_array = self.curDataEMCCD.raw_array
+        self.addImageSequence()
+
+
+    def addImages(self, fnames):
+        for fname in fnames: self.addImage(fname)
+
+    def addImageSequence(self):
+        try:
+            self.prevDataEMCCD.addNewImage(
+                self.curDataEMCCD
+            )
+        except (AttributeError, ValueError) as e:
+            self.prevDataEMCCD = None
+        if self.prevDataEMCCD is None:
+            self.prevDataEMCCD = copy.deepcopy(self.curDataEMCCD)
+            self.prevDataEMCCD.setAsSequence()
+
+    def addBackgroundSequence(self):
+        try:
+            self.prevBackEMCCD.addNewImage(
+                self.curBackEMCCD
+            )
+        except (AttributeError, ValueError):
+            self.prevBackEMCCD = None
+        if self.prevBackEMCCD is None:
+            self.prevBackEMCCD = copy.deepcopy(self.curBackEMCCD)
+            self.prevBackEMCCD.setAsSequence()
+            self.prevBackEMCCD.imageSequence.ignoreNormFactors = True
+
+    def processBackgroundSequence(self, saveImages = False):
+        d, std = self.prevBackEMCCD.imageSequence.removeCosmics()
+        self.prevBackEMCCD.clean_array = d
+        self.prevBackEMCCD.std_array = std
+
+        if saveImages is not False and isinstance(isinstance(saveImages, str)):
+            self.prevBackEMCCD.save_images(
+                folder_str=saveImages,
+                data=std,
+                fmt='%f',
+                postfix="_std"
+            )
+            self.prevBackEMCCD.save_images(
+                folder_str=saveImages,
+                data=d,
+                postfix="_seq"
+            )
+        self.curBackEMCCD = self.prevBackEMCCD
+        self.prevBackEMCCD = None
+
+    def processImageSequence(self, saveSpectrum = False, saveImages = False):
+        d, std = self.prevDataEMCCD.imageSequence.removeCosmics()
+
+        d, sigpost, sigT = self.prevDataEMCCD.imageSequence.subtractImage(
+            self.curBackEMCCD
+        )
+
+        self.prevDataEMCCD.clean_array = d
+        self.prevDataEMCCD.std_array = sigpost
+
+        if saveImages is not False and isinstance(isinstance(saveImages, str)):
+            self.prevDataEMCCD.save_images(
+                folder_str=saveImages,
+                data=sigpost,
+                fmt='%f',
+                postfix="_stdpost"
+            )
+            self.prevDataEMCCD.save_images(
+                folder_str=saveImages,
+                data=sigT,
+                fmt='%f',
+                postfix="_stdT"
+            )
+            self.prevDataEMCCD.save_images(
+                folder_str=saveImages,
+                data=d,
+                postfix="_seq",
+                fmt='%f'
+            )
+        self.prevDataEMCCD.make_spectrum()
+        oh = self.prevDataEMCCD.origin_import.splitlines()
+        oh[1] += ",error"
+        oh[2] += ",arb.u."
+        oh.append(
+            "Wavelength,{},error".format(self.prevDataEMCCD.equipment_dict["series"]))
+        oh = "\n".join(oh)
+
+        if saveSpectrum is not False and isinstance(saveSpectrum, str):
+            self.prevDataEMCCD.save_spectrum(
+                saveSpectrum,
+                postfix="seq",
+                origin_header=oh
+            )
 
 def gen_wavelengths(center_lambda, grating):
     '''
