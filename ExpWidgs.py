@@ -1101,6 +1101,12 @@ class BaseExpWidget(QtWidgets.QWidget):
             log.debug("Image successfully subtracted")
         except AttributeError:
             log.warning("You didn't take a background image!")
+
+            self.papa.updateElementSig.emit(
+                lambda: MessageDialog(self,
+                                      "No background image taken!"),
+                None  # Neccesarry second argument of signal
+            )
             self.prevDataEMCCD.equipment_dict["background_file"] = "NoneTaken"
             sigpost = sigT = std
 
