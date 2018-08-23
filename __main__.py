@@ -1510,10 +1510,18 @@ class CCDWindow(QtGui.QMainWindow):
             while imageNo < numImages:
                 if not self.detHWPsweep.isChecked(): break
 
-                self.getCurExp().takeImage(isBackground=False)
+                ## We're in a thread, and the takeImage() function ends up calling UI changes (disabling buttons),
+                ## which means we can't call the function directly, or we'd face random crashes from non-thread-safe
+                ## behavior. Emulate pressing a button, so that it gets intercepted in the main thread to start
+                ## image collection.
+                # self.getCurExp().takeImage(isBackground=False)
+                self.getCurExp().ui.bCCDImage.clicked.emit(True)
                 log.debug("\tCalled Take image, {}".format(imageNo))
                 self.sigUpdateStatusBar.emit("Take img {}, {}".format(hwpAngle, imageNo))
-                time.sleep(0.2)
+                time.sleep(0.5)
+                if not self.curExp.thDoExposure.isRunning():
+                    log.warning("The thread hasn't started, waiting another 0.5s")
+                    time.sleep(0.5)
                 log.debug("waiting on exposure thread")
                 self.curExp.thDoExposure.wait()
                 self.hwpSweepProgress.sigAddOne.emit()
@@ -1524,7 +1532,17 @@ class CCDWindow(QtGui.QMainWindow):
                 # self.getCurExp().imageSequence length, since that tracks
                 # how many images there are?
                 if not checkPause():
-                    imageNo += 1
+                    try:
+                        # As stated above, compare to the image sequence. Too many race condition failures
+                        # causing data collection to fuck up.
+                        #One thing I'm nervous of is what happens if the the exposure threads hang (i.e. because the
+                        # oscope hung?) and this thread keeps calling exposure emits()? I wonder if I can test it by
+                        # setting the GPIB to None mid-QWP loop.
+                        imageNo = self.curExp.prevDataEMCCD.imageSequence.numImages()
+                    except:
+                        # If, for some reason, prevData is undefined. Dunno why.
+                        log.exception("Couldn't find the iamge sequence?")
+                        imageNo = 0
             else:
                 log.debug("emulating process button click")
                 # self.curExp.ui.bProcessImageSequence.clicked.emit(False)
