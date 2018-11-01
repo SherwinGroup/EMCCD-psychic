@@ -79,6 +79,7 @@ class AndorEMCCD(object):
         log.debug("About to initialize EMCCD")
         self.dllInitializeRet = None
         ret = self.dllInitialize(b'')
+        self.doEMGain = True
         if ret != 20002:
 
             log.error("Error initializing camera\n\tCode :{}".format(
@@ -87,6 +88,7 @@ class AndorEMCCD(object):
             self.dll = None
             self.dllInitializeRet = ret
             self.registerFunctions(wantFake = True)
+
         self.isCooled = False
         self.temperature = 20 # start off at room temperature
         self.tempRetCode = '' # code to
@@ -154,7 +156,8 @@ class AndorEMCCD(object):
         self.cameraSettings['xPixels'] = x.value
         self.cameraSettings['yPixels'] = y.value
 
-        self.setImage([1, 1, 1, x.value, 1, y.value])
+        # Set FVB
+        self.setImage([1, y.value, 1, x.value, 1, y.value])
 
         
         # get the number of ad channels
@@ -173,8 +176,8 @@ class AndorEMCCD(object):
         self.getVSS()
 
         # set the initial HSSp/VSSp to the first one possible
-        self.setHSS(0)
-        self.setVSS(1)
+        self.setHSS(2)
+        self.setVSS(2)
 
         # set to the single-scan mode
         self.setAcqMode(1)
@@ -182,11 +185,11 @@ class AndorEMCCD(object):
         # set to the image acquisition mode
         self.setRead(4)
 
-        # default external triggering
-        self.setTrigger(1)
+        # default internal triggering
+        self.setTrigger(0)
 
         #default gain/exposure
-        self.setExposure(0.5)
+        self.setExposure(0.1)
         self.setGain(1)
 
         #SETUP THE SHUTTER
@@ -308,7 +311,11 @@ class AndorEMCCD(object):
         return ret
 
     def setGain(self, val):
-        ret = self.dllSetEMCCDGain(val)
+        if self.doEMGain:
+            ret = self.dllSetEMCCDGain(val)
+        else:
+            return 20991 # The iDus doesn't use gain, and this parameter was messing me up 
+            ret = self.dllSetGain(val)
         if ret == 20002:
             self.cameraSettings['gain'] = val
         return ret
@@ -414,7 +421,7 @@ class AndorEMCCD(object):
                     os.chdir(curdir)
                 except:
                     os.chdir(curdir)
-                    log.error('Error loading the DLL. Using fake')
+                    log.error('Error loading the DL, because it wasn\'t found. Using fake')
                     # from fakeAndor import fAndorEMCCD
                     import fakeAndor as FA
                     dll = FA.fAndorEMCCD()

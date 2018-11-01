@@ -49,3 +49,10 @@ class ImageViewWithPlotItemContainer(pg.ImageView):
                 img = img[None,:,:]
 
         super(ImageViewWithPlotItemContainer, self).setImage(img, *args, **kwargs)
+
+    def quickMinMax(self, data):
+        ### 10/15/18 I don't know what's going on.
+        ### the parent functino calls np.nanmin/np.nanmax,
+        ### but that apparently breaks with dimensions (x, 1, y)
+        ### or something, I don't get it.
+        return np.min(data), np.max(data)

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>791</width>
-    <height>770</height>
+    <width>1198</width>
+    <height>1239</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -543,7 +543,7 @@
                    <item>
                     <widget class="QINumberEdit" name="tHEnd">
                      <property name="enabled">
-                      <bool>false</bool>
+                      <bool>true</bool>
                      </property>
                     </widget>
                    </item>
@@ -1260,22 +1260,31 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>791</width>
-     <height>21</height>
+     <width>1198</width>
+     <height>38</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuOther_Settings">
     <property name="title">
      <string>Other Settings</string>
     </property>
+    <widget class="QMenu" name="menuSweeps">
+     <property name="title">
+      <string>Sweeps</string>
+     </property>
+     <addaction name="mFileDoHWPSweep"/>
+     <addaction name="mFileTimeDelaySweep"/>
+     <addaction name="mFileTimeDelayPolarimetry"/>
+     <addaction name="mFileScanNeLines"/>
+     <addaction name="mFileSweepTHz"/>
+     <addaction name="mFileDoSpecSweep"/>
+    </widget>
     <addaction name="mFileDoCRR"/>
     <addaction name="mFileBreakTemp"/>
     <addaction name="mFileTakeContinuous"/>
     <addaction name="mFileEnableAll"/>
-    <addaction name="mFileDoSpecSweep"/>
-    <addaction name="mFileDoHWPSweep"/>
     <addaction name="mFileMultipleExposures"/>
-    <addaction name="mFileScanNeLines"/>
+    <addaction name="menuSweeps"/>
     <addaction name="mFIleAbortAcquisition"/>
     <addaction name="separator"/>
     <addaction name="mFileFastExit"/>
@@ -1302,6 +1311,7 @@
      <addaction name="fExpTypeHSG_FVB"/>
      <addaction name="fExpTypeHSG_Image"/>
      <addaction name="fExpTypeHSG_PhotonCounting"/>
+     <addaction name="fExpTypeHSG_TimeDomain"/>
     </widget>
     <addaction name="menuHSG_FVB"/>
     <addaction name="fExpTypePL"/>
@@ -1485,7 +1495,7 @@
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
     <string>Image</string>
@@ -1550,21 +1560,56 @@
    </property>
   </action>
   <action name="mFileDoHWPSweep">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Do HWP Sweep</string>
+   </property>
+  </action>
+  <action name="fExpTypeHSG_TimeDomain">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Time Domain</string>
+   </property>
+  </action>
+  <action name="mFileSweepTHz">
+   <property name="text">
+    <string>Sweep THz Power</string>
+   </property>
+  </action>
+  <action name="mFileTimeDelaySweep">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Time Delay Sweep</string>
+   </property>
+  </action>
+  <action name="mFileTimeDelayPolarimetry">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Time Delayed Polarimetry</string>
    </property>
   </action>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>InstrumentGPIB</class>
-   <extends>QComboBox</extends>
-   <header>InstsAndQt.instrumentgpib</header>
-  </customwidget>
-  <customwidget>
    <class>QINumberEdit</class>
    <extends>QLineEdit</extends>
    <header>InstsAndQt.customQt</header>
+  </customwidget>
+  <customwidget>
+   <class>InstrumentGPIB</class>
+   <extends>QComboBox</extends>
+   <header>InstsAndQt.instrumentgpib</header>
   </customwidget>
   <customwidget>
    <class>MCLineEdit</class>

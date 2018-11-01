@@ -486,6 +486,14 @@ class CCDWindow(QtGui.QMainWindow):
 
 
 
+        # add a little progress bar to the status bar which lets me see it always
+        # see how hwp sweeps are going
+        self.tdSweepProgress = StatusBarProgressHelper(self)
+        self.statusBar().addPermanentWidget(self.tdSweepProgress)
+        # automatically hide it when it's done.
+        self.tdSweepProgress.sigFinished.connect(self.tdSweepProgress.hide)
+        self.tdSweepProgress.hide()
+
         #####################
         # Creating all of the widgets used for different experiment types
         ###################
@@ -1480,16 +1488,7 @@ class CCDWindow(QtGui.QMainWindow):
                 self.ui.mFileDoHWPSweep.setChecked(False)
                 return
 
-
-            def cb():
-                def intermediaryStepper():
-                    self.hwpSweepProgress.sigAddOne.emit()
-                    self.checkPause()
-
-                self.doConsecutiveLoop(checkChecked=self.detHWPsweep,
-                                       callback=intermediaryStepper)
-
-            self.thDoSweep.args = (start, stop, step, numIm, cb)
+            self.thDoSweep.args = (start, stop, step, numIm)
             self.hwpSweepProgress.show()
             self.hwpSweepProgress.reset()
             # self.thDoSpectrometerSweep.args = (start, stop, npoints, numIm)
@@ -1498,17 +1497,6 @@ class CCDWindow(QtGui.QMainWindow):
         else:
             pass
 
-    def checkPause(self):
-        """ Check to see if the pause button has been pressed
-        Returns True if a wait occured, False if one did not"""
-        if not self.hwpSweepProgress.isPaused(): return False
-        log.debug("Pausing QWP sweep")
-        waitLoop = QtCore.QEventLoop()
-        self.hwpSweepProgress.pauseButton.clicked.connect(waitLoop.exit)
-        waitLoop.exec_()
-        # Disconnect it when done to prevent memory leaks
-        self.hwpSweepProgress.pauseButton.clicked.disconnect(waitLoop.exit)
-        return True
 
     def hwpSweepLoop(self, args=(0, 365, 20, 4, None)):
 
@@ -1519,8 +1507,6 @@ class CCDWindow(QtGui.QMainWindow):
         if callback is None:
             callback = lambda: None
 
-        self.consecImages = numImages
-
         log.debug("starting hwp sweep loop {}:{}:{}x{}".format(start, stop, step, numImages))
 
 
@@ -1528,18 +1514,18 @@ class CCDWindow(QtGui.QMainWindow):
         # will automatically accept them.
         # oldConfirmation = self.curExp.confirmImage
         # self.curExp.confirmImage = lambda : True
-        #
-        # def checkPause():
-        #     """ Check to see if the pause button has been pressed
-        #     Returns True if a wait occured, False if one did not"""
-        #     if not self.hwpSweepProgress.isPaused(): return False
-        #     log.debug("Pausing QWP sweep")
-        #     waitLoop = QtCore.QEventLoop()
-        #     self.hwpSweepProgress.pauseButton.clicked.connect(waitLoop.exit)
-        #     waitLoop.exec_()
-        #     # Disconnect it when done to prevent memory leaks
-        #     self.hwpSweepProgress.pauseButton.clicked.disconnect(waitLoop.exit)
-        #     return True
+
+        def checkPause():
+            """ Check to see if the pause button has been pressed
+            Returns True if a wait occured, False if one did not"""
+            if not self.hwpSweepProgress.isPaused(): return False
+            log.debug("Pausing QWP sweep")
+            waitLoop = QtCore.QEventLoop()
+            self.hwpSweepProgress.pauseButton.clicked.connect(waitLoop.exit)
+            waitLoop.exec_()
+            # Disconnect it when done to prevent memory leaks
+            self.hwpSweepProgress.pauseButton.clicked.disconnect(waitLoop.exit)
+            return True
 
 
         # force to append the final point.
@@ -1551,10 +1537,9 @@ class CCDWindow(QtGui.QMainWindow):
         for hwpAngle in points:
             log.debug("At hwp angle {}".format(hwpAngle))
             self.sigUpdateStatusBar.emit("At hwp angle {}".format(hwpAngle))
-            if (not self.detHWPsweep.isChecked() and
-                    not self.ui.mFileTimeDelayPolarimetry.isChecked()): break
+            if not self.detHWPsweep.isChecked(): break
             # Check after starting a new point
-            self.checkPause()
+            checkPause()
 
             self.rotationStage.startChangePosition(target = False)
             log.debug("Moving to set angle to {}".format(hwpAngle))
@@ -1562,14 +1547,14 @@ class CCDWindow(QtGui.QMainWindow):
             self.rotationStage.cleanupMotorMove()
             log.debug("Done waiting on motor move")
             # check in case it was pressed while doing a motor move
-            self.checkPause()
+            checkPause()
             imageNo = 0
-            # # for ii in range(numImages):
-            # def intermediaryStepper():
-            #     self.hwpSweepProgress.sigAddOne.emit()
-            #     self.checkPause()
-            # self.doConsecutiveLoop(checkChecked = self.detHWPsweep,
-            #                        callback = intermediaryStepper)
+            # for ii in range(numImages):
+            def intermediaryStepper():
+                self.hwpSweepProgress.sigAddOne.emit()
+                checkPause()
+            self.doConsecutiveLoop(checkChecked = self.detHWPsweep,
+                                   callback = intermediaryStepper)
             callback()
 
 
@@ -1660,25 +1645,13 @@ class CCDWindow(QtGui.QMainWindow):
             MessageDialog(self, msg)
             return
 
-
-        def cb():
-            self.doConsecutiveLoop(checkChecked=self.ui.mFileTimeDelaySweep,
-                                   callback=self.hwpSweepProgress.sigAddOne.emit,
-                                   procSequence=True)
-            self.getCurExp().updateTDTrace()
-
-        self.getCurExp().prepareTDTrace(start, step, end)
-
-
-
-        self.thDoSweep.args = (start, step, end, numIm, cb)
-        self.hwpSweepProgress.show()
-        self.hwpSweepProgress.reset()
-
-        self.getCurExp().prepareTDTrace(start, step, end)
+        self.thDoSweep.args = (start, step, end, numIm)
+        self.tdSweepProgress.show()
+        self.tdSweepProgress.reset()
         # self.thDoSpectrometerSweep.args = (start, stop, npoints, numIm)
         self.thDoSweep.target = self.doTimeDelaySweep
         self.thDoSweep.start()
+
 
     def doTimeDelaySweep(self, args=(0, 50, 1000, 4, None)):
         if len(args)==4:
@@ -1688,31 +1661,26 @@ class CCDWindow(QtGui.QMainWindow):
         if callback is None:
             callback = lambda: None
 
-        self.consecImages=nimg ## so the multipleExposures/consecutiveLoop konw
-                ## how many images to take. This should be done better (passed
-                ## as a parameter to the function?)
-
 
         log.debug("starting TD Sweep, {}:{}:{}x{}".format(start, step, end, nimg))
 
         points = np.arange(start, end, step)
-        self.hwpSweepProgress.maxValue = len(points)*nimg
+        self.tdSweepProgress.maxValue = len(points)*nimg
 
         for td in points:
             log.debug("At td {}".format(td))
-            if (not self.ui.mFileTimeDelaySweep.isChecked() and  ## TODO: this is gross.
-                not self.ui.mFileTimeDelayPolarimetry.isChecked()): break
+            if not self.ui.mFileTimeDelaySweep.isChecked():break
 
             self.delayStage.startChangePosition(target=False)
             log.debug("Moving delay stage")
             self.delayStage.moveMotor(td)
             self.delayStage.cleanupMotorMove()
             log.debug("Motor finished moving")
-            # self.doConsecutiveLoop(checkChecked=self.ui.mFileTimeDelaySweep,
-            #                        callback=self.hwpSweepProgress.sigAddOne.emit,
-            #                        procSequence=True)
+            self.doConsecutiveLoop(checkChecked=self.ui.mFileTimeDelaySweep,
+                                   callback=self.tdSweepProgress.sigAddOne.emit,
+                                   procSequence=True)
             callback()
-        self.hwpSweepProgress.sigFinished.emit()
+        self.tdSweepProgress.sigFinished.emit()
         log.debug("Finished Time delay sweep")
         self.updateElementSig.emit(self.ui.mFileTimeDelaySweep.setChecked, False)
 
@@ -1731,14 +1699,15 @@ class CCDWindow(QtGui.QMainWindow):
             tdstart = float(self.getCurExp().ui.tTDStart.text())
             tdstep = float(self.getCurExp().ui.tTDStep.text())
             tdend = float(self.getCurExp().ui.tTDEnd.text())
-        except ValueError as e: #wasn't set properly
-            print(e)
-            self.ui.mFileTimeDelaySweep.setChecked(False)
-            msg = "Invalid parameters for TD Sweep"
-            log.warning(msg)
-            MessageDialog(self, msg)
             return
+        except ValueError: #wasn't set properly
+            pass
 
+
+        self.ui.mFileTimeDelaySweep.setChecked(False)
+        msg = "Invalid parameters for TD Sweep"
+        log.warning(msg)
+        MessageDialog(self, msg)
 
         polstart, ok = QtGui.QInputDialog.getDouble(self, "Starting val", "Start", 0)
         if not ok:
@@ -1760,11 +1729,11 @@ class CCDWindow(QtGui.QMainWindow):
             self.ui.mFileTimeDelayPolarimetry.setChecked(False)
             return
 
-
-        self.hwpSweepProgress.maxValue = ((tdend-tdstart)/tdstep) * ((polstop-polstart)/polstep) * numIm
         self.thDoSweep.args = (tdstart, tdstep, tdend, polstart, polstop, polstep, numIm)
         self.thDoSweep.target = self.doTDPolarimetrySweep
         self.thDoSweep.start()
+
+
 
 
     def doTDPolarimetrySweep(self, args = (0, 50, 1000, 0, 260, 22.5, 4)):
@@ -1773,21 +1742,9 @@ class CCDWindow(QtGui.QMainWindow):
         doTDFirst = True
 
         if doTDFirst:
-            def cb():
-                def innercb():
-                    self.doConsecutiveLoop(checkChecked=self.ui.mFileTimeDelayPolarimetry,
-                                           callback=self.hwpSweepProgress.sigAddOne.emit)
-                self.hwpSweepLoop(
-                    (polstart, polstop, polstep, numIm, innercb)
-                )
             self.doTimeDelaySweep((
-                tdstart, tdstep, tdend, numIm, cb
+                tdstart, tdstep, tdend, nd
             ))
-        else:
-            ...
-
-
-        self.updateElementSig.emit(self.ui.mFileTimeDelayPolarimetry.setChecked, False)
 
 
     def startSweepLoop(self, val):
@@ -1951,7 +1908,7 @@ class CCDWindow(QtGui.QMainWindow):
                 numImages = 0
             callback()
         log.debug("Finished doing scan")
-        if procSequence and checkChecked.isChecked():
+        if procSequence:
             if doBG:
                 log.debug("Automatically processing background sequence")
                 self.getCurExp().processBackgroundSequence()

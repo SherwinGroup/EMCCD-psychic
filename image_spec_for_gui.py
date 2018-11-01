@@ -995,6 +995,31 @@ class HSG_FVB_image(HSG_image):
 class PL_image(EMCCD_image):
     pass
 
+class HSG_TD_image(HSG_image):
+    def make_spectrum(self, std = None, specCenter = 0):
+        wavelengths = self.gen_wavelengths()
+        if self.std_array is None:
+            try:
+                self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            except:
+                self.spectrum = self.raw_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            self.spectrum = np.concatenate((wavelengths, self.spectrum)).reshape(2,-1).T
+        else:
+            self.spectrum = self.clean_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:].sum(axis=0)
+            spec_std = np.mean(self.std_array[self.equipment_dict['y_min']:self.equipment_dict['y_max'],:], axis=0)
+            self.spectrum = np.concatenate((wavelengths, self.spectrum, spec_std)).reshape(3,-1).T
+
+    def gen_wavelengths(self):
+        if self.equipment_dict["td_spec_center"] == 0:
+            lambdax = lambda x: 145 + x * 0.50307 # 400
+        elif self.equipment_dict["td_spec_center"] == 1:
+            lambdax = lambda x: 341 + x * 0.50308 # 600nm
+        else:
+            lambdax = lambda x: 542 + x * 0.487038 # 800nm
+        pix = np.arange(1024)
+        return lambdax(pix)
+
+
 class Abs_image(EMCCD_image):
     origin_import = '\nWavelength,Raw Trans\nnm,arb. u.'
     def __init__(self, raw_array=[], file_name='', file_no=None, description='', equipment_dict={}):

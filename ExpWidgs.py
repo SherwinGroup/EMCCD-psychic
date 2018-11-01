@@ -8,6 +8,7 @@ from UIs.HSG_ui import Ui_HSG
 from UIs.PL_ui import Ui_PL
 from UIs.TwoColorAbs_ui import Ui_TwoColorAbs
 from UIs.Alignment_ui import Ui_Alignment
+from UIs.HSGTD_ui import Ui_HSGTD
 
 # from bottleneck import nanmin, nanmax
 
@@ -92,6 +93,7 @@ class BaseExpWidget(QtWidgets.QWidget):
     hasNIR = None
     hasFEL = None
     hasSample = None
+    doEMGain = True # do EM gain on the CCD
 
     # What is the class in which data will be stored?
     DataClass = EMCCD_image
@@ -174,6 +176,17 @@ class BaseExpWidget(QtWidgets.QWidget):
         # to tell it to start from another thread.
         self.sigStartTimer.connect(self.startProgressBar)
 
+
+        # When an exposure thread starts or stops,
+        # renable threads
+        self.thDoExposure.started.connect(lambda: self.toggleUIElements(False))
+        self.thDoExposure.finished.connect(lambda: print("Finished signal called"))
+        self.thDoExposure.finished.connect(lambda: self.toggleUIElements(True))
+
+        # Or when the parent widget does a sweep
+        self.papa.thDoSweep.started.connect(lambda: self.toggleUIElements(False))
+        self.papa.thDoSweep.finished.connect(lambda: self.toggleUIElements(True))
+
         self.sigUpdateGraphs[object, object].connect(
             lambda img, data: img(data)
         )
@@ -210,8 +223,8 @@ class BaseExpWidget(QtWidgets.QWidget):
 
 
         # Connect the two standard image collection schemes
-        self.ui.bCCDImage.clicked.connect(lambda: self.takeImage(False))
-        self.ui.bCCDBack.clicked.connect(lambda: self.takeImage(True))
+        self.ui.bCCDImage.clicked.connect(lambda: [self.takeImage(False), self.thDoExposure.start()])
+        self.ui.bCCDBack.clicked.connect(lambda: [self.takeImage(True), self.thDoExposure.start()])
 
         self.ui.bProcessImageSequence.clicked.connect(self.processImageSequence)
         self.ui.bProcessBackgroundSequence.clicked.connect(self.processBackgroundSequence)
@@ -391,8 +404,6 @@ class BaseExpWidget(QtWidgets.QWidget):
             if isBackground:
                 self.thDoExposure.args = self.processBackground
 
-
-
         # Update exposure/gain if necesssary. Include appropriate
         # parsing of camera response to ensure things have been accepted
         if not np.isclose(float(self.ui.tEMCCDExp.value()), self.papa.CCD.cameraSettings["exposureTime"]):
@@ -405,7 +416,15 @@ class BaseExpWidget(QtWidgets.QWidget):
         if not int(self.ui.tEMCCDGain.text()) == self.papa.CCD.cameraSettings["gain"]:
             ret = self.papa.CCD.setGain(int(self.ui.tEMCCDGain.text()))
             self.ui.tEMCCDGain.setText(str(self.papa.CCD.cameraSettings["gain"]))
-            if ret != 20002:
+            if ret == 20992 or ret == 20991:
+                # Gain is set by the camera when it successfully happens.
+                # iDus will fuck it up. I also don't know why there are two different possible errors
+                # self.papa.CCD.cameraSettings["gain"] = 0
+                pass
+            elif ret != 20002:
+                # iDus camera doesn't have gain (I think?), and it throws the above error.
+                # Just kinda ignore it. It'd be better to not even try for the iDus,
+                # But we need to get going
                 log.error("Error setting gain value! {}".format(self.papa.CCD.parseRetCode(ret)))
                 MessageDialog(self, "Error setting gain value! {}".format(self.papa.CCD.parseRetCode(ret)))
                 return
@@ -416,8 +435,9 @@ class BaseExpWidget(QtWidgets.QWidget):
         # Qt complains about starting timers in threads.
         # I could not figure out the source of this error, so
         # I prevent it by putting it here
+        #### 10/12/18 I'm not sure I'm getting this error mentioned above anymore?
         self.exposureElapsedTimer = QtCore.QElapsedTimer()
-        self.toggleUIElements(False)
+        # self.toggleUIElements(False)
 
         if self.hasFEL:
             self.runSettings["fieldStrength"] = []
@@ -428,7 +448,7 @@ class BaseExpWidget(QtWidgets.QWidget):
             # Need to ignore signal if things iddn't work
             self.papa.oscWidget.sigPulseCounted.connect(
                     lambda x: [self.ui.tCCDFELPulses.setText(str(x)) if x>=0 else 0])
-        self.thDoExposure.start()
+        # self.thDoExposure.start()
 
     def doExposure(self, postProcessing = lambda: True):
         """
@@ -474,7 +494,7 @@ class BaseExpWidget(QtWidgets.QWidget):
                 log.debug("Error exiting eventLoop waiting for pulses")
         if ret != 20002:
             log.debug("Acquisition not completed, Ret = {}".format(ret))
-            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            # self.sigMakeGui.emit(self.toggleUIElements, (True, ))
             return
 
 
@@ -484,7 +504,7 @@ class BaseExpWidget(QtWidgets.QWidget):
         # 20002, otherwise it will return a np.array of the data
         # Thus, if the return is an int, it must have failed the return
         if isinstance(ret, int):
-            self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+            # self.sigMakeGui.emit(self.toggleUIElements, (True, ))
             # If 20024==nonew
             if ret == 20024:
                 log.debug("No new data for image acquisition (Acquisition aborted?)")
@@ -604,6 +624,7 @@ class BaseExpWidget(QtWidgets.QWidget):
             # Done this way so that it's working off the same thread
             # that data collection would normally be performed on
             self.takeImage(isBackground = self.takeContinuousLoop)
+            self.thDoExposure.start()
 
     def takeContinuousLoop(self):
         while self.papa.ui.mFileTakeContinuous.isChecked():
@@ -612,7 +633,8 @@ class BaseExpWidget(QtWidgets.QWidget):
             # when starting the loop
             self.sigUpdateGraphs.emit(self.updateSignalImage, self.rawData)
             # create the object and clean it up
-            image = EMCCD_image(self.rawData,
+            # image = EMCCD_image(self.rawData,
+            image= self.DataClass(self.rawData,
                                 "", "", "", self.genEquipmentDict())
             # Ignore CRR and just set the clean to raw for summing
             image.clean_array = image.raw_array
@@ -745,14 +767,12 @@ class BaseExpWidget(QtWidgets.QWidget):
             self.curBackEMCCD.clean_array = self.curBackEMCCD.raw_array
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Finishing up...")
 
-        log.debug("Adding backgorund sequence")
         self.addBackgroundSequence()
 
-        log.debug("Emitting background update")
         self.sigUpdateGraphs.emit(self.updateBackgroundImage, self.prevBackEMCCD.imageSequence.getImages())
         self.papa.updateElementSig.emit(self.ui.lCCDProg, "Done.")
-        log.debug("Reenabling after background")
-        self.sigMakeGui.emit(self.toggleUIElements, (True, ))
+        # log.debug("Reenabling after background")
+        # self.sigMakeGui.emit(self.toggleUIElements, (True, ))
 
     def confirmImage(self):
         """
@@ -817,7 +837,7 @@ class BaseExpWidget(QtWidgets.QWidget):
         s["date"] = time.strftime('%x %X%p')
         s["ccd_temperature"] = str(self.papa.ui.tSettingsCurrTemp.text())
         s["exposure"] = float(self.papa.CCD.cameraSettings["exposureTime"])
-        s["gain"] = int(self.papa.CCD.cameraSettings["gain"])
+        s["gain"] = int(self.papa.CCD.cameraSettings["gain"]) if self.papa.CCD.cameraSettings["gain"] else 0
         s["y_min"] = int(self.ui.tCCDYMin.text())
         s["y_max"] = int(self.ui.tCCDYMax.text())
         s["grating"] = int(self.papa.ui.sbSpecGrating.value())
@@ -1111,7 +1131,8 @@ class BaseExpWidget(QtWidgets.QWidget):
             sigpost = sigT = std
 
         self.prevDataEMCCD.clean_array = d
-        self.updateSignalImage(d)
+        # self.updateSignalImage(d)
+        self.sigMakeGui.emit(self.updateSignalImage, (d, ))
         self.prevDataEMCCD.std_array = sigpost
 
         try:
@@ -1185,9 +1206,10 @@ class BaseExpWidget(QtWidgets.QWidget):
 
         self.curDataEMCCD = self.prevDataEMCCD
         curBGtitle = str(self.ui.groupBox_37.title()).replace('*', '')
-        self.ui.groupBox_37.setTitle(
-            curBGtitle
-        )
+        self.sigMakeGui.emit(self.ui.groupBox_37.setTitle, (curBGtitle, ))
+        # self.ui.groupBox_37.setTitle(
+        #     curBGtitle
+        # )
         self.sigUpdateGraphs.emit(self.updateSpectrum, self.prevDataEMCCD.spectrum)
         self.prevDataEMCCD = None
 
@@ -1457,12 +1479,13 @@ class BaseExpWidget(QtWidgets.QWidget):
         # self.pSigHist.setLevels(data.min(), data.max())
 
     def updateBackgroundImage(self, data = None):
+        print("Calling setimage with shape", data.shape) # (n, y, 1024)
         if data.ndim == 3:
             # Need to transpose the second two axes for the
             # proper alignment.
-            self.ui.gCCDBack.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
-                                      autoHistogramRange=True,
-                                      autoRange = False)
+            self.ui.gCCDBack.setImage(data)#, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
+                                      # autoHistogramRange=True,
+                                      # autoRange = False)
             self.ui.gCCDBack.setCurrentIndex(data.shape[0])
         else:
             self.ui.gCCDBack.setImage(data, autoLevels=not self.papa.ui.mLivePlotsDisableHistogramAutoscale.isChecked(),
@@ -1677,6 +1700,67 @@ class BaseHSGWid(BaseExpWidget):
 
 class HSGImageWid(BaseHSGWid):
     pass
+
+class HSGTimeWid(BaseHSGWid):
+    hasFEL = False
+    DataClass = HSG_TD_image
+    doEMGain = False
+    name = 'Time HSG'
+    spec_center = 0 # This is what you need to change in the console.
+    
+    def __init__(self, *args, **kwargs):
+        super(HSGTimeWid, self).__init__(*args, **kwargs, UI=Ui_HSGTD)
+        self.tdTraceData = None
+
+    def initUI(self):
+        super(HSGTimeWid, self).initUI()
+        self.ui.gTimeDomain.view.setAspectLocked(False)
+        self.ui.gTimeDomain.view.invertY(False)
+
+
+    def genEquipmentDict(self):
+        dict = super(HSGTimeWid, self).genEquipmentDict()
+        # dict["td_spec_center"] = self.spec_center
+        x = self.ui.tSpectrumStep.text()
+        dict["td_spec_center"] = int(x) if x else 0
+        try:
+            dict["time_delay"] = self.papa.delayStage.getPosition()
+        except:
+            dict["time_delay"] = 'Not Connected'
+        return dict
+
+
+    def prepareTDTrace(self, start, step, end):
+        nn = np.abs((end-start)/step)
+        self.tdTraceData = np.arange(1024*nn).reshape(1024, -1) * 0
+
+        wavelengths = self.DataClass(
+            equipment_dict={"td_spec_center":int(self.ui.tEMCCDGain.value())}
+        ).gen_wavelengths()
+
+        self.ui.gTimeDomain.setImage(self.tdTraceData, pos=(start, wavelengths.min()),
+                                     scale=(step, np.diff(wavelengths).mean()),
+                                     autoHistogramRange=Tue)
+
+    def updateTDTrace(self, newData=None):
+        ## figure out where this new data is gonna go
+        # newIdx = np.argwhere(
+        #     self.tdTraceData[0,:]
+        # )[0][0]
+        #
+        # self.tdTraceData[:,newIdx] = newData
+
+        if newData is None:
+            newData = self.curDataEMCCD.spectrum[:,1]
+        imgg = self.ui.gTimeDomain.imageItem.image
+        newIdx = np.argwhere(
+            imgg.sum(axis=1)==0#[:, 0]
+        )[0][0]
+
+        imgg[newIdx, :] = newData
+
+        self.papa.updateElementSig.emit(self.ui.gTimeDomain.updateImage, (None,))
+        # self.ui.gTimeDomain.updateImage()
 
 class HSGFVBWid(BaseHSGWid):
     DataClass = HSG_FVB_image

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\FELLab\Documents\GitHub\EMCCD-psychic\UIs\mainWindow.ui'
+# Form implementation generated from reading ui file 'C:\Users\Public\Documents\Github\EMCCD-Regensburg\UIs\mainWindow.ui'
 #
-# Created by: PyQt5 UI code generator 5.6
+# Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(791, 770)
+        MainWindow.resize(1198, 1239)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/test/icon.jpg"), QtGui.QIcon.Selected, QtGui.QIcon.On)
         MainWindow.setWindowIcon(icon)
@@ -35,7 +35,6 @@ class Ui_MainWindow(object):
         self.tabSettings = QtWidgets.QWidget()
         self.tabSettings.setObjectName("tabSettings")
         self.verticalLayout_7 = QtWidgets.QVBoxLayout(self.tabSettings)
-        self.verticalLayout_7.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_7.setObjectName("verticalLayout_7")
         self.gbSettings = QtWidgets.QGroupBox(self.tabSettings)
         self.gbSettings.setObjectName("gbSettings")
@@ -197,7 +196,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_17.setContentsMargins(0, 10, 0, 0)
         self.horizontalLayout_17.setObjectName("horizontalLayout_17")
         self.tHEnd = QINumberEdit(self.groupBox_19)
-        self.tHEnd.setEnabled(False)
+        self.tHEnd.setEnabled(True)
         self.tHEnd.setObjectName("tHEnd")
         self.horizontalLayout_17.addWidget(self.tHEnd)
         self.gridLayout_4.addWidget(self.groupBox_19, 0, 2, 1, 1)
@@ -337,7 +336,6 @@ class Ui_MainWindow(object):
         self.tabSpec = QtWidgets.QWidget()
         self.tabSpec.setObjectName("tabSpec")
         self.horizontalLayout_40 = QtWidgets.QHBoxLayout(self.tabSpec)
-        self.horizontalLayout_40.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_40.setObjectName("horizontalLayout_40")
         self.gridLayout_16 = QtWidgets.QGridLayout()
         self.gridLayout_16.setObjectName("gridLayout_16")
@@ -466,7 +464,6 @@ class Ui_MainWindow(object):
         self.tab = QtWidgets.QWidget()
         self.tab.setObjectName("tab")
         self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.tab)
-        self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.miscToolsLayout = QtWidgets.QVBoxLayout()
         self.miscToolsLayout.setObjectName("miscToolsLayout")
@@ -475,10 +472,12 @@ class Ui_MainWindow(object):
         self.verticalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 791, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1198, 38))
         self.menubar.setObjectName("menubar")
         self.menuOther_Settings = QtWidgets.QMenu(self.menubar)
         self.menuOther_Settings.setObjectName("menuOther_Settings")
+        self.menuSweeps = QtWidgets.QMenu(self.menuOther_Settings)
+        self.menuSweeps.setObjectName("menuSweeps")
         self.menuLive_Series = QtWidgets.QMenu(self.menubar)
         self.menuLive_Series.setObjectName("menuLive_Series")
         self.menuExperiment_Type = QtWidgets.QMenu(self.menubar)
@@ -551,7 +550,7 @@ class Ui_MainWindow(object):
         self.fExpTypeHSG_FVB.setObjectName("fExpTypeHSG_FVB")
         self.fExpTypeHSG_Image = QtWidgets.QAction(MainWindow)
         self.fExpTypeHSG_Image.setCheckable(True)
-        self.fExpTypeHSG_Image.setChecked(True)
+        self.fExpTypeHSG_Image.setChecked(False)
         self.fExpTypeHSG_Image.setObjectName("fExpTypeHSG_Image")
         self.fExpTypeHSG_PhotonCounting = QtWidgets.QAction(MainWindow)
         self.fExpTypeHSG_PhotonCounting.setCheckable(True)
@@ -577,15 +576,32 @@ class Ui_MainWindow(object):
         self.mFileMultipleExposures = QtWidgets.QAction(MainWindow)
         self.mFileMultipleExposures.setObjectName("mFileMultipleExposures")
         self.mFileDoHWPSweep = QtWidgets.QAction(MainWindow)
+        self.mFileDoHWPSweep.setCheckable(True)
         self.mFileDoHWPSweep.setObjectName("mFileDoHWPSweep")
+        self.fExpTypeHSG_TimeDomain = QtWidgets.QAction(MainWindow)
+        self.fExpTypeHSG_TimeDomain.setCheckable(True)
+        self.fExpTypeHSG_TimeDomain.setChecked(True)
+        self.fExpTypeHSG_TimeDomain.setObjectName("fExpTypeHSG_TimeDomain")
+        self.mFileSweepTHz = QtWidgets.QAction(MainWindow)
+        self.mFileSweepTHz.setObjectName("mFileSweepTHz")
+        self.mFileTimeDelaySweep = QtWidgets.QAction(MainWindow)
+        self.mFileTimeDelaySweep.setCheckable(True)
+        self.mFileTimeDelaySweep.setObjectName("mFileTimeDelaySweep")
+        self.mFileTimeDelayPolarimetry = QtWidgets.QAction(MainWindow)
+        self.mFileTimeDelayPolarimetry.setCheckable(True)
+        self.mFileTimeDelayPolarimetry.setObjectName("mFileTimeDelayPolarimetry")
+        self.menuSweeps.addAction(self.mFileDoHWPSweep)
+        self.menuSweeps.addAction(self.mFileTimeDelaySweep)
+        self.menuSweeps.addAction(self.mFileTimeDelayPolarimetry)
+        self.menuSweeps.addAction(self.mFileScanNeLines)
+        self.menuSweeps.addAction(self.mFileSweepTHz)
+        self.menuSweeps.addAction(self.mFileDoSpecSweep)
         self.menuOther_Settings.addAction(self.mFileDoCRR)
         self.menuOther_Settings.addAction(self.mFileBreakTemp)
         self.menuOther_Settings.addAction(self.mFileTakeContinuous)
         self.menuOther_Settings.addAction(self.mFileEnableAll)
-        self.menuOther_Settings.addAction(self.mFileDoSpecSweep)
-        self.menuOther_Settings.addAction(self.mFileDoHWPSweep)
         self.menuOther_Settings.addAction(self.mFileMultipleExposures)
-        self.menuOther_Settings.addAction(self.mFileScanNeLines)
+        self.menuOther_Settings.addAction(self.menuSweeps.menuAction())
         self.menuOther_Settings.addAction(self.mFIleAbortAcquisition)
         self.menuOther_Settings.addSeparator()
         self.menuOther_Settings.addAction(self.mFileFastExit)
@@ -598,6 +614,7 @@ class Ui_MainWindow(object):
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_FVB)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_Image)
         self.menuHSG_FVB.addAction(self.fExpTypeHSG_PhotonCounting)
+        self.menuHSG_FVB.addAction(self.fExpTypeHSG_TimeDomain)
         self.menuExperiment_Type.addAction(self.menuHSG_FVB.menuAction())
         self.menuExperiment_Type.addAction(self.fExpTypePL)
         self.menuExperiment_Type.addAction(self.fExpTypeAbs)
@@ -720,6 +737,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabSpec), _translate("MainWindow", "Spectrometer"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Misc Tools"))
         self.menuOther_Settings.setTitle(_translate("MainWindow", "Other Settings"))
+        self.menuSweeps.setTitle(_translate("MainWindow", "Sweeps"))
         self.menuLive_Series.setTitle(_translate("MainWindow", "Sequence Controls"))
         self.menuExperiment_Type.setTitle(_translate("MainWindow", "Experiment Type"))
         self.menuHSG_FVB.setTitle(_translate("MainWindow", "HSG"))
@@ -758,6 +776,10 @@ class Ui_MainWindow(object):
         self.mLoadReferences.setText(_translate("MainWindow", "Load Reference"))
         self.mFileMultipleExposures.setText(_translate("MainWindow", "Multiple Exposures"))
         self.mFileDoHWPSweep.setText(_translate("MainWindow", "Do HWP Sweep"))
+        self.fExpTypeHSG_TimeDomain.setText(_translate("MainWindow", "Time Domain"))
+        self.mFileSweepTHz.setText(_translate("MainWindow", "Sweep THz Power"))
+        self.mFileTimeDelaySweep.setText(_translate("MainWindow", "Time Delay Sweep"))
+        self.mFileTimeDelayPolarimetry.setText(_translate("MainWindow", "Time Delayed Polarimetry"))
 
 from InstsAndQt.cQt.MCLineEdit import MCLineEdit
 from InstsAndQt.customQt import QINumberEdit
