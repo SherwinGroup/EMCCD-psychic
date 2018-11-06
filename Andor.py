@@ -367,7 +367,7 @@ class AndorEMCCD(object):
         # Rehsape the data. There's also some concern of how exactly the array is returned in relation to
         # a full image.
         retnums = np.reshape(retnums, (y, x))
-        retnums = np.fliplr(retnums)
+        # retnums = np.fliplr(retnums)  ####  iDus at regensburg doesn't seemto flip it
 
 
         return retnums
